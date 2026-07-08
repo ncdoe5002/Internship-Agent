@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ContractExtract
 
 PDF upload → AI extraction → human review → permanent save.
