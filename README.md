@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ContractExtract
 
 PDF upload → AI extraction → human review → permanent save.
@@ -93,6 +92,3 @@ celery -A celery_worker.celery worker --loglevel=info
 | `SECRET_KEY` | Flask session secret (make it long and random) |
 | `DB_PASSWORD` | PostgreSQL password (used by docker-compose) |
 | `UPLOAD_FOLDER` | Where PDFs are stored locally (default: `uploads`) |
-=======
-# internship Agent
->>>>>>> b6de642191c2cfc122ae1717b3286afeecf952ad
