@@ -1,0 +1,12 @@
+flask==3.0.3
+flask-sqlalchemy==3.1.1
+flask-migrate==4.0.7
+flask-login==0.6.3
+celery[redis]==5.4.0
+redis==5.0.8
+google-generativeai==0.7.2
+pydantic==2.8.2
+python-dotenv==1.0.1
+werkzeug==3.0.3
+gunicorn==22.0.0
+psycopg2-binary==2.9.9

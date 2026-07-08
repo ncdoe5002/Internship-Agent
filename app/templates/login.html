@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Login — ContractExtract{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px;margin:4rem auto;">
+  <h1 style="font-size:1.4rem;margin-bottom:1.5rem;">Sign In</h1>
+  <form method="POST" action="{{ url_for('auth.login') }}">
+    <div style="margin-bottom:1rem;">
+      <label style="display:block;font-weight:600;margin-bottom:.35rem;">Username</label>
+      <input type="text" name="username" required autocomplete="username"
+             style="width:100%;padding:.55rem .75rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.95rem;" />
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <label style="display:block;font-weight:600;margin-bottom:.35rem;">Password</label>
+      <input type="password" name="password" required autocomplete="current-password"
+             style="width:100%;padding:.55rem .75rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.95rem;" />
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;">Sign In</button>
+  </form>
+</div>
+{% endblock %}

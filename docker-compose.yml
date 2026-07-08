@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-yourpassword}
+      POSTGRES_DB: pdfprocessor
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    restart: unless-stopped
+    command: gunicorn wsgi:app --bind 0.0.0.0:8000 --workers 2 --timeout 120
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: celery -A celery_worker.celery worker --loglevel=info --concurrency=2
+    volumes:
+      - ./uploads:/app/uploads
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres_data:
