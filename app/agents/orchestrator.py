@@ -3,12 +3,17 @@ Orchestrator for coordinating ExtractionAgent, VerificationAgent, and RiskAgent 
 
 This module implements a LangGraph-based workflow that:
 1. Runs ExtractionAgent to extract tariff tables from PDF
-2. Runs VerificationAgent and RiskAgent in parallel after extraction
+2. Runs VerificationAgent and RiskAgent in parallel after extraction (LangGraph automatically parallelizes independent nodes)
 3. Combines results into a tabular format for manual review
 4. Handles individual agent failures with graceful degradation
+
+Note: Parallel execution is achieved through LangGraph's StateGraph, which automatically executes
+independent nodes (verification and risk, both depending only on extraction) in parallel.
 """
 
 import logging
+import re
+from difflib import SequenceMatcher
 from typing import Any, Literal
 
 from langgraph.graph import StateGraph, END
@@ -27,6 +32,7 @@ class OrchestratorInput(BaseModel):
     filename: str
     partner_name: str
     baseline_data: dict | None = None
+    file_type: str = "pdf"
 
 
 class OrchestratorState(BaseModel):
@@ -49,6 +55,7 @@ class ReviewTableRow(BaseModel):
     risk_level: Literal["LOW", "MEDIUM", "HIGH"]
     ai_notes: str
     verification_status: str
+    approval_status: Literal["PENDING_REVIEW", "APPROVED", "REJECTED", "NEEDS_CHANGES"] = "PENDING_REVIEW"
 
 
 class ReviewSummary(BaseModel):
@@ -127,9 +134,129 @@ class Orchestrator:
 
         return workflow.compile()
 
+    def _normalize_category(self, category: str) -> str:
+        """
+        Normalize category string for matching.
+        
+        Args:
+            category: Raw category string
+            
+        Returns:
+            Normalized category string (lowercase, trimmed, collapsed whitespace)
+        """
+        if not category:
+            return ""
+        return re.sub(r'\s+', ' ', str(category).lower().strip())
+
+    def _fuzzy_match_category(self, extracted: str, baseline_categories: list[str], threshold: float = 0.8) -> tuple[str | None, float]:
+        """
+        Fuzzy match extracted category against baseline categories using token overlap.
+        
+        Args:
+            extracted: Normalized extracted category
+            baseline_categories: List of normalized baseline categories
+            threshold: Minimum similarity score (0-1) to consider a match
+            
+        Returns:
+            Tuple of (matched_baseline_category, similarity_score) or (None, 0) if no match
+        """
+        best_match = None
+        best_score = 0.0
+        
+        for baseline_cat in baseline_categories:
+            # Use SequenceMatcher for similarity
+            similarity = SequenceMatcher(None, extracted, baseline_cat).ratio()
+            
+            # Also check token overlap for better matching on phrases
+            extracted_tokens = set(extracted.split())
+            baseline_tokens = set(baseline_cat.split())
+            
+            if extracted_tokens and baseline_tokens:
+                token_overlap = len(extracted_tokens & baseline_tokens) / len(extracted_tokens | baseline_tokens)
+                similarity = max(similarity, token_overlap)
+            
+            if similarity > best_score:
+                best_score = similarity
+                best_match = baseline_cat
+        
+        if best_score >= threshold:
+            return best_match, best_score
+        return None, best_score
+
+    def _parse_rate(self, rate_str: str) -> float | None:
+        """
+        Parse rate string to float, handling currency symbols, separators, and special values.
+        
+        Args:
+            rate_str: Raw rate string from table cell
+            
+        Returns:
+            Parsed float value, or None if the value is N/A/blank/unparseable
+        """
+        if not rate_str:
+            return None
+        
+        rate_str = str(rate_str).strip()
+        
+        # Handle N/A, NA, blank, etc.
+        if rate_str.upper() in ["N/A", "NA", "NOT APPLICABLE", "-", ""]:
+            return None
+        
+        # Remove currency symbols and thousand separators
+        cleaned = re.sub(r'[\$€£¥,\s]', '', rate_str)
+        
+        # Remove trailing units (e.g., "0.05/min", "0.10 per minute")
+        cleaned = re.sub(r'\s*(?:per|\/|).*$', '', cleaned, flags=re.IGNORECASE)
+        
+        try:
+            return float(cleaned)
+        except (ValueError, TypeError):
+            logger.warning(f"Failed to parse rate: '{rate_str}' -> cleaned: '{cleaned}'")
+            return None
+
+    def _find_column_indices(self, headers: list[str]) -> tuple[int | None, int | None]:
+        """
+        Find column indices for category and rate based on headers.
+        
+        Args:
+            headers: List of header names
+            
+        Returns:
+            Tuple of (category_index, rate_index) or (None, None) if not found
+        """
+        category_idx = None
+        rate_idx = None
+        
+        normalized_headers = [self._normalize_category(h) for h in headers]
+        
+        # Category column keywords
+        category_keywords = ["category", "service", "type", "description", "item", "name"]
+        for idx, header in enumerate(normalized_headers):
+            if any(keyword in header for keyword in category_keywords):
+                category_idx = idx
+                break
+        
+        # Rate column keywords
+        rate_keywords = ["rate", "price", "cost", "tariff", "amount", "fee", "charge"]
+        for idx, header in enumerate(normalized_headers):
+            if any(keyword in header for keyword in rate_keywords):
+                rate_idx = idx
+                break
+        
+        # Fallback: assume first column is category, second is rate if not found
+        if category_idx is None and len(headers) >= 1:
+            category_idx = 0
+            logger.warning("Could not identify category column by headers, defaulting to index 0")
+        
+        if rate_idx is None and len(headers) >= 2:
+            rate_idx = 1
+            logger.warning("Could not identify rate column by headers, defaulting to index 1")
+        
+        return category_idx, rate_idx
+
     def _extraction_node(self, state: OrchestratorState) -> dict:
         """
-        Run ExtractionAgent to extract tariff tables from PDF.
+        Run ExtractionAgent to extract tariff tables from document.
         
         Args:
             state: Current orchestrator state
@@ -138,11 +265,12 @@ class Orchestrator:
             Updated state with extraction result or error
         """
         try:
-            logger.info(f"Starting extraction for {state.input.filename}")
+            logger.info(f"Starting extraction for {state.input.filename} (type: {state.input.file_type})")
             
             payload = ExtractionAgentInput(
                 document_types=state.input.pdf_bytes,
-                filename=state.input.filename
+                filename=state.input.filename,
+                file_type=state.input.file_type
             )
             
             result = self.extraction_agent.run(payload)
@@ -259,6 +387,8 @@ class Orchestrator:
         """
         Convert extraction result to RiskItem comparison rows.
         
+        Uses header-based column matching, fuzzy category matching, and robust rate parsing.
+        
         Args:
             extraction_result: Extraction result from ExtractionAgent
             baseline_data: Baseline tariff data for comparison
@@ -271,58 +401,131 @@ class Orchestrator:
         # Extract tables from extraction result
         tables = extraction_result.get("tables", [])
         
-        for table in tables:
+        # Build baseline category lookup if baseline data exists
+        baseline_lookup = {}
+        if baseline_data:
+            for baseline_table in baseline_data.get("tables", []):
+                baseline_headers = baseline_table.get("headers", [])
+                baseline_rows = baseline_table.get("rows", [])
+                
+                # Find column indices in baseline
+                baseline_cat_idx, baseline_rate_idx = self._find_column_indices(baseline_headers)
+                
+                if baseline_cat_idx is not None and baseline_rate_idx is not None:
+                    for baseline_row in baseline_rows:
+                        if len(baseline_row) > max(baseline_cat_idx, baseline_rate_idx):
+                            category = baseline_row[baseline_cat_idx]
+                            rate_str = baseline_row[baseline_rate_idx]
+                            normalized_cat = self._normalize_category(category)
+                            parsed_rate = self._parse_rate(rate_str)
+                            
+                            if normalized_cat and parsed_rate is not None:
+                                baseline_lookup[normalized_cat] = {
+                                    "original": category,
+                                    "rate": parsed_rate
+                                }
+        
+        # Process extracted tables
+        for table_idx, table in enumerate(tables):
             headers = table.get("headers", [])
             rows = table.get("rows", [])
             
-            # Try to identify rate columns (simplified approach)
-            # In production, this would be more sophisticated
-            for row in rows:
-                if len(row) >= 2:
-                    try:
-                        # Assume first column is category, second is rate
-                        category = row[0]
-                        new_rate = float(row[1]) if row[1] else 0.0
-                        
-                        # Get baseline rate if available
-                        old_rate = 0.0
-                        if baseline_data:
-                            # Simple lookup - in production would be more sophisticated
-                            for baseline_table in baseline_data.get("tables", []):
-                                for baseline_row in baseline_table.get("rows", []):
-                                    if baseline_row[0] == category:
-                                        old_rate = float(baseline_row[1]) if len(baseline_row) > 1 else 0.0
-                                        break
-                        
-                        # Calculate delta percentage
-                        delta_pct = 0.0
-                        if old_rate > 0:
-                            delta_pct = ((new_rate - old_rate) / old_rate) * 100
-                        
-                        # Determine risk level based on delta
-                        risk_level: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
-                        if abs(delta_pct) > 50:
-                            risk_level = "HIGH"
-                        elif abs(delta_pct) > 20:
-                            risk_level = "MEDIUM"
-                        
-                        note = ""
-                        if delta_pct > 0:
-                            note = f"Rate increased by {delta_pct:.1f}%"
-                        elif delta_pct < 0:
-                            note = f"Rate decreased by {abs(delta_pct):.1f}%"
-                        
-                        comparison_rows.append(RiskItem(
-                            category=category,
-                            old_rate=old_rate,
-                            new_rate=new_rate,
-                            delta_pct=delta_pct,
-                            risk_level=risk_level,
-                            note=note
-                        ))
-                    except (ValueError, IndexError):
-                        # Skip rows that can't be parsed
+            # Find column indices in extracted table
+            category_idx, rate_idx = self._find_column_indices(headers)
+            
+            if category_idx is None or rate_idx is None:
+                logger.warning(f"Table {table_idx}: Could not identify category/rate columns, skipping")
+                continue
+            
+            # Get list of normalized baseline categories for fuzzy matching
+            baseline_categories = list(baseline_lookup.keys())
+            
+            for row_idx, row in enumerate(rows):
+                try:
+                    # Extract category and rate using identified column indices
+                    if len(row) <= max(category_idx, rate_idx):
+                        logger.warning(f"Table {table_idx}, row {row_idx}: Row too short, skipping")
                         continue
+                    
+                    category = row[category_idx]
+                    rate_str = row[rate_idx]
+                    
+                    if not category:
+                        logger.warning(f"Table {table_idx}, row {row_idx}: Empty category, skipping")
+                        continue
+                    
+                    # Parse new rate
+                    new_rate = self._parse_rate(rate_str)
+                    if new_rate is None:
+                        logger.warning(f"Table {table_idx}, row {row_idx}: Could not parse rate '{rate_str}', skipping")
+                        continue
+                    
+                    # Match against baseline using normalization and fuzzy matching
+                    normalized_category = self._normalize_category(category)
+                    old_rate = 0.0
+                    match_method = ""
+                    
+                    # Try exact normalized match first
+                    if normalized_category in baseline_lookup:
+                        old_rate = baseline_lookup[normalized_category]["rate"]
+                        match_method = "exact_normalized"
+                    else:
+                        # Try fuzzy match
+                        matched_baseline, similarity = self._fuzzy_match_category(
+                            normalized_category, baseline_categories
+                        )
+                        if matched_baseline:
+                            old_rate = baseline_lookup[matched_baseline]["rate"]
+                            match_method = f"fuzzy_match_{similarity:.2f}"
+                            logger.info(
+                                f"Fuzzy match: '{category}' matched to '{baseline_lookup[matched_baseline]['original']}' "
+                                f"with similarity {similarity:.2f}"
+                            )
+                        else:
+                            # No match found - mark as new category
+                            match_method = "NEW_CATEGORY"
+                            logger.warning(f"Unmatched category: '{category}' (normalized: '{normalized_category}')")
+                    
+                    # Calculate delta percentage
+                    delta_pct = 0.0
+                    if old_rate > 0:
+                        delta_pct = ((new_rate - old_rate) / old_rate) * 100
+                    
+                    # Determine risk level based on delta
+                    risk_level: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
+                    if abs(delta_pct) > 50:
+                        risk_level = "HIGH"
+                    elif abs(delta_pct) > 20:
+                        risk_level = "MEDIUM"
+                    
+                    # Build note with match method and delta info
+                    note_parts = []
+                    if match_method == "NEW_CATEGORY":
+                        note_parts.append("NEW_CATEGORY")
+                    elif match_method.startswith("fuzzy_match"):
+                        note_parts.append(f"Fuzzy matched ({match_method})")
+                    
+                    if delta_pct > 0:
+                        note_parts.append(f"Rate increased by {delta_pct:.1f}%")
+                    elif delta_pct < 0:
+                        note_parts.append(f"Rate decreased by {abs(delta_pct):.1f}%")
+                    else:
+                        note_parts.append("No change")
+                    
+                    note = "; ".join(note_parts)
+                    
+                    comparison_rows.append(RiskItem(
+                        category=category,
+                        old_rate=old_rate,
+                        new_rate=new_rate,
+                        delta_pct=delta_pct,
+                        risk_level=risk_level,
+                        note=note
+                    ))
+                    
+                except Exception as e:
+                    logger.error(f"Table {table_idx}, row {row_idx}: Error processing row: {str(e)}")
+                    continue
         
         return comparison_rows
 
@@ -343,9 +546,17 @@ class Orchestrator:
         
         if state.risk_result and state.risk_result.items:
             for item in state.risk_result.items:
-                verification_status = "READY"
+                # Determine verification status
                 if state.verification_result:
                     verification_status = state.verification_result.status
+                elif state.verification_error:
+                    verification_status = "VERIFICATION_FAILED"
+                else:
+                    verification_status = "VERIFICATION_FAILED"
+                
+                # Block auto-approvable state if any errors occurred
+                if state.extraction_error or state.verification_error or state.risk_error:
+                    verification_status = "ERROR_REQUIRES_REVIEW"
                 
                 review_table.append(ReviewTableRow(
                     category=item.category,
@@ -354,7 +565,8 @@ class Orchestrator:
                     delta_pct=item.delta_pct,
                     risk_level=item.risk_level,
                     ai_notes=item.note,
-                    verification_status=verification_status
+                    verification_status=verification_status,
+                    approval_status="PENDING_REVIEW"
                 ))
         
         # Build summary

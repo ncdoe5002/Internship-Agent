@@ -12,7 +12,14 @@ Usage:
 
 from __future__ import annotations
 
+import logging
+import re
+from datetime import datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 class VerificationResult(BaseModel):
@@ -53,10 +60,161 @@ class VerificationAgent:
     This agent performs various validation checks on the extracted data to ensure
     quality, completeness, and accuracy. It returns a verification result with
     a status, confidence score, and list of any issues found.
-
-    Note: This is currently a stub implementation that returns fixed values.
-    In production, this would perform actual validation logic.
     """
+
+    def _check_currency_format(self, tables: dict) -> tuple[bool, list[str]]:
+        """
+        Verify currency format consistency across extracted rows.
+        
+        Args:
+            tables: Extracted tables from the document
+            
+        Returns:
+            Tuple of (passed, issues)
+        """
+        issues = []
+        currency_pattern = re.compile(r'^[\$€£¥]?\s*[\d,]+\.?\d*\s*[\$€£¥]?$')
+        
+        for table in tables.get("tables", []):
+            rows = table.get("rows", [])
+            for row_idx, row in enumerate(rows):
+                for col_idx, cell in enumerate(row):
+                    if cell and any(c.isdigit() for c in cell):
+                        # Cell appears to contain a numeric value
+                        if not currency_pattern.match(cell.strip()):
+                            issues.append(
+                                f"Table '{table.get('title', 'Untitled')}', row {row_idx}, "
+                                f"column {col_idx}: Invalid currency format '{cell}'"
+                            )
+        
+        return len(issues) == 0, issues
+
+    def _check_effective_date(self, tables: dict) -> tuple[bool, list[str]]:
+        """
+        Verify effective date is present and parseable.
+        
+        Args:
+            tables: Extracted tables from the document
+            
+        Returns:
+            Tuple of (passed, issues)
+        """
+        issues = []
+        date_found = False
+        
+        # Common date patterns
+        date_patterns = [
+            r'\d{4}-\d{2}-\d{2}',  # YYYY-MM-DD
+            r'\d{2}/\d{2}/\d{4}',  # MM/DD/YYYY
+            r'\d{2}-\d{2}-\d{4}',  # MM-DD-YYYY
+            r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}',  # Month DD, YYYY
+        ]
+        
+        for table in tables.get("tables", []):
+            # Check headers for date-related fields
+            headers = table.get("headers", [])
+            for header in headers:
+                if "effective" in header.lower() or "date" in header.lower():
+                    date_found = True
+                    break
+            
+            # Check rows for date values
+            rows = table.get("rows", [])
+            for row in rows:
+                for cell in row:
+                    for pattern in date_patterns:
+                        if re.search(pattern, cell, re.IGNORECASE):
+                            date_found = True
+                            break
+                    if date_found:
+                        break
+                if date_found:
+                    break
+            if date_found:
+                break
+        
+        if not date_found:
+            issues.append("No effective date found in the document")
+        
+        return date_found, issues
+
+    def _check_partner_agreement(self, tables: dict, partner_name: str) -> tuple[bool, list[str]]:
+        """
+        Verify partner/agreement name in the document matches the expected partner_name.
+        
+        Args:
+            tables: Extracted tables from the document
+            partner_name: Expected partner name
+            
+        Returns:
+            Tuple of (passed, issues)
+        """
+        issues = []
+        partner_normalized = partner_name.lower().strip()
+        partner_found = False
+        
+        for table in tables.get("tables", []):
+            # Check title
+            title = table.get("title", "")
+            if partner_normalized in title.lower():
+                partner_found = True
+                break
+            
+            # Check headers
+            headers = table.get("headers", [])
+            for header in headers:
+                if partner_normalized in header.lower():
+                    partner_found = True
+                    break
+            
+            # Check rows
+            rows = table.get("rows", [])
+            for row in rows:
+                for cell in row:
+                    if partner_normalized in cell.lower():
+                        partner_found = True
+                        break
+                if partner_found:
+                    break
+            if partner_found:
+                break
+        
+        if not partner_found:
+            issues.append(f"Partner name '{partner_name}' not found in document")
+        
+        return partner_found, issues
+
+    def _check_table_structure(self, tables: dict) -> tuple[bool, list[str]]:
+        """
+        Verify table structure completeness (no missing headers, no empty required cells).
+        
+        Args:
+            tables: Extracted tables from the document
+            
+        Returns:
+            Tuple of (passed, issues)
+        """
+        issues = []
+        
+        for table_idx, table in enumerate(tables.get("tables", [])):
+            headers = table.get("headers", [])
+            rows = table.get("rows", [])
+            
+            # Check for missing headers
+            if not headers:
+                issues.append(f"Table {table_idx}: Missing headers")
+                continue
+            
+            # Check for empty required cells (assuming all cells are required)
+            for row_idx, row in enumerate(rows):
+                for col_idx, cell in enumerate(row):
+                    if not cell or cell.strip() == "":
+                        issues.append(
+                            f"Table {table_idx}, row {row_idx}, column {col_idx}: "
+                            f"Empty cell (header: '{headers[col_idx] if col_idx < len(headers) else 'N/A'}')"
+                        )
+        
+        return len(issues) == 0, issues
 
     def run(self, payload: VerificationAgentInput) -> VerificationResult:
         """
@@ -67,6 +225,7 @@ class VerificationAgent:
         - Currency format validation
         - Effective date validation
         - Agreement matching
+        - Table structure completeness
 
         Args:
             payload: Input containing partner name, extracted tables, and optional baseline.
@@ -75,23 +234,98 @@ class VerificationAgent:
             VerificationResult: Verification status, confidence score, performed checks,
                 and any issues found.
         """
-        # Define the verification checks to perform
-        checks = [
-            "Tables extracted",
-            "Currency verified",
-            "Effective date verified",
-            "Agreement matched",
-        ]
-
-        # Set confidence score (stub implementation - should be calculated based on actual checks)
-        confidence = 96
+        checks = []
+        issues = []
+        check_results = {}
         
-        # Determine status based on confidence threshold
-        status = "READY" if confidence >= 90 else "REVIEW"
-
+        # Check 1: Tables extracted
+        tables_exist = bool(payload.extracted_tables.get("tables"))
+        check_results["tables_extracted"] = tables_exist
+        checks.append("Tables extracted")
+        if not tables_exist:
+            issues.append("No tables were extracted from the document")
+        
+        # Only run other checks if tables exist
+        if tables_exist:
+            # Check 2: Currency format
+            currency_passed, currency_issues = self._check_currency_format(payload.extracted_tables)
+            check_results["currency_format"] = currency_passed
+            checks.append("Currency format verified")
+            issues.extend(currency_issues)
+            
+            # Check 3: Effective date
+            date_passed, date_issues = self._check_effective_date(payload.extracted_tables)
+            check_results["effective_date"] = date_passed
+            checks.append("Effective date verified")
+            issues.extend(date_issues)
+            
+            # Check 4: Partner agreement
+            partner_passed, partner_issues = self._check_partner_agreement(
+                payload.extracted_tables, payload.partner_name
+            )
+            check_results["partner_agreement"] = partner_passed
+            checks.append("Partner agreement matched")
+            issues.extend(partner_issues)
+            
+            # Check 5: Table structure
+            structure_passed, structure_issues = self._check_table_structure(payload.extracted_tables)
+            check_results["table_structure"] = structure_passed
+            checks.append("Table structure verified")
+            issues.extend(structure_issues)
+        
+        # Calculate confidence score based on check results
+        # Formula: percentage of checks passed, weighted by severity
+        total_checks = len(check_results)
+        if total_checks == 0:
+            confidence = 0
+        else:
+            passed_checks = sum(1 for result in check_results.values() if result)
+            base_confidence = (passed_checks / total_checks) * 100
+            
+            # Apply severity weighting
+            # Tables extracted is critical (weight 2.0)
+            # Currency format is high (weight 1.5)
+            # Effective date is high (weight 1.5)
+            # Partner agreement is medium (weight 1.0)
+            # Table structure is medium (weight 1.0)
+            weights = {
+                "tables_extracted": 2.0,
+                "currency_format": 1.5,
+                "effective_date": 1.5,
+                "partner_agreement": 1.0,
+                "table_structure": 1.0
+            }
+            
+            weighted_sum = 0.0
+            total_weight = 0.0
+            for check_name, passed in check_results.items():
+                weight = weights.get(check_name, 1.0)
+                weighted_sum += (1.0 if passed else 0.0) * weight
+                total_weight += weight
+            
+            if total_weight > 0:
+                confidence = int((weighted_sum / total_weight) * 100)
+            else:
+                confidence = base_confidence
+        
+        # Determine status based on confidence and critical failures
+        if not tables_exist:
+            status = "FAILED"
+        elif confidence < 70:
+            status = "FAILED"
+        elif confidence < 90:
+            status = "REVIEW"
+        else:
+            status = "READY"
+        
+        logger.info(
+            f"Verification completed: status={status}, confidence={confidence}, "
+            f"checks_passed={passed_checks}/{total_checks}, issues={len(issues)}"
+        )
+        
         return VerificationResult(
             status=status,
             confidence=confidence,
             checks=checks,
-            issues=[],
+            issues=issues,
         )
