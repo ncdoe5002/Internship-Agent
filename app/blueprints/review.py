@@ -23,14 +23,16 @@ def list_docs():
 @review_bp.route("/<int:doc_id>")
 @login_required
 def detail(doc_id):
-    doc = Document.query.get_or_404(doc_id)
+    # FIX: .query.get_or_404() deprecated → db.get_or_404()
+    doc = db.get_or_404(Document, doc_id)
     return render_template("review_detail.html", doc=doc)
 
 
 @review_bp.route("/<int:doc_id>/approve", methods=["POST"])
 @login_required
 def approve(doc_id):
-    doc = Document.query.get_or_404(doc_id)
+    # FIX: .query.get_or_404() deprecated → db.get_or_404()
+    doc = db.get_or_404(Document, doc_id)
     if doc.status != "READY":
         abort(400, "Document is not ready for approval.")
     corrected = request.form.to_dict()
