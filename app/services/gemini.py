@@ -2,6 +2,7 @@ import json
 import os
 
 import google.generativeai as genai
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from ..schemas.extraction import ExtractionResult
 
@@ -41,3 +42,33 @@ def extract_table_data(pdf_bytes: bytes) -> ExtractionResult:
     raw_json = response.text.strip()
     data = json.loads(raw_json)
     return ExtractionResult(**data)
+
+
+def get_langchain_model(model_name: str = "gemini-1.5-flash", temperature: float = 0.0):
+    """
+    Initialize and return a LangChain-compatible ChatGoogleGenerativeAI model.
+    
+    This function creates a LangChain wrapper around Google's Gemini model,
+    which is compatible with LangGraph workflows and agent orchestration.
+    
+    Args:
+        model_name: The Gemini model to use (default: gemini-1.5-flash)
+        temperature: Temperature for generation (default: 0.0 for deterministic output)
+        
+    Returns:
+        ChatGoogleGenerativeAI: LangChain-compatible model instance
+        
+    Raises:
+        ValueError: If GEMINI_API_KEY is not set in environment
+    """
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY environment variable is not set")
+    
+    model = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=temperature,
+        api_key=api_key
+    )
+    
+    return model

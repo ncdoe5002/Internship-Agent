@@ -11,4 +11,4 @@ class TableData(BaseModel):
 
 class ExtractionResult(BaseModel):
     tables: List[TableData]
-    raw_text_summary: Optional[str] = ""
+    raw_text_summary: Optional[str] = None

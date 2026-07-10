@@ -2,7 +2,6 @@ import os
 import uuid
 
 from werkzeug.datastructures import FileStorage
-from werkzeug.utils import secure_filename
 
 
 def save_upload(file: FileStorage, upload_folder: str) -> str:

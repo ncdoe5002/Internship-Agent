@@ -9,6 +9,8 @@ class Document(db.Model):
     file_key = db.Column(db.String(512), nullable=False)  # path or S3 key
     status = db.Column(db.String(20), nullable=False, default="PENDING")
     extracted_data = db.Column(db.JSON, nullable=True)
+    partner_name = db.Column(db.String(255), nullable=True)  # Partner/Operator name
+    baseline_data = db.Column(db.JSON, nullable=True)  # Baseline tariff data for comparison
     uploaded_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(
