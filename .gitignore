@@ -17,6 +17,8 @@ venv/
 env/
 ENV/
 
+pyrightconfig.json
+
 # Environment variables — NEVER commit this
 .env
 

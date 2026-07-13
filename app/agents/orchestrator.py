@@ -98,7 +98,7 @@ class Orchestrator:
         self.risk_agent = RiskAgent()
         self.graph = self._build_graph()
 
-    def _build_graph(self) -> StateGraph:
+    def _build_graph(self):
         """
         Build the LangGraph workflow.
         

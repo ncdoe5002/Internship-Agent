@@ -6,7 +6,8 @@ from werkzeug.datastructures import FileStorage
 
 def save_upload(file: FileStorage, upload_folder: str) -> str:
     """Save an uploaded file to disk and return its relative file key."""
-    ext = file.filename.rsplit(".", 1)[-1].lower()
+    filename = file.filename or ""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     unique_name = f"{uuid.uuid4().hex}.{ext}"
     dest = os.path.join(upload_folder, unique_name)
     file.save(dest)

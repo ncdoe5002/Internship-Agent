@@ -306,7 +306,8 @@ class VerificationAgent:
             if total_weight > 0:
                 confidence = int((weighted_sum / total_weight) * 100)
             else:
-                confidence = base_confidence
+                # ensure confidence is an int to satisfy VerificationResult schema
+                confidence = int(base_confidence)
         
         # Determine status based on confidence and critical failures
         if not tables_exist:
