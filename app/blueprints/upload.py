@@ -34,6 +34,7 @@ def index():
 @upload_bp.route("/upload", methods=["POST"])
 @login_required
 def upload():
+    partner_name = request.form.get("partner_name", "").strip() or None
     file = request.files.get("pdf_file")
     if not file or file.filename == "":
         flash("No file selected.", "warning")
@@ -47,6 +48,7 @@ def upload():
         filename=file.filename,
         file_key=file_key,
         status="PENDING",
+        partner_name=partner_name,
         uploaded_by=current_user.id,
     )
     db.session.add(doc)
