@@ -3,6 +3,10 @@ import uuid
 
 from werkzeug.datastructures import FileStorage
 
+# Global extraction limits used by deterministic parsers.
+MAX_TABLE_COUNT = 10
+MAX_ROW_COUNT = 25
+
 
 def save_upload(file: FileStorage, upload_folder: str) -> str:
     """Save an uploaded file to disk and return its relative file key."""

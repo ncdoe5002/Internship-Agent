@@ -25,10 +25,13 @@ pyrightconfig.json
 # Uploads (large binary files)
 uploads/
 
+
 # Flask / SQLAlchemy
 instance/
 *.sqlite3
 *.db
+*.docx
+*.txt
 
 # IDE
 .idea/
