@@ -2,20 +2,128 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>EDCH - Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDCH - Roaming Tariff Advisor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f3f4f6; }
+        .mno-card { border-left: 4px solid #c82333; transition: transform 0.2s; }
+        .mno-card:hover { transform: translateY(-2px); }
+        .edch-red { color: #c82333; }
+        .bg-edch-red { background-color: #c82333; }
+        .btn-edch-red { background-color: #c82333; color: white; border: none; }
+        .btn-edch-red:hover { background-color: #a71d2a; color: white; }
+        .badge-pending { background-color: #fef0c7; color: #b54708; border: 1px solid #fec84b; }
+        .dropdown-menu-custom { border-radius: 12px; min-width: 260px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+    </style>
 </head>
-<body class="bg-light d-flex align-items-center vh-100">
-    <div class="container text-center">
-        <div class="card shadow-lg p-5">
-            <h1 class="text-success mb-4">Login Successful!</h1>
-            
-            <!-- This is where we inject the variable passed from the route -->
-            <h3>Welcome, <strong>{{ username }}</strong></h3>
-            
-            <hr class="my-4">
-            <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger">Log Out</a>
-        </div>
+<body>
+
+    <div class="position-absolute top-0 start-0 m-4">
+        <a href="#" onclick="handleLogout()" class="text-secondary text-decoration-none fw-medium">
+            <i class="bi bi-chevron-left small"></i> Quick logout
+        </a>
     </div>
+
+    <div class="container text-center pt-5 mt-4">
+        <div class="bg-white rounded-3 shadow-sm d-inline-flex p-3 mb-3">
+            <img src="{{ url_for('static', filename='images/Logo-EDCH.png') }}" alt="EDCH Logo" height="40">
+        </div>
+        <div class="text-secondary text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 1.5px;">Roaming Tariff Advisor</div>
+        <h2 class="fw-bold mt-2 text-dark">MNO Operators</h2>
+        <p class="text-secondary">Select an operator to update their contract.</p>
+    </div>
+
+    <div class="container mt-5" style="max-width: 850px;">
+        
+        <div class="input-group shadow-sm bg-white rounded-3 p-2 mb-4 align-items-center">
+            <span class="input-group-text bg-transparent border-0 text-muted px-3"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control border-0 shadow-none" placeholder="Search operators by name or country...">
+            <button class="btn btn-edch-red rounded-3 px-4 py-2 fw-medium"><i class="bi bi-plus-lg"></i> Add MNO</button>
+        </div>
+
+        {% for operator in operators %}
+        <div class="card border-0 shadow-sm rounded-3 overflow-hidden mb-3 mno-card">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                
+                <div>
+                    <h5 class="mb-1 fw-bold text-dark d-flex align-items-center">
+                        {{ operator.name }} 
+                        <span class="text-secondary fw-normal fs-6 ms-2">{{ operator.country }}</span>
+                        {% if operator.status == 'pending' %}
+                            <span class="badge badge-pending rounded-pill ms-3" style="font-size: 0.65rem; padding: 0.4em 0.8em;">PRIOR UPDATE PENDING</span>
+                        {% endif %}
+                    </h5>
+                    <p class="mb-0 text-secondary small">{{ operator.currency }}-denominated IOT &middot; {{ operator.categories }} rate categories</p>
+                </div>
+
+                <div class="d-flex align-items-center gap-4">
+                    <div class="text-end border-end pe-4">
+                        <small class="text-secondary d-block" style="font-size: 0.7rem;">Last updated</small>
+                        <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ operator.last_updated }}</span>
+                    </div>
+                    <div class="d-flex flex-column text-end gap-2" style="min-width: 120px;">
+                        <a href="/update/{{ operator.id }}" class="text-decoration-none edch-red fw-bold" style="font-size: 0.85rem;">
+                            Start update <i class="bi bi-chevron-right small"></i>
+                        </a>
+                        <a href="/contract/{{ operator.id }}" class="text-decoration-none edch-red fw-bold opacity-75" style="font-size: 0.85rem;">
+                            View contract <i class="bi bi-chevron-right small"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+    </div>
+
+    <div class="dropdown position-fixed bottom-0 end-0 m-4">
+        <button class="btn btn-edch-red rounded-circle shadow d-flex align-items-center justify-content-center" 
+                style="width: 56px; height: 56px;" 
+                type="button" 
+                data-bs-toggle="dropdown" 
+                aria-expanded="false">
+            <span class="text-white fw-bold fs-5">{{ current_user.username[0]|upper }}</span>
+        </button>
+        
+        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-custom p-3 mb-2 border-0">
+            <li class="px-2 pb-2">
+                <div class="fw-bold fs-6 text-dark">{{ current_user.username }}</div>
+                <div class="text-secondary small">{{ current_user.email }}</div>
+            </li>
+            <li><hr class="dropdown-divider mb-2"></li>
+            <li>
+                <a class="dropdown-item py-2 fw-medium rounded text-dark" href="/settings">
+                    <i class="bi bi-gear me-2 text-secondary"></i> Settings
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item py-2 fw-medium rounded edch-red mt-1" href="#" onclick="handleLogout()">
+                    <i class="bi bi-box-arrow-right me-2"></i> Log out
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize Supabase (Use your actual environment variables here)
+        const supabaseUrl = 'YOUR_SUPABASE_URL';
+        const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        async function handleLogout() {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                console.error("Logout Error:", error.message);
+            } else {
+                // Redirect back to your existing basic login page
+                window.location.href = '/login'; 
+            }
+        }
+    </script>
 </body>
 </html>
