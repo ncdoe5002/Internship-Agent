@@ -5,7 +5,6 @@ from flask import (
     current_app,
     flash,
     redirect,
-    render_template,
     request,
     url_for,
 )
@@ -18,18 +17,9 @@ from ..tasks.process_pdf import process_pdf
 
 upload_bp = Blueprint("upload", __name__)
 
-
 def allowed_file(filename: str) -> bool:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     return ext in current_app.config["ALLOWED_EXTENSIONS"]
-
-
-@upload_bp.route("/", methods=["GET"])
-@login_required
-def index():
-    docs = Document.query.order_by(Document.created_at.desc()).limit(20).all()
-    return render_template("dashboard.html", docs=docs)
-
 
 @upload_bp.route("/upload", methods=["POST"])
 @login_required
@@ -37,12 +27,16 @@ def upload():
     partner_name = request.form.get("partner_name", "").strip() or None
     file = request.files.get("pdf_file")
     filename = (file.filename if file else "") or ""
+    
     if not file or filename == "":
         flash("No file selected.", "warning")
-        return redirect(url_for("upload.index"))
+        # REDIRECT UPDATED HERE
+        return redirect(url_for("dashboard.index"))
+        
     if not allowed_file(filename):
         flash("Only PDF files are allowed.", "warning")
-        return redirect(url_for("upload.index"))
+        # REDIRECT UPDATED HERE
+        return redirect(url_for("dashboard.index"))
 
     file_key = save_upload(file, current_app.config["UPLOAD_FOLDER"])
     doc = Document()
@@ -57,5 +51,6 @@ def upload():
     process_task = getattr(process_pdf, "delay", None)
     if callable(process_task):
         process_task(doc.id)
+        
     flash(f"'{file.filename}' uploaded — processing in background.", "success")
-    return redirect(url_for("upload.index"))
+    return redirect(url_for("dashboard.index"))

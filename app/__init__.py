@@ -35,7 +35,9 @@ def create_app():
     from .blueprints.jobs import jobs_bp
     from .blueprints.review import review_bp
     from .blueprints.upload import upload_bp
-
+    from .blueprints.dashboard import dashboard_bp
+    
+    app.register_blueprint(dashboard_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(upload_bp)
     app.register_blueprint(jobs_bp)
