@@ -1,24 +1,62 @@
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, redirect, url_for, request, flash, render_template
 from flask_login import login_required, login_user, logout_user
-from werkzeug.security import check_password_hash
-
+from supabase import create_client, Client
+from flask_login import current_user
+import os
 from ..models.user import User
+from .. import db
 
 auth_bp = Blueprint("auth", __name__)
 
+# Initialize Supabase Client
+supabase: Client = create_client(
+    os.getenv("SUPABASE_URL", ""), 
+    os.getenv("SUPABASE_ANON_KEY", "")
+)
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
+    # If they submit the form, process the Supabase login
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
+        email = request.form.get("username", "").strip() # matching your form input name
         password = request.form.get("password", "")
-        user = User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password_hash, password):
-            login_user(user)
-            return redirect(url_for("upload.index"))
-        flash("Invalid username or password.", "danger")
+        
+        try:
+            # Authenticate directly against Supabase
+            auth_response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+            
+            if auth_response.user:
+                user_email = auth_response.user.email
+                
+                if user_email:
+                    # Check if user exists in local DB, if not, create them
+                    user = User.query.filter_by(email=user_email).first()
+                    if not user:
+                        username = user_email.split('@')[0]
+                        user = User()
+                        user.username = username
+                        user.email = user_email
+                        db.session.add(user)
+                        db.session.commit()
+                    
+                # Start the Flask-Login session
+                login_user(user)
+                return redirect(url_for("auth.dashboard"))
+                
+        except Exception as e:
+            print(f"SUPABASE AUTH ERROR: {e}") 
+            
+            flash("Invalid email or password. Please try again.", "danger")
+            
+    # If it's a GET request, just show the page
     return render_template("login.html")
 
+@auth_bp.route("/dashboard")
+@login_required
+def dashboard():
+    # current_user is provided by Flask-Login. 
+    # It holds the User database model of whoever is currently logged in!
+    return render_template("dashboard.html", username=current_user.username)
 
 @auth_bp.route("/logout")
 @login_required

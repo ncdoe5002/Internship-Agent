@@ -18,4 +18,5 @@ transformers==4.53.0
 huggingface_hub==0.34.3
 openpyxl==3.1.5
 python-docx==1.1.2
-pandas>=2.2.2
+pandas>=2.2.0
+Authlib==1.7.2

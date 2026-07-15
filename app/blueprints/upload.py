@@ -28,7 +28,7 @@ def allowed_file(filename: str) -> bool:
 @login_required
 def index():
     docs = Document.query.order_by(Document.created_at.desc()).limit(20).all()
-    return render_template("upload.html", docs=docs)
+    return render_template("dashboard.html", docs=docs)
 
 
 @upload_bp.route("/upload", methods=["POST"])
@@ -36,24 +36,26 @@ def index():
 def upload():
     partner_name = request.form.get("partner_name", "").strip() or None
     file = request.files.get("pdf_file")
-    if not file or file.filename == "":
+    filename = (file.filename if file else "") or ""
+    if not file or filename == "":
         flash("No file selected.", "warning")
         return redirect(url_for("upload.index"))
-    if not allowed_file(file.filename):
+    if not allowed_file(filename):
         flash("Only PDF files are allowed.", "warning")
         return redirect(url_for("upload.index"))
 
     file_key = save_upload(file, current_app.config["UPLOAD_FOLDER"])
-    doc = Document(
-        filename=file.filename,
-        file_key=file_key,
-        status="PENDING",
-        partner_name=partner_name,
-        uploaded_by=current_user.id,
-    )
+    doc = Document()
+    doc.filename = file.filename
+    doc.file_key = file_key
+    doc.status = "PENDING"
+    doc.partner_name = partner_name
+    doc.uploaded_by = current_user.id
     db.session.add(doc)
     db.session.commit()
 
-    process_pdf.delay(doc.id)
+    process_task = getattr(process_pdf, "delay", None)
+    if callable(process_task):
+        process_task(doc.id)
     flash(f"'{file.filename}' uploaded — processing in background.", "success")
     return redirect(url_for("upload.index"))

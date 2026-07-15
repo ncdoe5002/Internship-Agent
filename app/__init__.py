@@ -3,10 +3,13 @@ import os
 from flask import Flask
 
 from .extensions import db, login_manager, migrate
+from .blueprints.auth import auth_bp
 
 
 def create_app():
     app = Flask(__name__)
+
+    app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-local-key") 
 
     # ── Configuration ────────────────────────────────────────────
     app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -29,7 +32,6 @@ def create_app():
     from .models import audit_log, document, production_record, user  # noqa: F401
 
     # ── Register blueprints ───────────────────────────────────────
-    from .blueprints.auth import auth_bp
     from .blueprints.jobs import jobs_bp
     from .blueprints.review import review_bp
     from .blueprints.upload import upload_bp
