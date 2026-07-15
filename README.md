@@ -1,14 +1,74 @@
 # ContractExtract
 
-PDF upload → AI extraction → human review → permanent save.
+<p align="center">
+  <img src="images/ContractExtract AI Document Extraction Banner.png" width="900" alt="ContractExtract Banner">
+</p>
+ContractExtract is a document processing system for contract and PDF extraction workflows. It uses Flask for the web application, Celery for background processing, PostgreSQL for persistence, Redis as the message broker and cache layer, and Google Gemini for AI-powered extraction. Human review is built into the flow so extracted data can be validated before it is permanently saved.
 
-Built with: Flask · Celery · PostgreSQL · Redis · Google Gemini · HTMX · Docker
+The project is designed for a practical enterprise-style workflow:
+
+A user uploads a PDF.
+The file is queued for background processing.
+Gemini extracts structured data.
+A reviewer checks the extracted output.
+Approved records are stored permanently.
+
+<p align="center">
+  <a href="https://skillicons.dev">
+    <img src="https://skillicons.dev/icons?i=python,flask,html,css,javascript" />
+  </a>
+</p>
+
+<p align="center">
+  <b>PDF upload → AI extraction → human review → permanent save</b>
+</p>
+
+---
+
+## How It Works
+ 
+```text
+User uploads PDF
+      ↓
+Flask receives file
+      ↓
+File stored locally or in mounted volume
+      ↓
+Celery task starts
+      ↓
+Gemini extracts structured data
+      ↓
+Reviewer verifies output
+      ↓
+Approved record saved to PostgreSQL
+      ↓
+Document marked as APPROVED
+```
 
 ## Quick start
 
 ### Prerequisites
 - Docker Desktop installed and running
 - A Google Gemini API key from [Google AI Studio](https://aistudio.google.com/)
+
+
+## Features
+
+<details>
+<summary><strong>Click to expand the feature set</strong></summary>
+
+- Upload PDF documents through a web interface.
+- Process documents asynchronously with Celery workers.
+- Extract structured data using Google Gemini.
+- Present AI output for human verification.
+- Track document lifecycle states such as pending, processing, ready, approved, and failed.
+- Store metadata and final approved results in PostgreSQL.
+- Use Redis for task brokering and queue management.
+- Support a modular Flask project structure.
+- Containerized development with Docker.
+- Database migrations with Flask-Migrate.
+
+</details>
 
 ### 1. Clone and configure
 
@@ -54,21 +114,88 @@ with app.app_context():
 
 ## Project structure
 
-```
+```text
 app/
-├── blueprints/   # Route handlers (upload, review, auth, jobs)
-├── models/       # SQLAlchemy database models
-├── services/     # Business logic (file storage, Gemini AI calls)
-├── tasks/        # Celery background tasks
-├── schemas/      # Pydantic validation for AI output
-└── templates/    # Jinja2 HTML pages
+├── blueprints/
+│   ├── auth.py
+│   ├── upload.py
+│   ├── review.py
+│   └── jobs.py
+├── models/
+│   ├── user.py
+│   ├── document.py
+|   ├── agreement.py
+│   ├── audit_log.py
+│   └── production_record.py
+|   ├── agreement.py
+├── services/
+│   ├── storage.py
+│   ├── gemini.py
+│   └── baseline.py
+├── tasks/
+│   └── process_pdf.py
+├── schemas/
+│   └── extraction.py
+└── templates/
+    ├── base.html
+    ├── upload.html
+    ├── review.html
+    └── dashboard.html
 ```
+---
+
+## Tech Stack
+
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=python,flask,postgres,redis,docker,html,css" alt="Tech Stack" />
+</p>
+
+| Layer | Tools |
+|---|---|
+| Frontend | Jinja2, HTMX, HTML, CSS |
+| Backend | Flask |
+| Background Jobs | Celery |
+| Queue / Cache | Redis |
+| Database | PostgreSQL |
+| AI | Google Gemini |
+| Deployment | Docker, Docker Compose |
+| Validation | Pydantic |
 
 ## Document status flow
 
 ```
 PENDING → PROCESSING → READY → APPROVED
                     ↘ FAILED (after 3 retries)
+```
+## Architecture
+
+```text
+┌──────────────────────────────┐
+│          Browser UI          │
+│      Upload / Review Pages   │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│         Flask App            │
+│ Routes, validation, auth     │
+└──────────────┬───────────────┘
+               │
+               ├──────────────► PostgreSQL
+               │
+               ├──────────────► Redis
+               │
+               ▼
+┌──────────────────────────────┐
+│        Celery Worker         │
+│  Background PDF processing   │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│       Google Gemini          │
+│ Structured extraction logic  │
+└──────────────────────────────┘
 ```
 
 ## Development (without Docker)
