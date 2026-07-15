@@ -1,7 +1,7 @@
 # ContractExtract
 
 <p align="center">
-  <img src="images/ContractExtract AI Document Extraction Banner.png" width="900" alt="ContractExtract Banner">
+  <img src="images/ContractExtract.png" width="900" alt="ContractExtract Banner">
 </p>
 ContractExtract is a document processing system for contract and PDF extraction workflows. It uses Flask for the web application, Celery for background processing, PostgreSQL for persistence, Redis as the message broker and cache layer, and Google Gemini for AI-powered extraction. Human review is built into the flow so extracted data can be validated before it is permanently saved.
 
