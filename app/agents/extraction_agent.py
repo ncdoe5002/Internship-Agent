@@ -35,6 +35,7 @@ from app.services.extraction.pdf_adapter import (
     extract_text_from_pdf,
     pdf_to_images,
 )
+from app.services.extraction.excel_adapter import extract_from_excel
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,11 @@ class ExtractionAgent:
         elif doc_type in ("xlsx", "xls", "csv"):
             # Handled by excel_adapter.py; should not route through here
             logger.error("Excel files should use excel_adapter.py directly")
-            return ExtractionResult(tables=[])
+            try:
+                return extract_from_excel(payload.document_bytes)
+            except Exception as e:
+                logger.error(f"Excel Extraction failed:{e}")
+                return ExtractionResult(tables=[])
 
         else:
             logger.error(f"Unsupported document type: {doc_type}")
