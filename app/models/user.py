@@ -1,9 +1,5 @@
 from flask_login import UserMixin
-
 from ..extensions import db, login_manager
-
-from flask_login import UserMixin
-from .. import db # Ensure you are importing your SQLAlchemy db instance
 
 class User(UserMixin, db.Model):
     __tablename__ = "users"
@@ -14,7 +10,6 @@ class User(UserMixin, db.Model):
 
     documents = db.relationship("Document", backref="uploader", lazy=True)
     audit_logs = db.relationship("AuditLog", backref="reviewer", lazy=True)
-
 
 @login_manager.user_loader
 def load_user(user_id):

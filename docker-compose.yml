@@ -1,13 +1,11 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: app
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD:-yourpassword}
-      POSTGRES_DB: pdfprocessor
+      POSTGRES_DB: edch_adivisor
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
