@@ -1,0 +1,20 @@
+
+
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap');
+.font-mono {
+    font-family: 'DM Mono', monospace;
+}
+
+/* Custom Button Style */
+.btn-custom-brand {
+    background-color: #cc1f26; /* Your custom hex color */
+    color: white; /* Text color */
+    border: none; /* Removes default borders */
+}
+
+/* Add a hover effect so it feels interactive */
+.btn-custom-brand:hover {
+    background-color: #981317; /* A slightly darker shade for hover */
+    color: white;
+}

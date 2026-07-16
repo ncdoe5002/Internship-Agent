@@ -6,6 +6,7 @@ load_dotenv()
 
 
 class Config:
+    
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL", "postgresql://app:yourpassword@localhost:5432/pdfprocessor"
