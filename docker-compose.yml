@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-yourpassword}
+      POSTGRES_PASSWORD: prasanth2contractextract
       POSTGRES_DB: edch_adivisor
     volumes:
       - postgres_data:/var/lib/postgresql/data
