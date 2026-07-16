@@ -21,7 +21,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph, END
 from pydantic import BaseModel, Field
 
-from .extraction_agent import ExtractionAgent, ExtractionAgentInput
+from .extraction_agent import ExtractionAgent, ExtractionPayload
 from .verification_agent import (
     VerificationAgent,
     VerificationAgentInput,
