@@ -90,8 +90,6 @@ Open your browser to **http://localhost:8000**
 ### 3. Create the database tables (first time only)
 
 ```bash
-docker compose exec web flask db init
-docker compose exec web flask db migrate -m "Initial schema"
 docker compose exec web flask db upgrade
 ```
 
