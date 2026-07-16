@@ -24,7 +24,7 @@ pyrightconfig.json
 
 # Uploads (large binary files)
 uploads/
-
+edch-roaming-advisor.html
 
 # Flask / SQLAlchemy
 instance/
