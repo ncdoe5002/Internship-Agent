@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Contract</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f2f3f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 10vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .header-text {
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+      color: #4b5563;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+
+    h1 {
+      font-weight: 700;
+      font-size: 2rem;
+      margin-bottom: 2.5rem;
+    }
+    .upload-box {
+      background-color: #f2f3f5;
+      border: 2px dashed #d1d5db;
+      border-radius: 12px;
+      min-width: 100vh;      
+      min-height: 50vh;      
+      padding: 4rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+      position: relative;
+      margin: 0 auto;        
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .upload-box:hover, .upload-box.dragover {
+      background-color: #b7b7b7c4;
+      border-color: #9ca3af;
+    }
+    .upload-icon {
+      background-color: #e5e7eb;
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0 auto 1.5rem auto;
+    }
+    .file-types {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 2rem;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+
+  
+  <div class="header-text text-center">
+  <span class="text-danger"></span> {{ operator_name | default('Mobile Operator') }}
+  </div>
+  
+  <h1>Upload a contract to extract</h1>
+
+  <!-- THE FORM: The action="" posts to the current URL (/update/<operator_id>) -->
+<form id="uploadForm" method="POST" action="" enctype="multipart/form-data">
+  <!-- Added min-height, width, max-width, and padding to the style attribute below -->
+  <div class="upload-box" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+    </div>
+    <h5 class="fw-semibold mt-3">Drag & drop your contract here</h5>
+    <p class="text-muted small mb-0">or click to browse — PDF, DOCX, PNG, JPG</p>
+    
+    <!-- Hidden File Input -->
+    <input type="file" id="fileInput" name="pdf_file" style="display: none;" accept=".pdf,.docx,.png,.jpg" onchange="document.getElementById('uploadForm').submit();">
+  </div>
+</form>
+
+  <div class="file-types">
+    PDF &nbsp; DOCX &nbsp; PNG &nbsp; JPG &nbsp; TIFF
+  </div>
+
+  <script>
+    // Simple drag and drop auto-submit logic
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const form = document.getElementById('uploadForm');
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        form.submit(); // Auto submit when a file is dropped
+      }
+    });
+  </script>
+</body>
+</html>
