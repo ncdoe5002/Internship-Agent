@@ -41,9 +41,28 @@ Field definitions:
 - RP = roaming partner (the other operator)
 - TAP_DIRECTION = "IN" or "OUT" or "BILATERAL"
 - START_DATE, END_DATE = agreement validity period (format: YYYY-MM-DD)
+- REMARKS = any additional notes or comments
+- DATA_LEVEL = "AGREEMENT", "MODEL", "RATE", etc.
+- INVOICE_AMT_TYPE = "GROSS", "NET", "BOTH"
+- AGMT_ID = unique identifier for the agreement (string) PRIMARY KEY
 - CURRENCY_CODE = SDR, USD, EUR, etc.
 - AUTO_RENEWAL = "Y" or "N"
+- IS_GROUP_RP = "Y" or "N" ?
 - AGMT_STATUS = "ACTIVE", "DRAFT", "EXPIRED", etc.
+- TOTAL_AGMT_MONTH = total months of the agreement (as string, e.g. "24")
+- IS_RERATING_REQD = "Y" or "N" ?
+- GPRS_RULE = "APPLICABLE" or "NOT_APPLICABLE" ?
+- GPRS_LIMIT = numeric limit for GPRS (as string, e.g. "1000000")
+- BASELINE_RULE = "APPLICABLE" or "NOT_APPLICABLE" ? 
+- BASELINE_BASE_FIELD = field used for baseline calculation (e.g. "CHARGE1") ?
+- BASELINE_VALUE = baseline value (as string, e.g. "50000") 
+- COMMIT_RULE = "APPLICABLE" or "NOT_APPLICABLE" ?
+- COMMIT_BASE_FIELD = field used for commitment calculation (e.g. "CHARGE2") ?
+- COMMIT_VALUE = commitment value (as string, e.g. "100000")
+- AGMT_TYPE = "BILATERAL", "MULTILATERAL", "FRAMEWORK", etc.
+- IS_BASELINE_APPLICABLE = "Y" or "N" ?
+- CURRENCY_AGMT = currency used for the agreement (SDR, USD, EUR)
+- EXCHANGE_RATE_TYPE = "FIXED", "FLOATING", "MARKET", etc ?
 - If a field is not found in the document, use empty string ""
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -58,6 +77,7 @@ Field definitions:
 - MODEL_SEQ = sequence number starting from 1
 - MODEL_TYPE = "VOICE", "DATA", "SMS", "VoLTE", "CAMEL", etc.
 - MODEL_NAME = descriptive name of the pricing model
+- AGMT_ID = Unique identifier linking to the agreement header (from Table 1)
 - Each service type in the agreement is a separate row
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -71,13 +91,15 @@ Headers:
   DISC_RATE_PERC, CHARGE_INCLUDE_TAX, CHARGE_FIELD, MODEL_SEQ
 
 Field definitions:
+- AGMT_ID = links to the agreement header in Table 1
 - REC_TYPE = "MOC" (mobile originated call), "MTC" (mobile terminated call),
   "SMS_MO", "SMS_MT", "GPRS", "VoLTE", etc.
 - ZONE_CODE = zone identifier (e.g. "Zone1", "Home", "EU")
 - RATE_CURRENCY = currency for rates (SDR, USD, EUR)
 - PRA_RATE_TYPE = "IOT" (inter-operator tariff), "AA" (actual actual), "FLAT", etc.
 - DISC_RATE_PERC = discount percentage (e.g. "15" for 15%)
-- CHARGE_FIELD = charge field this rate applies to (e.g. "CHARGE1", "CHARGE2")
+- CHARGE_INCLUDE_TAX = "Y" or "N" indicating if tax is included in the charge
+- CHARGE_FIELD = charge field this rate applies to (e.g. "CHARGE1", "CHARGE2") ?
 - MODEL_SEQ = links to the model sequence in Table 2
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -91,8 +113,9 @@ Headers:
   AMOUNT, CAPTURE_RATE_PCT, PARTY_FROM, PARTY_TO
 
 Field definitions:
+- AGMT_ID = links to the agreement header in Table 1
 - COMMITMENT_TYPE = "VOLUME", "REVENUE", "TRAFFIC", "MINUTES", etc.
-- DIRECTION = "IN", "OUT", or "BOTH"
+- DIRECTION = "IN", "OUT", or "BOTH" 
 - AMOUNT = committed value (as string, e.g. "50000")
 - CAPTURE_RATE_PCT = percentage captured (e.g. "100")
 - PARTY_FROM, PARTY_TO = committing operator and receiving operator

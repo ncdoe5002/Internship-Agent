@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Processing UI - Production Ready</title>
+  <style>
+    /* Reset and Base Styles */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f2f3f5;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; color: #111827;
+      flex-direction: column; /* Allows stacking elements vertically */
+    }
+    .container { width: 100%; max-width: 600px; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+
+    /* Spinner Styles */
+    .spinner-wrapper { position: relative; width: 64px; height: 64px; margin-bottom: 24px; transition: opacity 0.3s; }
+    .spinner-wrapper.hidden { opacity: 0; pointer-events: none; }
+    .spinner-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid #fee2e2; }
+    .spinner-progress { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: #dc2626; animation: spin 1s linear infinite; }
+    
+    /* Static Logo replacing the "C" */
+    .logo-center { 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      width: 28px; /* Adjust size based on your logo */
+      height: 28px; 
+      object-fit: contain;
+    }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* Typography */
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; color: #0f172a; text-align: center; }
+    .filename { font-family: ui-monospace, monospace; font-size: 0.9rem; color: #9ca3af; margin-bottom: 32px; }
+
+    /* Card Styles */
+    .status-card { width: 100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); overflow: hidden; border-top: 4px solid #991b1b; }
+    .status-list { list-style: none; width: 100%; }
+    
+    /* List Items */
+    .status-item { display: flex; align-items: center; padding: 20px 24px; border-bottom: 1px solid #f3f4f6; gap: 16px; transition: all 0.3s ease; }
+    .status-item:last-child { border-bottom: none; }
+    .item-text { font-size: 1rem; font-weight: 400; }
+
+    /* States */
+    .status-item[data-state="pending"] .item-text { color: #9ca3af; }
+    .status-item[data-state="processing"] .item-text { color: #4b5563; }
+    .status-item[data-state="completed"] .item-text { color: #111827; }
+    .status-item[data-state="error"] .item-text { color: #dc2626; }
+
+    /* Icons */
+    .icon-wrapper { width: 24px; height: 24px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+    
+    .status-item[data-state="completed"] .icon-wrapper { background-color: #dcfce7; color: #16a34a; }
+    .status-item[data-state="error"] .icon-wrapper { background-color: #fee2e2; color: #dc2626; }
+    .status-item[data-state="processing"] .icon-wrapper,
+    .status-item[data-state="pending"] .icon-wrapper { background-color: #f3f4f6; }
+    
+    /* Processing dots */
+    .status-item[data-state="pending"] .dot { width: 6px; height: 6px; border-radius: 50%; background-color: #d1d5db; }
+    .status-item[data-state="processing"] .dot { width: 6px; height: 6px; border-radius: 50%; background-color: #dc2626; animation: pulse 1.5s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    /* Skip Button Styles */
+    .skip-button {
+      margin-top: 32px;
+      padding: 10px 24px;
+      background-color: #ffffff;
+      color: #4b5563;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .skip-button:hover {
+      background-color: #f9fafb;
+      color: #111827;
+      border-color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hidden data element to pass the doc ID cleanly to JavaScript -->
+  <meta id="doc-data" data-doc-id="{{ document.id }}">
+
+  <div class="container">
+    <div class="spinner-wrapper" id="main-spinner">
+      <div class="spinner-bg"></div>
+      <div class="spinner-progress"></div>
+      <!-- UPDATE THIS SRC: Point it to your actual static EDCH logo -->
+      <img src="{{ url_for('static', filename='images/Logo-EDCH.png') }}" alt="EDCH Logo" class="logo-center">
+    </div>
+    
+    <h1 id="main-title">AI is processing the document</h1>
+    <p class="filename" id="file-name-display"></p>
+
+    <div class="status-card">
+      <ul class="status-list" id="status-list"></ul>
+    </div>
+
+    <!-- Skip Button linking to the new extracted page -->
+    <!-- Make sure you have a route set up in Flask for /extracted/<doc_id> -->
+    <a href="/update/extracted/{{ document.id }}" class="skip-button">
+      Skip to Extracted Data
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+        <polyline points="12 5 19 12 12 19"></polyline>
+      </svg>
+    </a>
+  </div>
+
+  <script>
+    class DocumentProcessorUI {
+      constructor(config) {
+        this.listElement = document.getElementById(config.listElementId);
+        this.titleElement = document.getElementById(config.titleElementId);
+        this.spinnerElement = document.getElementById(config.spinnerElementId);
+        this.fileNameElement = document.getElementById(config.fileNameElementId);
+        
+        this.fileNameElement.textContent = config.fileName || 'document.pdf';
+        
+        this.icons = {
+          check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+          error: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+          dot: `<div class="dot"></div>`
+        };
+
+        this.steps = new Map();
+        config.initialSteps.forEach((step, index) => {
+          this.steps.set(index, { id: step.id, label: step.label, state: 'pending' }); 
+        });
+
+        this.renderAll();
+      }
+
+      updateStepByIndex(index, newState) {
+        if (!this.steps.has(index)) return;
+        const step = this.steps.get(index);
+        step.state = newState;
+        
+        const listItem = document.getElementById(`step-${step.id}`);
+        if (listItem) {
+          listItem.setAttribute('data-state', newState);
+          const iconWrapper = listItem.querySelector('.icon-wrapper');
+          if (newState === 'completed') iconWrapper.innerHTML = this.icons.check;
+          else if (newState === 'error') iconWrapper.innerHTML = this.icons.error;
+          else iconWrapper.innerHTML = this.icons.dot;
+        }
+      }
+
+      completeProcess(finalMessage = "Analysis complete") {
+        this.titleElement.textContent = finalMessage;
+        this.spinnerElement.classList.add('hidden');
+      }
+
+      renderAll() {
+        this.listElement.innerHTML = '';
+        this.steps.forEach((stepData, index) => {
+          const li = document.createElement('li');
+          li.id = `step-${stepData.id}`;
+          li.className = 'status-item';
+          li.setAttribute('data-state', stepData.state);
+          li.innerHTML = `
+            <div class="icon-wrapper">${this.icons.dot}</div>
+            <span class="item-text">${stepData.label}</span>
+          `;
+          this.listElement.appendChild(li);
+        });
+      }
+    }
+
+    // Grab the doc_id from the hidden meta tag to avoid IDE linter errors
+    const docDataElement = document.getElementById('doc-data');
+    const docId = parseInt(docDataElement.dataset.docId, 10);
+
+    // Initialize UI
+    const processorUI = new DocumentProcessorUI({
+      listElementId: 'status-list',
+      titleElementId: 'main-title',
+      spinnerElementId: 'main-spinner',
+      fileNameElementId: 'file-name-display',
+      fileName: '{{ document.filename }}', 
+      initialSteps: [
+        { id: 'extract', label: 'Extracting tariff tables from source document' },
+        { id: 'match', label: 'Matching line items to EDCH service catalogue' },
+        { id: 'verify', label: 'Cross-checking currency, effective date & counterparties' },
+        { id: 'compare', label: 'Comparing figures against stored baseline agreement' },
+        { id: 'flag', label: 'Flagging rate changes outside historical variance' }
+      ]
+    });
+
+    let currentStepIndex = 0;
+    processorUI.updateStepByIndex(0, 'processing');
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/update/${docId}/status`);
+        const data = await response.json();
+        
+        if (data.current_step > currentStepIndex) {
+            processorUI.updateStepByIndex(currentStepIndex, 'completed');
+            currentStepIndex = data.current_step;
+            processorUI.updateStepByIndex(currentStepIndex, 'processing');
+        }
+
+        if (data.status === 'COMPLETED') {
+          clearInterval(pollInterval);
+          processorUI.updateStepByIndex(4, 'completed'); 
+          processorUI.completeProcess();
+          setTimeout(() => { window.location.href = `/extracted/${docId}`; }, 1000);
+        } else if (data.status === 'ERROR') {
+          clearInterval(pollInterval);
+          processorUI.updateStepByIndex(currentStepIndex, 'error');
+          processorUI.completeProcess("Processing Failed");
+        }
+      } catch (error) {
+        console.error("Failed to fetch status:", error);
+      }
+    }, 2000);
+  </script>
+</body>
+</html>
