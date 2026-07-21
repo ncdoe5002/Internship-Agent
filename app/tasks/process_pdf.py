@@ -26,6 +26,10 @@ def process_pdf(self, document_id: int):
 
     try:
         upload_folder = current_app.config["UPLOAD_FOLDER"]
+        # Dynamically determine file type
+        filename = doc.filename or ""
+        file_type = filename.rsplit(".", 1)[-1].lower() if "." in filename else "pdf"
+
         pdf_bytes = read_pdf(doc.file_key, upload_folder)
         baseline_data = get_baseline_rates(doc.partner_name or "")
         doc.baseline_data = baseline_data
@@ -42,6 +46,7 @@ def process_pdf(self, document_id: int):
             filename=doc.file_key,
             partner_name=doc.partner_name or "Unknown",
             baseline_data=baseline_data,
+            file_type=file_type,
         )
 
         # Run orchestrator workflow

@@ -20,4 +20,4 @@ class Config:
 
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB upload limit
-    ALLOWED_EXTENSIONS = {"pdf"}
+    ALLOWED_EXTENSIONS = {"pdf", "xlsx", "docx"}
