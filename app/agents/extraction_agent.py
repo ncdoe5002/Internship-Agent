@@ -342,16 +342,27 @@ class ExtractionAgent:
             text = text[:-3]
         text = text.strip()
 
-        # Locate JSON object boundaries
+                # Locate JSON object boundaries
         start_idx = text.find("{")
         end_idx = text.rfind("}")
 
-        if start_idx == -1 or end_idx == -1:
-            logger.error("No JSON object found in response")
+        # Handle list format: [{"title": "...", "headers": [...], "rows": [...]}]
+        list_start_idx = text.find("[")
+        list_end_idx = text.rfind("]")
+
+        # Determine if response is object or list format
+        if list_start_idx != -1 and list_end_idx != -1:
+            # Check if list comes before object (list format)
+            if start_idx == -1 or list_start_idx < start_idx:
+                json_str = text[list_start_idx : list_end_idx + 1]
+            else:
+                json_str = text[start_idx : end_idx + 1]
+        elif start_idx != -1 and end_idx != -1:
+            json_str = text[start_idx : end_idx + 1]
+        else:
+            logger.error("No JSON object or array found in response")
             logger.debug(f"Response preview: {raw_text[:500]}")
             return None
-
-        json_str = text[start_idx : end_idx + 1]
 
         try:
             data = json.loads(json_str)
@@ -362,11 +373,12 @@ class ExtractionAgent:
 
         # Build ExtractionResult from parsed JSON
         tables = []
-        raw_tables = data.get("tables", [])
-
-        # Handle case where Gemini returns a list instead of {"tables": [...]}
-        if not raw_tables and isinstance(data, list):
+        
+        # Handle both object format {"tables": [...]} and list format [...]
+        if isinstance(data, list):
             raw_tables = data
+        else:
+            raw_tables = data.get("tables", [])
 
         for t in raw_tables:
             if not isinstance(t, dict):
@@ -392,5 +404,5 @@ class ExtractionAgent:
         logger.info(f"Parsed {len(tables)} tables from response")
         return ExtractionResult(
             tables=tables,
-            raw_text_summary=data.get("raw_text_summary", None),
+            raw_text_summary=None if isinstance(data, list) else data.get("raw_text_summary", None),
         )

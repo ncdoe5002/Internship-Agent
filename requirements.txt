@@ -21,3 +21,5 @@ python-docx==1.1.2
 pandas>=2.2.2
 PyMuPDF>=1.24.5
 supabase
+pytest>=9.1.1
+pytest-dotenv>=0.5.2
