@@ -249,6 +249,30 @@ class VerificationAgent:
 
         return len(issues) == 0, issues
 
+    def _check_edch_services(self, tables: dict) -> tuple[bool, list[str]]:
+        """
+        Verify presence of standard EDCH roaming service categories in extracted tables.
+        Non-blocking advisory check.
+        """
+        issues = []
+        found_categories = set()
+        for table in tables.get("tables", []):
+            title = str(table.get("title", "")).lower()
+            # Only perform check if table is tariff or roaming related
+            if any(k in title for k in ("tariff", "roaming", "agreement", "rate", "edch")):
+                rows = table.get("rows", [])
+                for row in rows:
+                    if isinstance(row, list) and len(row) > 0 and row[0]:
+                        found_categories.add(str(row[0]).lower().strip())
+
+        if found_categories:
+            mandatory = {"voice", "data", "sms"}
+            missing = [m for m in mandatory if not any(m in cat for cat in found_categories)]
+            if len(missing) == len(mandatory):
+                issues.append(f"Advisory: Standard roaming service categories missing: {', '.join(missing)}")
+
+        return True, issues
+
     def run(self, payload: VerificationAgentInput) -> VerificationResult:
         """
         Execute verification checks on the extracted data.
@@ -311,6 +335,14 @@ class VerificationAgent:
             check_results["table_structure"] = structure_passed
             checks.append("Table structure verified")
             issues.extend(structure_issues)
+
+            # Check 6: EDCH Service completeness
+            edch_passed, edch_issues = self._check_edch_services(
+                payload.extracted_tables
+            )
+            check_results["edch_services"] = edch_passed
+            checks.append("EDCH service categories checked")
+            issues.extend(edch_issues)
 
         # Confidence is intentionally issue-driven so one or two missing signals
         # do not collapse a mostly valid document into FAILED.

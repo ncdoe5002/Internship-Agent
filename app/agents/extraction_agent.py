@@ -46,6 +46,7 @@ from app.services.extraction.docx_adapter import (
     extract_tables_from_docx,
     extract_text_from_docx,
 )
+from app.services.extraction.excel_adapter import extract_from_excel
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +97,8 @@ class ExtractionAgent:
             return self._extract_from_word(payload)
 
         elif doc_type in ("xlsx", "xls", "csv"):
-            # Handled by excel_adapter.py; should not route through here
-            logger.error("Excel files should use excel_adapter.py directly")
-            return ExtractionResult(tables=[])
+            logger.info("Extracting Excel file using excel_adapter")
+            return extract_from_excel(payload.document_bytes)
 
         else:
             logger.error(f"Unsupported document type: {doc_type}")
@@ -404,13 +404,23 @@ class ExtractionAgent:
             text = text[:-3]
         text = text.strip()
 
-        # Locate JSON object boundaries
-        start_idx = text.find("{")
-        end_idx = text.rfind("}")
+        # Locate JSON object or array boundaries
+        obj_start = text.find("{")
+        arr_start = text.find("[")
 
-        if start_idx == -1 or end_idx == -1:
-            logger.error("No JSON object found in response")
+        if obj_start != -1 and (arr_start == -1 or obj_start < arr_start):
+            start_idx = obj_start
+            end_idx = text.rfind("}")
+        elif arr_start != -1:
+            start_idx = arr_start
+            end_idx = text.rfind("]")
+        else:
+            logger.error("No JSON object or array found in response")
             logger.debug(f"Response preview: {raw_text[:500]}")
+            return None
+
+        if end_idx == -1 or end_idx < start_idx:
+            logger.error("Invalid JSON boundaries in response")
             return None
 
         json_str = text[start_idx : end_idx + 1]
@@ -424,11 +434,12 @@ class ExtractionAgent:
 
         # Build ExtractionResult from parsed JSON
         tables = []
-        raw_tables = data.get("tables", [])
-
-        # Handle case where Gemini returns a list instead of {"tables": [...]}
-        if not raw_tables and isinstance(data, list):
+        if isinstance(data, list):
             raw_tables = data
+        elif isinstance(data, dict):
+            raw_tables = data.get("tables", [])
+        else:
+            raw_tables = []
 
         for t in raw_tables:
             if not isinstance(t, dict):
@@ -452,7 +463,8 @@ class ExtractionAgent:
                 )
 
         logger.info(f"Parsed {len(tables)} tables from response")
+        summary_val = data.get("raw_text_summary", None) if isinstance(data, dict) else None
         return ExtractionResult(
             tables=tables,
-            raw_text_summary=data.get("raw_text_summary", None),
+            raw_text_summary=summary_val,
         )

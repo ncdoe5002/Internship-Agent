@@ -132,7 +132,10 @@ class Orchestrator:
         self.extraction_agent = ExtractionAgent(model)
         self.verification_agent = VerificationAgent()
         self.risk_agent = RiskAgent()
-        self.structured_model = model.with_structured_output(AINotesResult)
+        if model is not None and hasattr(model, "with_structured_output"):
+            self.structured_model = model.with_structured_output(AINotesResult)
+        else:
+            self.structured_model = None
 
     def _normalize_category(self, category: str) -> str:
         """
@@ -142,11 +145,14 @@ class Orchestrator:
             category: Raw category string
 
         Returns:
-            Normalized category string (lowercase, trimmed, collapsed whitespace)
+            Normalized category string
         """
         if not category:
             return ""
-        return re.sub(r"[-\s]+", " ", str(category).lower().strip())
+
+        # Basic clean (lowercase, trimmed, collapsed whitespace/hyphens)
+        clean = re.sub(r"[-\s]+", " ", str(category).lower().strip())
+        return clean
 
     def _fuzzy_match_category(
         self, extracted: str, baseline_categories: list[str], threshold: float = 0.8
@@ -708,6 +714,23 @@ class Orchestrator:
         logger.info(f"Combined results: {len(review_table)} rows in review table")
 
         return {"output": output}
+
+    def _build_graph(self):
+        """Build and return the LangGraph workflow structure."""
+        workflow = StateGraph(OrchestratorState)
+        workflow.add_node("extraction", self._extraction_node)
+        workflow.add_node("verification", self._verification_node)
+        workflow.add_node("risk", self._risk_node)
+        workflow.add_node("ai_notes", self._ai_notes_node)
+        workflow.add_node("combine", self._combine_results_node)
+        workflow.set_entry_point("extraction")
+        workflow.add_edge("extraction", "verification")
+        workflow.add_edge("extraction", "risk")
+        workflow.add_edge("verification", "combine")
+        workflow.add_edge("risk", "ai_notes")
+        workflow.add_edge("ai_notes", "combine")
+        workflow.add_edge("combine", END)
+        return workflow.compile()
 
     def run(self, payload: OrchestratorInput) -> OrchestratorOutput:
         """
