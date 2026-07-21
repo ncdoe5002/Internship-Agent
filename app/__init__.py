@@ -20,7 +20,7 @@ def create_app():
 
     # FIX: upload.py calls current_app.config["ALLOWED_EXTENSIONS"]
     # but it was never defined anywhere — would crash with KeyError on every upload.
-    app.config["ALLOWED_EXTENSIONS"] = {"pdf"}
+    app.config["ALLOWED_EXTENSIONS"] = {"pdf", "xlsx", "xls", "docx"}
 
     # ── Connect extensions to this app ───────────────────────────
     db.init_app(app)

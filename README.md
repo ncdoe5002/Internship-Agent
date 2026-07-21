@@ -1,7 +1,7 @@
 # ContractExtract
 
 <p align="center">
-  <img src="app/Images/ContractExtract.png" width="900" alt="ContractExtract Banner">
+  <img src="app/static/images/ContractExtract.png" width="900" alt="ContractExtract Banner">
 </p>
 ContractExtract is a document processing system for contract and PDF extraction workflows. It uses Flask for the web application, Celery for background processing, PostgreSQL for persistence, Redis as the message broker and cache layer, and Google Gemini for AI-powered extraction. Human review is built into the flow so extracted data can be validated before it is permanently saved.
 
@@ -20,7 +20,7 @@ Approved records are stored permanently.
 </p>
 
 <p align="center">
-  <b>PDF upload → AI extraction → human review → permanent save</b>
+  <b>PDF/Excel/Docx upload → AI extraction → human review → permanent save</b>
 </p>
 
 ---
@@ -28,7 +28,7 @@ Approved records are stored permanently.
 ## How It Works
  
 ```text
-User uploads PDF
+User uploads PDF, Excel, Docx
       ↓
 Flask receives file
       ↓
@@ -57,7 +57,7 @@ Document marked as APPROVED
 <details>
 <summary><strong>Click to expand the feature set</strong></summary>
 
-- Upload PDF documents through a web interface.
+- Upload PDF/Excel/Docx documents through a web interface.
 - Process documents asynchronously with Celery workers.
 - Extract structured data using Google Gemini.
 - Present AI output for human verification.
@@ -186,7 +186,7 @@ PENDING → PROCESSING → READY → APPROVED
                ▼
 ┌──────────────────────────────┐
 │        Celery Worker         │
-│  Background PDF processing   │
+│  Background DOC processing   │
 └──────────────┬───────────────┘
                │
                ▼
