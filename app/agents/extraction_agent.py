@@ -1,21 +1,28 @@
 """
 Extraction Agent — sends documents to Gemini for structured data extraction.
 
-Implements a 3-tier fallback strategy for PDF extraction:
+Supports PDF and Word (.docx) documents.
+
+PDF strategy (3-tier fallback):
     1. Direct PDF upload to Gemini (native PDF support)
     2. PDF-to-image conversion + Gemini vision (handles scanned documents)
     3. Text extraction via PyMuPDF + Gemini text input (last resort)
+
+Word strategy (2-tier):
+    1. Direct table extraction via python-docx (no AI needed)
+    2. Text extraction + Gemini for non-table structured data
 
 Returns ExtractionResult containing parsed table data matching
 the agreement staging table schemas.
 
 Dependencies:
-    google-generativeai (Gemini SDK)
-    PyMuPDF >= 1.24.5
+    google-generativeai   (Gemini SDK)
+    PyMuPDF >= 1.24.5     (PDF processing)
+    python-docx >= 1.1.2  (Word processing)
 
 Path: app/agents/extraction_agent.py
       (Replaces existing file — _extract_from_pdf() and _extract_from_word()
-      were declared in run() but never implemented, causing AttributeError
+      were called in run() but never implemented, causing AttributeError
       on any document upload.)
 """
 
@@ -35,7 +42,10 @@ from app.services.extraction.pdf_adapter import (
     extract_text_from_pdf,
     pdf_to_images,
 )
-from app.services.extraction.excel_adapter import extract_from_excel
+from app.services.extraction.docx_adapter import (
+    extract_tables_from_docx,
+    extract_text_from_docx,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +66,7 @@ class ExtractionAgent:
     Usage:
         agent = ExtractionAgent(model=gemini_model)
         payload = ExtractionPayload(
-            document_bytes=pdf_bytes,
+            document_bytes=file_bytes,
             document_type="pdf",
             filename="agreement.pdf",
         )
@@ -83,24 +93,20 @@ class ExtractionAgent:
             return self._extract_from_pdf(payload)
 
         elif doc_type in ("docx", "doc"):
-            # Requires docx_adapter.py implementation + python-docx
-            logger.error("Word extraction not yet implemented")
-            return ExtractionResult(tables=[])
+            return self._extract_from_word(payload)
 
         elif doc_type in ("xlsx", "xls", "csv"):
             # Handled by excel_adapter.py; should not route through here
             logger.error("Excel files should use excel_adapter.py directly")
-            try:
-                return extract_from_excel(payload.document_bytes)
-            except Exception as e:
-                logger.error(f"Excel Extraction failed:{e}")
-                return ExtractionResult(tables=[])
+            return ExtractionResult(tables=[])
 
         else:
             logger.error(f"Unsupported document type: {doc_type}")
             return ExtractionResult(tables=[])
 
-    # ── PDF extraction with 3-tier fallback ─────────────────────────────
+    # ═══════════════════════════════════════════════════════════════════
+    # PDF EXTRACTION — 3-tier fallback
+    # ═══════════════════════════════════════════════════════════════════
 
     def _extract_from_pdf(self, payload: ExtractionPayload) -> ExtractionResult:
         """
@@ -141,7 +147,9 @@ class ExtractionAgent:
         # Attempt 3: Text-based extraction
         logger.info("PDF extraction: attempting text-based approach")
         try:
-            result = self._extract_via_text(payload)
+            result = self._extract_via_text(
+                payload.document_bytes, payload.use_telecom_prompt
+            )
             if result and result.tables:
                 logger.info(f"Text extraction succeeded: {len(result.tables)} tables")
                 return result
@@ -151,16 +159,13 @@ class ExtractionAgent:
         logger.error("All PDF extraction attempts failed")
         return ExtractionResult(tables=[])
 
-    # ── Attempt 1: Send PDF directly to Gemini ──────────────────────────
+    # ── PDF Attempt 1: Direct upload ────────────────────────────────────
 
     def _send_pdf_to_gemini(
         self, pdf_bytes: bytes, prompt: str
     ) -> Optional[ExtractionResult]:
         """
-        Send raw PDF to Gemini as multimodal input.
-
-        Gemini 1.5 Flash/Pro accepts PDF files natively. The PDF is
-        base64-encoded and sent as inline_data with application/pdf mime type.
+        Send raw PDF to Gemini as multimodal input (base64-encoded).
 
         Uses the raw google-generativeai SDK instead of the LangChain wrapper
         because LangChain's ChatGoogleGenerativeAI does not reliably handle
@@ -172,10 +177,8 @@ class ExtractionAgent:
             logger.error("google-generativeai package not installed")
             return None
 
-        # Encode PDF as base64 for the API (binary → text encoding)
         pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
 
-        # Multimodal request: PDF file + extraction prompt
         content_parts = [
             {
                 "inline_data": {
@@ -187,7 +190,6 @@ class ExtractionAgent:
         ]
 
         try:
-            # Resolve model name from the LangChain wrapper
             model_name = getattr(self.model, "model", "gemini-1.5-flash")
             if model_name.startswith("models/"):
                 model_name = model_name.replace("models/", "")
@@ -197,8 +199,8 @@ class ExtractionAgent:
             response = genai_model.generate_content(
                 content_parts,
                 generation_config=genai.GenerationConfig(
-                    temperature=0.1,        # Low temperature for consistent extraction
-                    max_output_tokens=8192,  # Large output buffer for multi-table JSON
+                    temperature=0.1,
+                    max_output_tokens=8192,
                 ),
             )
 
@@ -208,32 +210,27 @@ class ExtractionAgent:
             logger.error(f"Gemini API call failed: {e}")
             raise
 
-    # ── Attempt 2: Convert PDF pages to images, send to Gemini ──────────
+    # ── PDF Attempt 2: Image-based ──────────────────────────────────────
 
     def _send_pdf_as_images(
         self, pdf_bytes: bytes, prompt: str
     ) -> Optional[ExtractionResult]:
         """
         Convert PDF pages to PNG images and send to Gemini vision.
-
-        Handles scanned PDFs that have no text layer. Each page is
-        rendered at 200 DPI and sent as an inline image.
-
-        Capped at 20 pages to stay within Gemini's input token limit.
+        Handles scanned PDFs with no text layer.
+        Capped at 20 pages to stay within API token limits.
         """
         try:
             import google.generativeai as genai
         except ImportError:
             return None
 
-        # Render pages as PNG images (via pdf_adapter.py)
         page_images = pdf_to_images(pdf_bytes, dpi=200, max_pages=20)
 
         if not page_images:
             logger.warning("No images rendered from PDF")
             return None
 
-        # Build multimodal content: page images + prompt
         content_parts = []
         for img_bytes in page_images:
             img_b64 = base64.b64encode(img_bytes).decode("utf-8")
@@ -272,38 +269,101 @@ class ExtractionAgent:
             logger.error(f"Image-based Gemini call failed: {e}")
             raise
 
-    # ── Attempt 3: Extract text, send as plain text to Gemini ───────────
+    # ═══════════════════════════════════════════════════════════════════
+    # WORD (.docx) EXTRACTION — 2-tier strategy
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _extract_from_word(self, payload: ExtractionPayload) -> ExtractionResult:
+        """
+        Extract structured data from a Word document.
+
+        Strategy:
+            1. Extract tables directly via python-docx (fast, no API call)
+            2. Extract full text and send to Gemini for non-table data
+               (key-value pairs in paragraphs, unstructured rate info, etc.)
+            3. Merge results, deduplicating by table title
+        """
+        docx_bytes = payload.document_bytes
+
+        # ── Step 1: Direct table extraction via python-docx ─────────
+        direct_tables = extract_tables_from_docx(docx_bytes)
+
+        tables = []
+        for dt in direct_tables:
+            tables.append(
+                TableData(
+                    title=dt["title"],
+                    headers=dt["headers"],
+                    rows=dt["rows"],
+                )
+            )
+
+        logger.info(f"python-docx extracted {len(tables)} tables directly")
+
+        # ── Step 2: Send text to Gemini for additional structured data
+        text = extract_text_from_docx(docx_bytes)
+
+        if text.strip():
+            gemini_result = self._extract_via_text(
+                docx_bytes, payload.use_telecom_prompt, text_override=text
+            )
+
+            if gemini_result and gemini_result.tables:
+                # Merge: add Gemini tables that aren't duplicates
+                existing_titles = {t.title for t in tables}
+                for gt in gemini_result.tables:
+                    if gt.title not in existing_titles:
+                        tables.append(gt)
+
+                logger.info(
+                    f"Gemini added {len(gemini_result.tables)} additional tables"
+                )
+
+        logger.info(f"Word extraction complete: {len(tables)} tables total")
+        return ExtractionResult(
+            tables=tables,
+            raw_text_summary=text[:2000] if text else None,
+        )
+
+    # ═══════════════════════════════════════════════════════════════════
+    # SHARED: Text-based Gemini extraction (used by both PDF and Word)
+    # ═══════════════════════════════════════════════════════════════════
 
     def _extract_via_text(
-        self, payload: ExtractionPayload
+        self,
+        document_bytes: bytes,
+        use_telecom_prompt: bool,
+        text_override: Optional[str] = None,
     ) -> ExtractionResult:
         """
-        Extract raw text from PDF via PyMuPDF, then send the text to Gemini.
+        Send extracted text to Gemini as plain text input.
 
-        Least accurate method — table formatting is lost in text extraction.
+        For PDFs, text is extracted via PyMuPDF. For Word docs, text
+        can be passed directly via text_override.
+
         Text is truncated to 50,000 characters to stay within context limits.
-
-        Uses the LangChain model wrapper (text-only input, no file upload).
+        Uses the LangChain model wrapper (text-only, no file upload).
         """
-        text = extract_text_from_pdf(payload.document_bytes)
+        if text_override:
+            text = text_override
+        else:
+            text = extract_text_from_pdf(document_bytes)
 
         if not text.strip():
-            logger.warning("No text extracted — PDF may be scanned or empty")
+            logger.warning("No text available for extraction")
             return ExtractionResult(tables=[])
 
         prompt = (
             ROAMING_AGREEMENT_PROMPT
-            if payload.use_telecom_prompt
+            if use_telecom_prompt
             else GENERIC_TABLE_EXTRACTION_PROMPT
         )
 
-        # Combine prompt with extracted text, truncated to context limit
         full_prompt = f"{prompt}\n\n━━━ DOCUMENT TEXT ━━━\n{text[:50000]}"
 
         try:
             response = self.model.invoke(full_prompt)
 
-            # LangChain returns AIMessage; extract text content
             response_text = (
                 response.content
                 if hasattr(response, "content")
@@ -316,7 +376,9 @@ class ExtractionAgent:
             logger.error(f"Text-based Gemini call failed: {e}")
             return ExtractionResult(tables=[])
 
-    # ── JSON response parser ────────────────────────────────────────────
+    # ═══════════════════════════════════════════════════════════════════
+    # JSON response parser
+    # ═══════════════════════════════════════════════════════════════════
 
     def _extract_json_from_response(
         self, raw_text: str
@@ -342,27 +404,16 @@ class ExtractionAgent:
             text = text[:-3]
         text = text.strip()
 
-                # Locate JSON object boundaries
+        # Locate JSON object boundaries
         start_idx = text.find("{")
         end_idx = text.rfind("}")
 
-        # Handle list format: [{"title": "...", "headers": [...], "rows": [...]}]
-        list_start_idx = text.find("[")
-        list_end_idx = text.rfind("]")
-
-        # Determine if response is object or list format
-        if list_start_idx != -1 and list_end_idx != -1:
-            # Check if list comes before object (list format)
-            if start_idx == -1 or list_start_idx < start_idx:
-                json_str = text[list_start_idx : list_end_idx + 1]
-            else:
-                json_str = text[start_idx : end_idx + 1]
-        elif start_idx != -1 and end_idx != -1:
-            json_str = text[start_idx : end_idx + 1]
-        else:
-            logger.error("No JSON object or array found in response")
+        if start_idx == -1 or end_idx == -1:
+            logger.error("No JSON object found in response")
             logger.debug(f"Response preview: {raw_text[:500]}")
             return None
+
+        json_str = text[start_idx : end_idx + 1]
 
         try:
             data = json.loads(json_str)
@@ -373,12 +424,11 @@ class ExtractionAgent:
 
         # Build ExtractionResult from parsed JSON
         tables = []
-        
-        # Handle both object format {"tables": [...]} and list format [...]
-        if isinstance(data, list):
+        raw_tables = data.get("tables", [])
+
+        # Handle case where Gemini returns a list instead of {"tables": [...]}
+        if not raw_tables and isinstance(data, list):
             raw_tables = data
-        else:
-            raw_tables = data.get("tables", [])
 
         for t in raw_tables:
             if not isinstance(t, dict):
@@ -404,5 +454,5 @@ class ExtractionAgent:
         logger.info(f"Parsed {len(tables)} tables from response")
         return ExtractionResult(
             tables=tables,
-            raw_text_summary=None if isinstance(data, list) else data.get("raw_text_summary", None),
+            raw_text_summary=data.get("raw_text_summary", None),
         )

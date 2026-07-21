@@ -16,7 +16,6 @@ import re
 from difflib import SequenceMatcher
 from typing import Any, Literal
 
-from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph, END
 from pydantic import BaseModel, Field
@@ -107,11 +106,10 @@ class OrchestratorOutput(BaseModel):
         return self
 
 
-ai_notes_parser = PydanticOutputParser(pydantic_object=AINotesResult)
 ai_notes_prompt = ChatPromptTemplate.from_template(
     "Given these flagged tariff rate changes:\n{items}\n\n"
     "For each item, explain in one sentence why it was flagged and what "
-    "the risk level means for approval.\n{format_instructions}"
+    "the risk level means for approval."
 )
 
 
@@ -134,47 +132,7 @@ class Orchestrator:
         self.extraction_agent = ExtractionAgent(model)
         self.verification_agent = VerificationAgent()
         self.risk_agent = RiskAgent()
-        self.graph = self._build_graph()
-
-    def _build_graph(self):
-        """
-        Build the LangGraph workflow.
-
-        Workflow:
-        - extraction_node: Runs ExtractionAgent
-        - verification_node: Runs VerificationAgent (parallel with risk)
-        - risk_node: Runs RiskAgent (parallel with verification)
-        - ai_notes_node: Adds AI notes to non-LOW risk rows
-        - combine_results_node: Merges all results into tabular format
-
-        Edges:
-        - extraction → verification
-        - extraction → risk
-        - verification → combine_results
-        - risk → ai_notes
-        - ai_notes → combine_results
-        """
-        workflow = StateGraph(OrchestratorState)
-
-        # Add nodes
-        workflow.add_node("extraction", self._extraction_node)
-        workflow.add_node("verification", self._verification_node)
-        workflow.add_node("risk", self._risk_node)
-        workflow.add_node("ai_notes", self._ai_notes_node)
-        workflow.add_node("combine_results", self._combine_results_node)
-
-        # Set entry point
-        workflow.set_entry_point("extraction")
-
-        # Add edges for parallel execution
-        workflow.add_edge("extraction", "verification")
-        workflow.add_edge("extraction", "risk")
-        workflow.add_edge("verification", "combine_results")
-        workflow.add_edge("risk", "ai_notes")
-        workflow.add_edge("ai_notes", "combine_results")
-        workflow.add_edge("combine_results", END)
-
-        return workflow.compile()
+        self.structured_model = model.with_structured_output(AINotesResult)
 
     def _normalize_category(self, category: str) -> str:
         """
@@ -468,12 +426,11 @@ class Orchestrator:
         if not flagged:
             return {"risk_result": state.risk_result}
 
-        chain = ai_notes_prompt | self.model | ai_notes_parser
+        chain = ai_notes_prompt | self.structured_model
         try:
             result = chain.invoke(
                 {
                     "items": [i.model_dump() for i in flagged],
-                    "format_instructions": ai_notes_parser.get_format_instructions(),
                 }
             )
             notes_by_category = {n.category: n.note for n in result.notes}
