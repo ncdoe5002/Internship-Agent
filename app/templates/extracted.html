@@ -10,7 +10,7 @@
     body {
       margin: 0;
       height: 100vh;
-      overflow: hidden; /* Prevent body scroll, handle scrolling in panes */
+      overflow: hidden;
       background-color: #1e1e1e;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
@@ -28,34 +28,63 @@
       display: flex;
       flex-direction: column;
       border-right: 2px solid #000;
+      position: relative;
     }
 
     .doc-viewer {
-      flex: 1;
+      flex: 1; /* Default to equal sharing, overwritten by inline style during resize */
       display: flex;
       flex-direction: column;
-      background-color: #e5e5e5; /* Gray background behind paper */
+      background-color: #d1d5db;
       overflow: hidden;
+      position: relative;
     }
 
-    .doc-viewer-top {
-      border-bottom: 4px solid #111;
+    /* Resizer Divider */
+    .resizer {
+      height: 8px;
+      background-color: #111;
+      cursor: ns-resize; /* Up-Down resize cursor */
+      width: 100%;
+      z-index: 50;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background-color 0.2s ease;
+    }
+    
+    .resizer:hover, .resizer:active {
+      background-color: #ef4444; /* Highlight red on hover/drag */
+    }
+
+    /* Add a subtle grip icon to the resizer */
+    .resizer::after {
+      content: "";
+      width: 40px;
+      height: 2px;
+      background-color: #6b7280;
+      border-radius: 2px;
+    }
+    .resizer:hover::after, .resizer:active::after {
+      background-color: #fff;
     }
 
     .doc-header {
-      padding: 8px 16px;
+      padding: 10px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
+      font-weight: 600;
       color: #fff;
+      z-index: 10;
     }
 
-    .doc-header.proposed { background-color: #2b1f1f; }
-    .doc-header.on-file { background-color: #1f292e; }
+    .doc-header.proposed { background-color: #211818; }
+    .doc-header.on-file { background-color: #1a2421; }
 
     .badge-status {
-      padding: 4px 8px;
+      padding: 4px 10px;
       border-radius: 4px;
       font-size: 0.7rem;
       font-weight: 700;
@@ -64,42 +93,31 @@
     .badge-proposed { background-color: #4a1f1f; color: #fca5a5; }
     .badge-onfile { background-color: #1f3a2e; color: #6ee7b7; }
 
-    /* Mock Paper Placeholder */
-    .paper-mockup {
-      background: white;
-      margin: 20px auto;
-      width: 80%;
-      height: 120%;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      border-radius: 4px;
-      padding: 40px;
-      overflow-y: auto;
-    }
-
     /* Right Side: Data Extraction */
     .pane-right {
       width: 50%;
       height: 100%;
-      background-color: #f8fafc;
+      background-color: #f9fafb;
       display: flex;
       flex-direction: column;
       position: relative;
     }
 
     .data-header {
-      background-color: #1a1a1a;
+      background-color: #1e1e1e;
       color: white;
       padding: 16px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-bottom: 1px solid #333;
     }
 
     .confidence-widget {
       background: white;
       color: #111;
       border-radius: 8px;
-      padding: 6px 12px;
+      padding: 6px 14px;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -122,58 +140,66 @@
       flex: 1;
       overflow-y: auto;
       padding: 24px;
-      padding-bottom: 100px; /* Space for sticky footer */
+      padding-bottom: 100px;
     }
+    
+    .data-body::-webkit-scrollbar { width: 12px; }
+    .data-body::-webkit-scrollbar-track { background: #f1f1f1; border-left: 1px solid #e5e7eb; }
+    .data-body::-webkit-scrollbar-thumb { background: #888; border-radius: 6px; border: 3px solid #f1f1f1; }
 
     /* Summary Bar */
     .summary-bar {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 24px;
+      margin-bottom: 28px;
       font-size: 0.9rem;
+      color: #4b5563;
     }
     .stat-badge {
-      padding: 4px 10px;
+      padding: 4px 12px;
       border-radius: 4px;
       font-weight: 600;
       font-size: 0.8rem;
+      border: 1px solid transparent;
     }
-    .stat-badge.inc { background-color: #fee2e2; color: #dc2626; }
-    .stat-badge.dec { background-color: #d1fae5; color: #059669; }
+    .stat-badge.inc { background-color: #fee2e2; color: #dc2626; border-color: #fecaca; }
+    .stat-badge.dec { background-color: #ccfbf1; color: #0d9488; border-color: #99f6e4; }
 
-    /* Table Styles */
-    .rate-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .rate-table th {
-      text-transform: uppercase;
-      font-size: 0.75rem;
+    /* Section Title */
+    .section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
       color: #6b7280;
       letter-spacing: 1px;
-      padding-bottom: 12px;
-      border-bottom: 2px solid #e5e7eb;
-      font-weight: 600;
-      text-align: left;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .rate-table td {
-      padding: 16px 0;
-      border-bottom: 1px solid #e5e7eb;
-      vertical-align: middle;
-      font-size: 0.9rem;
-    }
+    .section-title::before { content: ''; display: inline-block; width: 4px; height: 16px; background-color: #dc2626; border-radius: 2px; }
+
+    /* Table Styles */
+    .rate-table { width: 100%; border-collapse: collapse; }
+    .rate-table th { text-transform: uppercase; font-size: 0.75rem; color: #6b7280; letter-spacing: 1px; padding-bottom: 12px; border-bottom: 1px solid #d1d5db; font-weight: 600; text-align: left; }
+    .rate-table td { padding: 18px 0; border-bottom: 1px solid #e5e7eb; vertical-align: top; font-size: 0.9rem; }
     
-    .field-name { font-weight: 600; color: #0f172a; text-decoration: underline; text-decoration-color: #0ea5e9; text-decoration-thickness: 2px; }
+    .field-name { font-weight: 600; color: #111827; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+    .ul-blue { text-decoration-color: #3b82f6; }
+    .ul-green { text-decoration-color: #10b981; }
+    .ul-cyan { text-decoration-color: #06b6d4; }
+    .ul-red { text-decoration-color: #ef4444; }
+    .ul-purple { text-decoration-color: #8b5cf6; }
+
     .rate-old { color: #9ca3af; text-decoration: line-through; display: block; margin-bottom: 2px; }
     .rate-new { font-weight: 700; color: #111827; display: block; margin-bottom: 2px; }
-    .unit { font-size: 0.75rem; color: #6b7280; }
+    .unit { font-size: 0.75rem; color: #9ca3af; font-family: monospace; }
     
     .delta.up { color: #dc2626; font-weight: 600; }
-    .delta.down { color: #059669; font-weight: 600; }
+    .delta.down { color: #0d9488; font-weight: 600; }
     .delta.neutral { color: #9ca3af; }
     
-    .ai-note { color: #4b5563; }
+    .ai-note { color: #6b7280; font-size: 0.85rem; }
     .ai-note.flagged { color: #dc2626; font-weight: 600; }
 
     /* Sticky Footer */
@@ -190,6 +216,16 @@
       align-items: center;
       box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
     }
+    
+    .btn-outline-secondary { color: #374151; border-color: #d1d5db; }
+    .btn-outline-secondary:hover { background-color: #f3f4f6; color: #111827; }
+    .btn-danger-custom { background-color: #dc2626; color: white; border: none; }
+    .btn-danger-custom:hover { background-color: #b91c1c; color: white; }
+
+    /* Helper class to prevent iframes from stealing mouse events during drag */
+    .dragging iframes-disabled iframe {
+      pointer-events: none !important;
+    }
   </style>
 </head>
 <body>
@@ -197,158 +233,172 @@
   <div class="split-layout">
     
     <!-- LEFT PANE: Document Viewers -->
-    <div class="pane-left">
-      <!-- Proposed Document -->
-      <div class="doc-viewer doc-viewer-top">
+    <div class="pane-left" id="pane-left">
+      
+      <!-- Proposed Document (Top) -->
+      <div class="doc-viewer" id="viewer-top">
         <div class="doc-header proposed">
-          <div><span class="text-danger">↑</span> WhatsApp Image 2026-07-18 at 2.54.41 PM.pdf</div> <!-- Replace with {{ document.filename }} later -->
+          <div class="d-flex align-items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <span>{{ document.filename }}</span>
+          </div>
           <div class="badge-status badge-proposed">PROPOSED</div>
         </div>
-        <div class="paper-mockup">
-          <div class="text-center text-muted small">
-            [ PDF Viewer Placeholder ]<br>
-            <!-- You will likely integrate a library like PDF.js or an iframe here later -->
-          </div>
-        </div>
+        <!-- Injected uploaded document rendering -->
+        <iframe src="{{ url_for('static', filename=document.file_key) }}" width="100%" height="100%" style="border:none;"></iframe>
       </div>
 
-      <!-- Current Document -->
-      <div class="doc-viewer">
+      <!-- Resizer / Splitter Handle -->
+      <div class="resizer" id="resizer"></div>
+
+      <!-- Current Document (Bottom) -->
+      <div class="doc-viewer" id="viewer-bottom">
         <div class="doc-header on-file">
-          <div><span class="text-success">≡</span> Current on file <span class="text-muted ms-2">IOT-2024-00112</span></div>
+          <div class="d-flex align-items-center gap-2">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+             <span>Current on file <span class="text-muted ms-2 fw-normal">IOT-2024-00112</span></span>
+          </div>
           <div class="badge-status badge-onfile">ON FILE</div>
         </div>
-        <div class="paper-mockup">
-           <div class="text-center text-muted small">
-            [ PDF Viewer Placeholder ]
+        <!-- Real implementation iframe pointing to your DB -->
+        {% if current_doc %}
+          <iframe src="{{ url_for('static', filename=current_doc.file_key) }}" width="100%" height="100%" style="border:none;"></iframe>
+        {% else %}
+          <div class="d-flex h-100 justify-content-center align-items-center text-muted">
+            No existing document on file.
           </div>
-        </div>
+        {% endif %}
       </div>
     </div>
 
     <!-- RIGHT PANE: Extracted Data -->
     <div class="pane-right">
-      
       <!-- Header -->
       <div class="data-header">
         <div class="d-flex align-items-center gap-3">
-          <span class="text-danger fs-5">✨</span>
-          <h4 class="mb-0 fw-bold">Extracted Data</h4>
-          <span class="text-muted small">17 fields</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"></path></svg>
+          <h5 class="mb-0 fw-bold text-white">Extracted Data</h5>
+          <span class="text-secondary small fw-semibold">17 fields</span>
         </div>
         <div class="confidence-widget">
           <div class="circle-score">94</div>
           <div class="d-flex flex-column" style="line-height: 1.2;">
-            <span class="fw-bold" style="font-size: 0.8rem;">AI Confidence</span>
-            <span style="font-size: 0.7rem; color: #10b981;">High accuracy</span>
+            <span class="fw-bold text-dark" style="font-size: 0.8rem;">AI Confidence</span>
+            <span style="font-size: 0.75rem; color: #10b981;">High accuracy</span>
           </div>
         </div>
       </div>
 
       <!-- Body -->
-      <div class="data-body">
-        
         <!-- Summary Stats -->
         <div class="summary-bar">
-          <span class="fw-bold">9</span> of 17 fields changed
-          <span class="stat-badge inc">↑ 3 increased</span>
-          <span class="stat-badge dec">↓ 1 decreased</span>
+          <div><span class="fw-bold text-dark">{{ changed_count }}</span> of {{ total_fields }} fields changed</div>
+          {% if increased_count > 0 %}
+            <span class="stat-badge inc">↑ {{ increased_count }} increased</span>
+          {% endif %}
+          {% if decreased_count > 0 %}
+            <span class="stat-badge dec">↓ {{ decreased_count }} decreased</span>
+          {% endif %}
         </div>
 
-        <h6 class="text-danger fw-bold mb-4" style="letter-spacing: 1px;">| RATE FIELDS</h6>
+        <div class="section-title">RATE FIELDS</div>
 
         <!-- Data Table -->
         <table class="rate-table">
           <thead>
             <tr>
-              <th style="width: 20%;">FIELD</th>
-              <th style="width: 20%;">CURRENT RATE</th>
-              <th style="width: 20%;">NEW RATE</th>
+              <th style="width: 22%;">FIELD</th>
+              <th style="width: 18%;">CURRENT RATE</th>
+              <th style="width: 18%;">NEW RATE</th>
               <th style="width: 15%;">Δ</th>
-              <th style="width: 25%;">AI NOTE</th>
+              <th style="width: 27%;">AI NOTE</th>
             </tr>
           </thead>
           <tbody>
-            
-            <!-- ROW 1 -->
+            {% for rate in rates %}
             <tr>
-              <td><span class="field-name">SMS-MT Rate</span></td>
+              <td><span class="field-name {{ rate.color_class }}">{{ rate.field_name }}</span></td>
               <td>
-                <span class="rate-old">0.0182</span>
-                <span class="unit">EUR/msg</span>
+                {% if rate.current_rate != rate.new_rate %}
+                    <span class="rate-old">{{ rate.current_rate }}</span>
+                {% else %}
+                    <span class="rate-old" style="text-decoration:none;">{{ rate.current_rate }}</span>
+                {% endif %}
+                <span class="unit">{{ rate.unit }}</span>
               </td>
               <td>
-                <span class="rate-new">0.0205</span>
-                <span class="unit">EUR/msg</span>
+                <span class="rate-new">{{ rate.new_rate }}</span>
+                <span class="unit">{{ rate.unit }}</span>
               </td>
-              <td><span class="delta up">↑ 12.6%</span></td>
-              <td><span class="ai-note">Increase within IOT ceiling</span></td>
+              <td><span class="delta {{ rate.delta_class }}">{{ rate.delta_text }}</span></td>
+              <td><span class="ai-note {{ rate.ai_note_class }}">{{ rate.ai_note }}</span></td>
             </tr>
-
-            <!-- ROW 2 -->
-            <tr>
-              <td><span class="field-name" style="text-decoration-color: #10b981;">GPRS Data Rate</span></td>
-              <td>
-                <span class="rate-old" style="text-decoration:none;">0.0140</span>
-                <span class="unit">EUR/MB</span>
-              </td>
-              <td>
-                <span class="rate-new">0.0140</span>
-                <span class="unit">EUR/MB</span>
-              </td>
-              <td><span class="delta neutral">— 0.0%</span></td>
-              <td><span class="ai-note">Unchanged</span></td>
-            </tr>
-
-            <!-- ROW 3 -->
-            <tr>
-              <td><span class="field-name">Voice MOC Rate</span></td>
-              <td>
-                <span class="rate-old">0.0075</span>
-                <span class="unit">EUR/min</span>
-              </td>
-              <td>
-                <span class="rate-new">0.0068</span>
-                <span class="unit">EUR/min</span>
-              </td>
-              <td><span class="delta down">↓ 9.3%</span></td>
-              <td><span class="ai-note">Decrease — promotional rate</span></td>
-            </tr>
-
-            <!-- ROW 4 -->
-            <tr>
-              <td><span class="field-name" style="text-decoration-color: #dc2626;">Voice MTC Rate</span></td>
-              <td>
-                <span class="rate-old">0.0032</span>
-                <span class="unit">EUR/min</span>
-              </td>
-              <td>
-                <span class="rate-new">0.0041</span>
-                <span class="unit">EUR/min</span>
-              </td>
-              <td><span class="delta up">↑ 28.1%</span></td>
-              <td><span class="ai-note flagged">Increase — flagged for review</span></td>
-            </tr>
-
+            {% endfor %}
           </tbody>
         </table>
-      </div>
 
       <!-- Sticky Footer -->
       <div class="sticky-footer">
-        <a href="#" class="btn btn-light border fw-semibold text-muted px-4 py-2">&lt; Back</a>
-        
+        <button class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back</button>
         <span class="text-muted small">Click any value to edit before accepting.</span>
-        
-        <div class="d-flex gap-2">
-          <button class="btn btn-light border fw-semibold text-dark px-4 py-2">✕ Reject</button>
-          <button class="btn btn-danger fw-semibold px-4 py-2">✓ Accept & Send Report</button>
+        <div class="d-flex gap-3">
+          <button class="btn btn-outline-secondary fw-semibold px-4 py-2">✕ Reject</button>
+          <button class="btn btn-danger-custom fw-semibold px-4 py-2">✓ Accept & Send Report</button>
         </div>
       </div>
-
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Script for Drag-to-Resize Logic -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const resizer = document.getElementById('resizer');
+      const paneLeft = document.getElementById('pane-left');
+      const viewerTop = document.getElementById('viewer-top');
+      const viewerBottom = document.getElementById('viewer-bottom');
+      
+      let y = 0;
+      let topViewerHeight = 0;
+
+      const mouseDownHandler = function (e) {
+        y = e.clientY;
+        topViewerHeight = viewerTop.getBoundingClientRect().height;
+
+        // Prevent iframes from interfering with the mouse dragging events
+        paneLeft.style.pointerEvents = 'none';
+        document.body.style.cursor = 'ns-resize';
+
+        document.addEventListener('mousemove', mouseMoveHandler);
+        document.addEventListener('mouseup', mouseUpHandler);
+      };
+
+      const mouseMoveHandler = function (e) {
+        // Calculate how far the mouse has moved
+        const dy = e.clientY - y;
+        
+        // Calculate new percentage height for the top viewer based on movement
+        const newTopHeight = ((topViewerHeight + dy) * 100) / paneLeft.getBoundingClientRect().height;
+        
+        // Ensure the viewers don't collapse entirely (limit between 10% and 90%)
+        if(newTopHeight > 10 && newTopHeight < 90) {
+          viewerTop.style.flex = `0 0 ${newTopHeight}%`;
+          viewerBottom.style.flex = `1 1 0%`; // allow bottom to take remaining space
+        }
+      };
+
+      const mouseUpHandler = function () {
+        // Re-enable interactions for iframes
+        paneLeft.style.pointerEvents = 'auto';
+        document.body.style.cursor = 'default';
+
+        document.removeEventListener('mousemove', mouseMoveHandler);
+        document.removeEventListener('mouseup', mouseUpHandler);
+      };
+
+      resizer.addEventListener('mousedown', mouseDownHandler);
+    });
+  </script>
 </body>
 </html>
