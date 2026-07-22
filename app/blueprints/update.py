@@ -6,7 +6,9 @@ from ..extensions import db
 from ..models.document import Document
 from ..services.storage import save_upload
 from ..tasks.process_pdf import process_pdf 
-from ..models.agreement import AgmtHeaderStg, AgmtModelsStg, AgmtMdlNormalStg
+from ..models.agreement import AgmtHeaderStg, AgmtModelsStg, AgmtMdlNormalStg, AgmtCommitment
+from datetime import date
+from sqlalchemy import text
 
 update_bp = Blueprint("update", __name__)
 
@@ -99,162 +101,118 @@ def get_status(doc_id):
         "error_message": getattr(doc, 'error_message', None)
     })
 
+# -------------------------------------------------------------------
+# THE EXTRACTED DATA UI ROUTE
+# -------------------------------------------------------------------
 @update_bp.route("/update/extracted/<int:doc_id>", methods=["GET"])
 @login_required
 def view_extracted(doc_id):
     doc = Document.query.get_or_404(doc_id)
+
     
+    
+    # Dummy doc for the iframe
     class DummyDoc:
         file_key = "pdfs/dummy.pdf" 
     existing_doc = DummyDoc()
 
-    # --- 1. Query the database ---
-    # We retrieve the current active agreement and the new proposed one we seeded
-    current_rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID="AGMT_CURRENT_001").all()
-    proposed_rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID="AGMT_PROPOSED_001").all()
-    
-    # Map the proposed rates into a dictionary keyed by REC_TYPE (e.g., "SMS-MT Rate") 
-    # so we can easily match them to the current rates.
-    proposed_map = {r.REC_TYPE: r for r in proposed_rates}
+    # Fetch all the connected data from the database
+    agmt_id = "AGMT_EXTRACT_001"
+    header = AgmtHeaderStg.query.filter_by(AGMT_ID=agmt_id).first()
+    models = AgmtModelsStg.query.filter_by(AGMT_ID=agmt_id).all()
+    rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID=agmt_id).all()
+    commitments = AgmtCommitment.query.filter_by(AGMT_ID=agmt_id).all()
 
-    rate_comparisons = []
-    colors = ["ul-blue", "ul-green", "ul-cyan", "ul-red", "ul-purple"]
-    
-    # Helper dictionary to format UI units nicely based on the REC_TYPE
-    unit_map = {
-        "SMS-MT Rate": "msg",
-        "GPRS Data Rate": "MB",
-        "Voice MOC Rate": "min",
-        "Voice MTC Rate": "min",
-        "LTE Data Rate": "MB"
-    }
+    # Calculate total fields dynamically based on the records found
+    total_fields = 0
+    if header:
+        total_fields += 6 # 6 columns in the header table
+    total_fields += len(models) * 3 # 3 columns in the models table
+    total_fields += len(rates) * 4 # 4 columns in the rates table
+    total_fields += len(commitments) * 4 # 4 columns in the commitments table
 
-    # --- 2. Process and compare the data dynamically ---
-    for idx, c_rate in enumerate(current_rates):
-        p_rate = proposed_map.get(c_rate.REC_TYPE)
-        if not p_rate:
-            continue
-            
-        # Cast Decimal types from the DB to floats for math
-        old_val = float(c_rate.CHARGE_FIELD) if c_rate.CHARGE_FIELD else 0.0
-        new_val = float(p_rate.CHARGE_FIELD) if p_rate.CHARGE_FIELD else 0.0
-        
-        # Calculate Percentage Delta
-        if old_val > 0 and old_val != new_val:
-            delta_pct = abs((new_val - old_val) / old_val) * 100
-            delta_text = f"↑ {delta_pct:.1f}%" if new_val > old_val else f"↓ {delta_pct:.1f}%"
-            delta_class = "up" if new_val > old_val else "down"
-        else:
-            delta_text = "— 0.0%"
-            delta_class = "neutral"
-            
-        # Dynamically generate AI notes based on math
-        ai_note = "Unchanged"
-        ai_note_class = ""
-        
-        if delta_class == "up":
-            if delta_pct > 25.0:
-                ai_note = "Increase — flagged for review"
-                ai_note_class = "flagged"
-            else:
-                ai_note = "Increase within IOT ceiling"
-        elif delta_class == "down":
-            ai_note = "Decrease — promotional rate"
-
-        # Determine the display unit (e.g., EUR/MB)
-        base_unit = unit_map.get(c_rate.REC_TYPE, "unit")
-        display_unit = f"{c_rate.RATE_CURRENCY}/{base_unit}"
-
-        # Append to our final list for Jinja
-        rate_comparisons.append({
-            "field_name": c_rate.REC_TYPE,
-            "color_class": colors[idx % len(colors)],
-            "current_rate": f"{old_val:.4f}",
-            "new_rate": f"{new_val:.4f}",
-            "unit": display_unit,
-            "delta_text": delta_text,
-            "delta_class": delta_class,
-            "ai_note": ai_note,
-            "ai_note_class": ai_note_class
-        })
-
-    # --- 3. Calculate dynamic summary stats for the top bar ---
-    changed_count = sum(1 for r in rate_comparisons if r["delta_class"] != "neutral")
-    increased_count = sum(1 for r in rate_comparisons if r["delta_class"] == "up")
-    decreased_count = sum(1 for r in rate_comparisons if r["delta_class"] == "down")
+    confidence_score = 94 # Placeholder for actual confidence score logic
 
     return render_template(
         "extracted.html", 
         document=doc, 
         current_doc=existing_doc,
-        rates=rate_comparisons,
-        total_fields=len(rate_comparisons),
-        changed_count=changed_count,
-        increased_count=increased_count,
-        decreased_count=decreased_count
+        header=header,
+        models=models,
+        rates=rates,
+        commitments=commitments,
+        total_fields=total_fields,          # Pass the new total
+        confidence_score=confidence_score
     )
 
 # -------------------------------------------------------------------
-# TEMP: DATABASE SEEDING ROUTE (Run this once)
+# DATABASE SEEDING ROUTE (Run this once to populate all tables)
 # -------------------------------------------------------------------
 @update_bp.route("/update/seed", methods=["GET"])
 def seed_dummy_data():
-    # Check if data already exists to prevent duplicate entries
-    if AgmtHeaderStg.query.filter_by(AGMT_ID="AGMT_CURRENT_001").first():
-        return "Database already seeded! You can now visit the extracted view."
+    # 1. Fix the precision issue on CHARGE_FIELD just in case
+    db.session.execute(text('ALTER TABLE "AGMT_MDL_NORMAL_STG" ALTER COLUMN "CHARGE_FIELD" TYPE NUMERIC(18,4);'))
+    db.session.commit()
 
-    # 1. Create the 'Current' and 'Proposed' Agreement Headers
-    agmt_current = AgmtHeaderStg()
-    agmt_current.AGMT_ID = "AGMT_CURRENT_001"
-    agmt_current.SENDER = "Operator A"
-    agmt_current.RP = "Operator B"
-    agmt_current.AGMT_STATUS = "ACTIVE"
+    # 2. Wipe existing data to avoid conflicts
+    AgmtCommitment.query.delete()
+    AgmtMdlNormalStg.query.delete()
+    AgmtModelsStg.query.delete()
+    AgmtHeaderStg.query.delete()
+    db.session.commit()
 
-    agmt_proposed = AgmtHeaderStg()
-    agmt_proposed.AGMT_ID = "AGMT_PROPOSED_001"
-    agmt_proposed.SENDER = "Operator A"
-    agmt_proposed.RP = "Operator B"
-    agmt_proposed.AGMT_STATUS = "PENDING"
-    
-    # 2. Create the Rate Models for them
-    model_current = AgmtModelsStg()
-    model_current.MODEL_SEQ = 1
-    model_current.AGMT_ID = "AGMT_CURRENT_001"
-    model_current.MODEL_TYPE = "STANDARD"
+    # 3. Seed AGMT_HEADER_STG
+    header = AgmtHeaderStg()
+    header.AGMT_ID = "AGMT_EXTRACT_001"
+    header.SENDER = "Operator A"
+    header.RP = "Operator B"
+    header.AGMT_STATUS = "PENDING"
+    header.START_DATE = date(2026, 1, 1)
+    header.END_DATE = date(2026, 12, 31)
+    header.CURRENCY_CODE = "EUR"
+    header.REMARKS = "Extracted by AI. Pending review."
+    db.session.add(header)
 
-    model_proposed = AgmtModelsStg()
-    model_proposed.MODEL_SEQ = 2
-    model_proposed.AGMT_ID = "AGMT_PROPOSED_001"
-    model_proposed.MODEL_TYPE = "PROPOSED"
+    # 4. Seed AGMT_MODELS_STG
+    model = AgmtModelsStg()
+    model.MODEL_SEQ = 1
+    model.AGMT_ID = "AGMT_EXTRACT_001"
+    model.MODEL_TYPE = "STANDARD"
+    model.MODEL_NAME = "Standard Data & Voice"
+    db.session.add(model)
 
-    db.session.add_all([agmt_current, agmt_proposed, model_current, model_proposed])
+    # 5. Seed AGMT_MDL_NORMAL_STG (The Rates)
+    rates = []
+    for rec_type, charge_field in [
+        ("SMS-MT Rate", 0.0205),
+        ("GPRS Data Rate", 0.0140),
+        ("Voice MOC Rate", 0.0068),
+    ]:
+        rate = AgmtMdlNormalStg()
+        rate.AGMT_ID = "AGMT_EXTRACT_001"
+        rate.MODEL_SEQ = 1
+        rate.REC_TYPE = rec_type
+        rate.RATE_CURRENCY = "EUR"
+        rate.CHARGE_FIELD = charge_field
+        rates.append(rate)
+    db.session.add_all(rates)
 
-    # 3. Insert the normal rate data rows (REC_TYPE, Current Value, New Value)
-    sample_rates = [
-        ("SMS-MT Rate", 0.0182, 0.0205, "EUR"),
-        ("GPRS Data Rate", 0.0140, 0.0140, "EUR"),
-        ("Voice MOC Rate", 0.0075, 0.0068, "EUR"),
-        ("Voice MTC Rate", 0.0032, 0.0041, "EUR"),
-        ("LTE Data Rate", 0.0210, 0.0210, "EUR")
+    # 6. Seed AGMT_COMMITMENT (The Commitments)
+    commitments = [
+        AgmtCommitment(),
+        AgmtCommitment()
     ]
-
-    for rec_type, cur_val, new_val, curr in sample_rates:
-        # Link current rate to Current Agreement
-        rate_cur = AgmtMdlNormalStg()
-        rate_cur.AGMT_ID = "AGMT_CURRENT_001"
-        rate_cur.MODEL_SEQ = 1
-        rate_cur.REC_TYPE = rec_type
-        rate_cur.CHARGE_FIELD = cur_val
-        rate_cur.RATE_CURRENCY = curr
-        # Link proposed rate to Proposed Agreement
-        rate_prop = AgmtMdlNormalStg()
-        rate_prop.AGMT_ID = "AGMT_PROPOSED_001"
-        rate_prop.MODEL_SEQ = 2
-        rate_prop.REC_TYPE = rec_type
-        rate_prop.CHARGE_FIELD = new_val
-        rate_prop.RATE_CURRENCY = curr
-        
-        db.session.add_all([rate_cur, rate_prop])
+    commitments[0].AGMT_ID = "AGMT_EXTRACT_001"
+    commitments[0].COMMITMENT_NAME = "Inbound Data Vol"
+    commitments[0].COMMITMENT_TYPE = "Volume"
+    commitments[0].DIRECTION = "Inbound"
+    commitments[0].AMOUNT = 500000.00
+    commitments[1].AGMT_ID = "AGMT_EXTRACT_001"
+    commitments[1].COMMITMENT_NAME = "Outbound Spend"
+    commitments[1].COMMITMENT_TYPE = "Financial"
+    commitments[1].DIRECTION = "Outbound"
+    commitments[1].AMOUNT = 15000.00
+    db.session.add_all(commitments)
 
     db.session.commit()
-    return "Successfully seeded the database! You can now view the extracted data."
+    return "Successfully seeded Header, Models, Rates, and Commitments! You can now view the extracted data."

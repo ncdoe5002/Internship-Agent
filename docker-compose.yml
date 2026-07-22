@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: edch_adivisor
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./app/static/pdfs:/app/app/static/pdfs
     ports:
       - "5432:5432"
 
@@ -36,7 +37,7 @@ services:
     restart: unless-stopped
     command: celery -A celery_worker.celery worker --loglevel=info --concurrency=2
     volumes:
-      - ./uploads:/app/uploads
+      - ./app/static/pdfs:/app/app/static/pdfs
     env_file:
       - .env
     depends_on:

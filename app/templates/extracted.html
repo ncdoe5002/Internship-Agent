@@ -226,6 +226,76 @@
     .dragging iframes-disabled iframe {
       pointer-events: none !important;
     }
+    /* Basic styling to make the tables look clean */
+    .db-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2rem;
+        font-size: 0.9rem;
+    }
+    .db-table th {
+        text-align: left;
+        border-bottom: 2px solid #ddd;
+        padding: 8px;
+        color: #555;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+    }
+    .db-table td {
+        border-bottom: 1px solid #eee;
+        padding: 10px 8px;
+        color: #333;
+    }
+    .section-title {
+        font-weight: bold;
+        color: #d32f2f;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+    }
+
+    /* VERTICAL RESIZER */
+    .resizer-vertical {
+      width: 8px;
+      background-color: #111;
+      cursor: ew-resize; /* Left-Right resize cursor */
+      z-index: 50;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background-color 0.2s ease;
+    }
+    .resizer-vertical:hover, .resizer-vertical:active {
+      background-color: #ef4444;
+    }
+    .resizer-vertical::after {
+      content: "";
+      height: 40px;
+      width: 2px;
+      background-color: #6b7280;
+      border-radius: 2px;
+    }
+
+    /* SCROLLING FOR TABLES */
+    .data-body {
+      flex: 1;
+      overflow-y: auto; /* This creates the scroll wheel! */
+      padding: 24px;
+      padding-bottom: 100px; /* Keeps tables from hiding behind the footer */
+    }
+
+    /* EDITABLE CELL STYLING */
+    .editable-cell {
+      transition: background-color 0.2s, outline 0.2s;
+      border-radius: 4px;
+    }
+    .editable-cell:hover, .editable-cell:focus {
+      background-color: #fef08a; /* Light yellow to indicate editable */
+      outline: 2px dashed #ca8a04;
+      cursor: text;
+    }
   </style>
 </head>
 <body>
@@ -270,73 +340,148 @@
         {% endif %}
       </div>
     </div>
-
+    <div class="resizer-vertical" id="resizer-vertical"></div>
     <!-- RIGHT PANE: Extracted Data -->
-    <div class="pane-right">
+    <div class="pane-right" id="pane-right">
       <!-- Header -->
       <div class="data-header">
         <div class="d-flex align-items-center gap-3">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"></path></svg>
           <h5 class="mb-0 fw-bold text-white">Extracted Data</h5>
-          <span class="text-secondary small fw-semibold">17 fields</span>
+          <!-- DYNAMIC FIELD COUNT -->
+          <span class="text-secondary small fw-semibold">{{ total_fields }} fields</span>
         </div>
+        
         <div class="confidence-widget">
-          <div class="circle-score">94</div>
+          <!-- DYNAMIC COLOR LOGIC -->
+          {% set conf_color = '#10b981' %} <!-- Default Green -->
+          {% set conf_label = 'High accuracy' %}
+          
+          {% if confidence_score < 75 %}
+            {% set conf_color = '#ef4444' %} <!-- Red for low -->
+            {% set conf_label = 'Review carefully' %}
+          {% elif confidence_score < 90 %}
+            {% set conf_color = '#f59e0b' %} <!-- Yellow for medium -->
+            {% set conf_label = 'Good accuracy' %}
+          {% endif %}
+          
+          <!-- DYNAMIC SCORE RING -->
+          <div class="circle-score" style="border-color: {{ conf_color }}; color: {{ conf_color }};" data-color="{{ conf_color }}">
+            {{ confidence_score }}
+          </div>
+          
           <div class="d-flex flex-column" style="line-height: 1.2;">
             <span class="fw-bold text-dark" style="font-size: 0.8rem;">AI Confidence</span>
-            <span style="font-size: 0.75rem; color: #10b981;">High accuracy</span>
+            <!-- DYNAMIC LABEL -->
+            <span style="font-size: 0.75rem; color: {{ conf_color }};">{{ conf_label }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Body -->
-        <!-- Summary Stats -->
-        <div class="summary-bar">
-          <div><span class="fw-bold text-dark">{{ changed_count }}</span> of {{ total_fields }} fields changed</div>
-          {% if increased_count > 0 %}
-            <span class="stat-badge inc">↑ {{ increased_count }} increased</span>
-          {% endif %}
-          {% if decreased_count > 0 %}
-            <span class="stat-badge dec">↓ {{ decreased_count }} decreased</span>
-          {% endif %}
-        </div>
+      <div class="data-body">
 
-        <div class="section-title">RATE FIELDS</div>
-
-        <!-- Data Table -->
-        <table class="rate-table">
-          <thead>
-            <tr>
-              <th style="width: 22%;">FIELD</th>
-              <th style="width: 18%;">CURRENT RATE</th>
-              <th style="width: 18%;">NEW RATE</th>
-              <th style="width: 15%;">Δ</th>
-              <th style="width: 27%;">AI NOTE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for rate in rates %}
-            <tr>
-              <td><span class="field-name {{ rate.color_class }}">{{ rate.field_name }}</span></td>
-              <td>
-                {% if rate.current_rate != rate.new_rate %}
-                    <span class="rate-old">{{ rate.current_rate }}</span>
+        <!-- 1. HEADER DATA TABLE -->
+        <div class="section-title">Agreement Header</div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Agreement ID</th>
+                    <th>Sender</th>
+                    <th>Receiving Partner</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if header %}
+                <tr>
+                    <td contenteditable="true" class="editable-cell"><strong>{{ header.AGMT_ID }}</strong></td>
+                    <td contenteditable="true" class="editable-cell">{{ header.SENDER }}</td>
+                    <td contenteditable="true" class="editable-cell">{{ header.RP }}</td>
+                    <td contenteditable="true" class="editable-cell">{{ header.START_DATE }}</td>
+                    <td contenteditable="true" class="editable-cell">{{ header.END_DATE }}</td>
+                    <td contenteditable="true" class="editable-cell">{{ header.AGMT_STATUS }}</td>
+                </tr>
                 {% else %}
-                    <span class="rate-old" style="text-decoration:none;">{{ rate.current_rate }}</span>
+                <tr><td colspan="6">No header data found.</td></tr>
                 {% endif %}
-                <span class="unit">{{ rate.unit }}</span>
-              </td>
-              <td>
-                <span class="rate-new">{{ rate.new_rate }}</span>
-                <span class="unit">{{ rate.unit }}</span>
-              </td>
-              <td><span class="delta {{ rate.delta_class }}">{{ rate.delta_text }}</span></td>
-              <td><span class="ai-note {{ rate.ai_note_class }}">{{ rate.ai_note }}</span></td>
-            </tr>
-            {% endfor %}
-          </tbody>
+            </tbody>
         </table>
 
+        <!-- 2. MODELS DATA TABLE -->
+        <div class="section-title">Rate Models</div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Model Seq</th>
+                    <th>Model Type</th>
+                    <th>Model Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for model in models %}
+                <tr>
+                    <td contenteditable="true" class="editable-cell">{{ model.MODEL_SEQ }}</td>
+                    <td contenteditable="true" class="editable-cell">{{ model.MODEL_TYPE }}</td>
+                    <td contenteditable="true" class="editable-cell">{{ model.MODEL_NAME }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3">No model data found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- 3. RATES DATA TABLE -->
+        <div class="section-title">Normal Rates</div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Model Seq</th>
+                    <th>Record Type</th>
+                    <th>Charge Field</th>
+                    <th>Currency</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rate in rates %}
+                <tr>
+                    <td contenteditable="true" class="editable-cell">{{ rate.MODEL_SEQ }}</td>
+                    <td contenteditable="true" class="editable-cell">{{ rate.REC_TYPE }}</td>
+                    <td contenteditable="true" class="editable-cell"><strong>{{ rate.CHARGE_FIELD }}</strong></td>
+                    <td contenteditable="true" class="editable-cell">{{ rate.RATE_CURRENCY }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4">No rate data found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- 4. COMMITMENTS DATA TABLE -->
+        <div class="section-title">Commitments</div>
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Direction</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for commitment in commitments %}
+                <tr>
+                    <td contenteditable="true" class="editable-cell">{{ commitment.COMMITMENT_NAME }}</td>
+                    <td contenteditable="true" class="editable-cell">{{ commitment.COMMITMENT_TYPE }}</td>
+                    <td contenteditable="true" class="editable-cell">{{ commitment.DIRECTION }}</td>
+                    <td contenteditable="true" class="editable-cell"><strong>{{ commitment.AMOUNT }}</strong></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4">No commitment data found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+      </div>
       <!-- Sticky Footer -->
       <div class="sticky-footer">
         <button class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back</button>
@@ -354,6 +499,8 @@
   <!-- Script for Drag-to-Resize Logic -->
   <script>
     document.addEventListener("DOMContentLoaded", function () {
+      
+      // --- UP/DOWN RESIZER (TOP/BOTTOM) LOGIC ---
       const resizer = document.getElementById('resizer');
       const paneLeft = document.getElementById('pane-left');
       const viewerTop = document.getElementById('viewer-top');
@@ -366,7 +513,6 @@
         y = e.clientY;
         topViewerHeight = viewerTop.getBoundingClientRect().height;
 
-        // Prevent iframes from interfering with the mouse dragging events
         paneLeft.style.pointerEvents = 'none';
         document.body.style.cursor = 'ns-resize';
 
@@ -375,21 +521,16 @@
       };
 
       const mouseMoveHandler = function (e) {
-        // Calculate how far the mouse has moved
         const dy = e.clientY - y;
-        
-        // Calculate new percentage height for the top viewer based on movement
         const newTopHeight = ((topViewerHeight + dy) * 100) / paneLeft.getBoundingClientRect().height;
         
-        // Ensure the viewers don't collapse entirely (limit between 10% and 90%)
         if(newTopHeight > 10 && newTopHeight < 90) {
           viewerTop.style.flex = `0 0 ${newTopHeight}%`;
-          viewerBottom.style.flex = `1 1 0%`; // allow bottom to take remaining space
+          viewerBottom.style.flex = `1 1 0%`; 
         }
       };
 
       const mouseUpHandler = function () {
-        // Re-enable interactions for iframes
         paneLeft.style.pointerEvents = 'auto';
         document.body.style.cursor = 'default';
 
@@ -398,7 +539,49 @@
       };
 
       resizer.addEventListener('mousedown', mouseDownHandler);
-    });
+
+      // --- VERTICAL RESIZER (LEFT/RIGHT) LOGIC ---
+      const resizerVertical = document.getElementById('resizer-vertical');
+      const paneRight = document.getElementById('pane-right');
+      const splitContainer = document.querySelector('.split-layout');
+      
+      let x = 0;
+      let leftPaneWidth = 0;
+
+      const mouseDownHandlerVertical = function (e) {
+        x = e.clientX;
+        leftPaneWidth = paneLeft.getBoundingClientRect().width;
+
+        paneLeft.style.pointerEvents = 'none';
+        document.body.style.cursor = 'ew-resize';
+
+        document.addEventListener('mousemove', mouseMoveHandlerVertical);
+        document.addEventListener('mouseup', mouseUpHandlerVertical);
+      };
+
+      const mouseMoveHandlerVertical = function (e) {
+        const dx = e.clientX - x;
+        const containerWidth = splitContainer.getBoundingClientRect().width;
+        
+        const newLeftWidth = ((leftPaneWidth + dx) * 100) / containerWidth;
+        
+        if (newLeftWidth > 20 && newLeftWidth < 80) {
+          paneLeft.style.width = `${newLeftWidth}%`;
+          paneRight.style.width = `${100 - newLeftWidth}%`;
+        }
+      };
+
+      const mouseUpHandlerVertical = function () {
+        paneLeft.style.pointerEvents = 'auto';
+        document.body.style.cursor = 'default';
+
+        document.removeEventListener('mousemove', mouseMoveHandlerVertical);
+        document.removeEventListener('mouseup', mouseUpHandlerVertical);
+      };
+
+      resizerVertical.addEventListener('mousedown', mouseDownHandlerVertical);
+      
+    }); // <-- Notice how both resizers are now safely inside this closing tag!
   </script>
 </body>
 </html>
