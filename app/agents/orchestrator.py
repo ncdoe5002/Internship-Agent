@@ -139,13 +139,13 @@ class Orchestrator:
 
     def _normalize_category(self, category: str) -> str:
         """
-        Normalize category string for matching.
+        Normalize category string for matching by eliminating all the whitespaces etc.
 
         Args:
-            category: Raw category string
+            category: Raw category string.
 
         Returns:
-            Normalized category string
+            Normalized category string contains all lowercase, whitespaces etc.
         """
         if not category:
             return ""
@@ -375,15 +375,6 @@ class Orchestrator:
             Updated state with risk result or error
         """
         try:
-            if state.extraction_result is None:
-                logger.warning("Skipping risk assessment: extraction failed")
-                return {
-                    "risk_result": None,
-                    "risk_error": "Skipped due to extraction failure",
-                }
-
-            logger.info(f"Starting risk assessment for {state.input.partner_name}")
-
             # Convert extraction result to comparison rows for risk assessment
             comparison_rows = self._extract_comparison_rows(
                 state.extraction_result, state.input.baseline_data
@@ -391,9 +382,7 @@ class Orchestrator:
 
             # Use verification confidence if available, default to 95
             confidence = (
-                state.verification_result.confidence
-                if state.verification_result
-                else 95
+                state.verification_result.confidence if state.verification_result else 0
             )
 
             payload = RiskAgentInput(

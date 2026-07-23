@@ -1,10 +1,12 @@
 from typing import List
 from datetime import datetime
 
+
 class AgmtHeaderStg:
     """Represents the AGMT_HEADER_STG table structure[cite: 2]."""
+
     def __init__(
-        self, 
+        self,
         agmt_id: str,
         sender: str,
         rp: str,
@@ -59,7 +61,7 @@ class AgmtHeaderStg:
         is_m2m_applcbl: bool,
         agmt_verified: bool,
         agmt_verified_by: str,
-        agmt_verified_date: datetime
+        agmt_verified_date: datetime,
     ):
         self.agmt_id = agmt_id
         self.sender = sender
@@ -117,33 +119,31 @@ class AgmtHeaderStg:
         self.agmt_verified_by = agmt_verified_by
         self.agmt_verified_date = agmt_verified_date
 
+
 class AgmtModelsStg:
     """Represents the AGMT_MODELS_STG table structure[cite: 2]."""
-    def __init__(
-        self, 
-        model_seq: int, 
-        agmt_id: str, 
-        model_type: str, 
-        model_name: str
-    ):
+
+    def __init__(self, model_seq: int, agmt_id: str, model_type: str, model_name: str):
         self.model_seq = model_seq
         self.agmt_id = agmt_id
         self.model_type = model_type
         self.model_name = model_name
 
+
 class AgmtMdlNormalStg:
     """Represents the AGMT_MDL_NORMAL_STG table structure[cite: 2]."""
+
     def __init__(
-        self, 
-        agmt_id: str, 
-        model_seq: int, 
-        rec_type: str, 
-        zone_code: str, 
-        rate_currency: str, 
-        pra_rate_type: str, 
-        disc_rate_perc: float, 
-        charge_include_tax: bool, 
-        charge_field: str
+        self,
+        agmt_id: str,
+        model_seq: int,
+        rec_type: str,
+        zone_code: str,
+        rate_currency: str,
+        pra_rate_type: str,
+        disc_rate_perc: float,
+        charge_include_tax: bool,
+        charge_field: str,
     ):
         self.agmt_id = agmt_id
         self.model_seq = model_seq
@@ -155,18 +155,20 @@ class AgmtMdlNormalStg:
         self.charge_include_tax = charge_include_tax
         self.charge_field = charge_field
 
+
 class AgmtCommitment:
     """Represents the AGMT_COMMITMENT table structure[cite: 2]."""
+
     def __init__(
-        self, 
-        agmt_id: str, 
-        commitment_name: str, 
-        commitment_type: str, 
-        direction: str, 
-        amount: float, 
-        capture_rate_pct: float, 
-        party_from: str, 
-        party_to: str
+        self,
+        agmt_id: str,
+        commitment_name: str,
+        commitment_type: str,
+        direction: str,
+        amount: float,
+        capture_rate_pct: float,
+        party_from: str,
+        party_to: str,
     ):
         self.agmt_id = agmt_id
         self.commitment_name = commitment_name
@@ -177,14 +179,16 @@ class AgmtCommitment:
         self.party_from = party_from
         self.party_to = party_to
 
+
 class IOTAgreement:
     """A master container class to group related records for a single agreement."""
+
     def __init__(
-        self, 
-        header: AgmtHeaderStg, 
-        models: List[AgmtModelsStg], 
-        normal_models: List[AgmtMdlNormalStg], 
-        commitments: List[AgmtCommitment]
+        self,
+        header: AgmtHeaderStg,
+        models: List[AgmtModelsStg],
+        normal_models: List[AgmtMdlNormalStg],
+        commitments: List[AgmtCommitment],
     ):
         self.header = header
         self.models = models
