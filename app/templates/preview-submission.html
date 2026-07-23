@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submit to Database Preview</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f3f4f6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding-bottom: 80px; /* Space for sticky footer */
+    }
+
+    /* TOP HEADER (Matches the image) */
+    .top-bar {
+      background-color: #1e1e1e;
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #333;
+    }
+    .top-bar h5 {
+      margin: 0;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+    .top-bar .text-muted {
+      color: #9ca3af !important;
+      font-weight: 400;
+    }
+
+    /* PREVIEW CONTAINER */
+    .preview-container {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    
+    .note-section {
+      background-color: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .data-card {
+      background-color: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .data-card-header {
+      border-bottom: 1px solid #f3f4f6;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* TABLE STYLES (Carried over from extraction view) */
+    .db-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2.5rem;
+      font-size: 0.9rem;
+    }
+    .db-table th {
+      text-align: left;
+      border-bottom: 2px solid #e5e7eb;
+      padding: 10px 8px;
+      color: #6b7280;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .db-table td {
+      border-bottom: 1px solid #f3f4f6;
+      padding: 14px 8px;
+      color: #111827;
+    }
+    .section-title {
+      font-weight: 700;
+      color: #dc2626; /* Red matching the theme */
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::before { 
+      content: ''; 
+      display: inline-block; 
+      width: 4px; 
+      height: 14px; 
+      background-color: #dc2626; 
+      border-radius: 2px; 
+    }
+
+    /* STICKY FOOTER */
+    .sticky-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      padding: 16px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+      z-index: 100;
+    }
+    .btn-outline-secondary { color: #374151; border-color: #d1d5db; }
+    .btn-outline-secondary:hover { background-color: #f3f4f6; color: #111827; }
+    .btn-danger-custom { background-color: #dc2626; color: white; border: none; transition: background-color 0.2s; }
+    .btn-danger-custom:hover { background-color: #b91c1c; color: white; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Dark Header -->
+  <div class="top-bar">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+      <line x1="16" y1="13" x2="8" y2="13"></line>
+      <line x1="16" y1="17" x2="8" y2="17"></line>
+      <polyline points="10 9 9 9 8 9"></polyline>
+    </svg>
+    <h5>Submit Database Records <span class="text-muted ms-2">— Manager Review Queue</span></h5>
+  </div>
+
+  <!-- Main Content -->
+  <div class="preview-container">
+    
+    <!-- Optional Note for Manager -->
+    <div class="note-section">
+      <label for="managerNote" class="form-label fw-bold text-dark" style="font-size: 0.9rem;">Internal Note for Manager (Optional)</label>
+      <textarea class="form-control bg-light" id="managerNote" rows="2" placeholder="Add any specific context about these extracted rates..."></textarea>
+    </div>
+
+    <!-- Data Preview Card -->
+    <div class="data-card">
+      <div class="data-card-header">
+        <div>
+          <h4 class="mb-1 fw-bold text-dark">Extraction Summary</h4>
+          <div class="text-muted small">Generated on {{ date_today }} · Source: {{ document.filename }}</div>
+        </div>
+        <div class="badge bg-light border text-dark px-3 py-2 fs-6">
+          <span class="text-success fw-bold me-2">✓ Verified</span> Ready for DB
+        </div>
+      </div>
+
+      <!-- 1. HEADER DATA TABLE -->
+      <div class="section-title">Agreement Header (AGMT_HEADER_STG)</div>
+      <table class="db-table">
+          <thead>
+              <tr>
+                  <th>Agreement ID</th>
+                  <th>Sender</th>
+                  <th>Receiving Partner</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th>Status</th>
+              </tr>
+          </thead>
+          <tbody>
+              {% if header %}
+              <tr>
+                  <td><strong>{{ header.AGMT_ID }}</strong></td>
+                  <td>{{ header.SENDER }}</td>
+                  <td>{{ header.RP }}</td>
+                  <td>{{ header.START_DATE }}</td>
+                  <td>{{ header.END_DATE }}</td>
+                  <td><span class="badge bg-warning text-dark">PENDING_REVIEW</span></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="6">No header data found.</td></tr>
+              {% endif %}
+          </tbody>
+      </table>
+
+      <!-- 2. MODELS DATA TABLE -->
+      <div class="section-title">Rate Models (AGMT_MODELS_STG)</div>
+      <table class="db-table">
+          <thead>
+              <tr>
+                  <th>Model Seq</th>
+                  <th>Model Type</th>
+                  <th>Model Name</th>
+              </tr>
+          </thead>
+          <tbody>
+              {% for model in models %}
+              <tr>
+                  <td>{{ model.MODEL_SEQ }}</td>
+                  <td>{{ model.MODEL_TYPE }}</td>
+                  <td>{{ model.MODEL_NAME }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="3">No model data found.</td></tr>
+              {% endfor %}
+          </tbody>
+      </table>
+
+      <!-- 3. RATES DATA TABLE -->
+      <div class="section-title">Normal Rates (AGMT_MDL_NORMAL_STG)</div>
+      <table class="db-table">
+          <thead>
+              <tr>
+                  <th>Model Seq</th>
+                  <th>Record Type</th>
+                  <th>Charge Field</th>
+                  <th>Currency</th>
+              </tr>
+          </thead>
+          <tbody>
+              {% for rate in rates %}
+              <tr>
+                  <td>{{ rate.MODEL_SEQ }}</td>
+                  <td>{{ rate.REC_TYPE }}</td>
+                  <td><strong>{{ rate.CHARGE_FIELD }}</strong></td>
+                  <td>{{ rate.RATE_CURRENCY }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4">No rate data found.</td></tr>
+              {% endfor %}
+          </tbody>
+      </table>
+
+      <!-- 4. COMMITMENTS DATA TABLE -->
+      <div class="section-title">Commitments (AGMT_COMMITMENT)</div>
+      <table class="db-table">
+          <thead>
+              <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Direction</th>
+                  <th>Amount</th>
+              </tr>
+          </thead>
+          <tbody>
+              {% for commitment in commitments %}
+              <tr>
+                  <td>{{ commitment.COMMITMENT_NAME }}</td>
+                  <td>{{ commitment.COMMITMENT_TYPE }}</td>
+                  <td>{{ commitment.DIRECTION }}</td>
+                  <td><strong>{{ commitment.AMOUNT }}</strong></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4">No commitment data found.</td></tr>
+              {% endfor %}
+          </tbody>
+      </table>
+
+    </div>
+  </div>
+
+  <!-- Sticky Footer -->
+  <div class="sticky-footer">
+    <!-- Links back to the previous extraction edit page -->
+    <a href="#" class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back to Edits</a>
+    <div class="text-muted small">This data will be inserted into the PostgreSQL staging tables.</div>
+    
+    <form action="{{ url_for('submit_to_db_route_name') }}" method="POST" style="margin: 0;">
+      <!-- If you need to pass an ID to the backend, do it via hidden input -->
+      <input type="hidden" name="document_id" value="{{ document.id }}">
+      <button type="submit" class="btn btn-danger-custom fw-semibold px-4 py-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        Save to Database
+      </button>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
