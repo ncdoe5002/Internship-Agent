@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
+
 class AgmtHeaderStg:
     """Represents the AGMT_HEADER_STG table structure[cite: 2]."""
 
@@ -130,8 +131,11 @@ class AgmtModelsStg:
         self.agmt_id = agmt_id
         self.model_type = model_type
         self.model_name = model_name
+
+
 class AgmtHeaderStg(BaseModel):
     """Represents the AGMT_HEADER_STG table structure."""
+
     agmt_id: Optional[str] = Field(default=None, description="Agreement ID")
     sender: Optional[str] = None
     rp: Optional[str] = None
@@ -188,8 +192,10 @@ class AgmtHeaderStg(BaseModel):
     agmt_verified_by: Optional[str] = None
     agmt_verified_date: Optional[str] = None
 
+
 class AgmtModelsStg(BaseModel):
     """Represents the AGMT_MODELS_STG table structure."""
+
     model_seq: Optional[int] = None
     agmt_id: Optional[str] = None
     model_type: Optional[str] = None
@@ -246,9 +252,9 @@ class AgmtCommitment:
         self.party_to = party_to
 
 
-class IOTAgreement:
 class AgmtMdlNormalStg(BaseModel):
     """Represents the AGMT_MDL_NORMAL_STG table structure."""
+
     agmt_id: Optional[str] = None
     model_seq: Optional[int] = None
     rec_type: Optional[str] = None
@@ -259,8 +265,10 @@ class AgmtMdlNormalStg(BaseModel):
     charge_include_tax: Optional[bool] = None
     charge_field: Optional[str] = None
 
+
 class AgmtCommitment(BaseModel):
     """Represents the AGMT_COMMITMENT table structure."""
+
     agmt_id: Optional[str] = None
     commitment_name: Optional[str] = None
     commitment_type: Optional[str] = None
@@ -269,6 +277,7 @@ class AgmtCommitment(BaseModel):
     capture_rate_pct: Optional[float] = None
     party_from: Optional[str] = None
     party_to: Optional[str] = None
+
 
 class IOTAgreement(BaseModel):
     """A master container class to group related records for a single agreement."""
