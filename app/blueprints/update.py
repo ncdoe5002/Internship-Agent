@@ -325,6 +325,22 @@ def serve_signed_pdf(filename):
     upload_folder = os.path.join(current_app.root_path, 'static', 'pdfs')
     return send_from_directory(upload_folder, filename)
 
+
+@update_bp.route("/update/serve-pdf/<int:doc_id>")
+@login_required
+def serve_pdf(doc_id):
+    """Serves a document's file stored in `Document.file_key` by document id."""
+    doc = Document.query.get_or_404(doc_id)
+    # file_key is stored as relative path under static, e.g. 'pdfs/filename.pdf'
+    file_key = getattr(doc, 'file_key', None)
+    if not file_key:
+        flash("Document has no associated file.", "warning")
+        return redirect(url_for('dashboard.index'))
+
+    filename = os.path.basename(file_key)
+    upload_folder = os.path.join(current_app.root_path, 'static', 'pdfs')
+    return send_from_directory(upload_folder, filename)
+
 @update_bp.route("/update/publish-to-production", methods=["POST"])
 @login_required
 def publish_to_production():

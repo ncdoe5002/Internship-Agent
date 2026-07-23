@@ -69,7 +69,7 @@
                         <a href="{{ url_for('update.update_operator', operator_id=operator.id, operator_name=operator.name) }}" class="text-decoration-none edch-red fw-bold" style="font-size: 0.85rem;">
                             Start update <i class="bi bi-chevron-right small"></i>
                         </a>
-                        <a href="/contract/{{ operator.id }}" class="text-decoration-none edch-red fw-bold opacity-75" style="font-size: 0.85rem;">
+                        <a href="{{ url_for('dashboard.view_contract', contract_id=operator.id) }}" class="text-decoration-none edch-red fw-bold opacity-75" style="font-size: 0.85rem;">
                             View contract <i class="bi bi-chevron-right small"></i>
                         </a>
                     </div>

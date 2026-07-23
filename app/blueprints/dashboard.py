@@ -42,3 +42,30 @@ def add_mno():
     # Redirect back to the dashboard to see the updated list
     return redirect(url_for("dashboard.index"))
 
+
+# -------------------------------------------------------------------
+# NEW ROUTE: VIEW CONTRACT (SPLIT SCREEN)
+# -------------------------------------------------------------------
+@dashboard_bp.route("/dashboard/view_contract/<int:contract_id>", methods=["GET"])
+@login_required
+def view_contract(contract_id):
+    """
+    Renders a split-screen view with tabular data on the left 
+    and a PDF document viewer on the right.
+    """
+    
+    # MOCK DATA: Replace this with your actual database query to fetch contract details
+    # e.g., contract_data = AgmtMdlNormalStg.query.filter_by(document_id=contract_id).all()
+    contract_data = [
+        {"service": "Voice Call (MO)", "destination": "Zone 1", "rate": "0.15", "currency": "USD"},
+        {"service": "Voice Call (MT)", "destination": "Zone 1", "rate": "0.05", "currency": "USD"},
+        {"service": "SMS (MO)", "destination": "Global", "rate": "0.02", "currency": "USD"},
+        {"service": "Data", "destination": "Local", "rate": "1.50", "currency": "USD/GB"}
+    ]
+    
+    return render_template(
+        "view_contract.html",
+        contract_id=contract_id,
+        contract_data=contract_data
+    )
+
