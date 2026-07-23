@@ -76,7 +76,7 @@
   <h1>Upload the signed manager report</h1>
 
   <!-- THE FORM: Ensure your Flask route matches the action here -->
-  <form id="uploadForm" method="POST" action="{{ url_for('upload_signed_report') }}" enctype="multipart/form-data">
+  <form id="uploadForm" method="POST" action="{{ url_for('update.upload_signed_report', doc_id=document_id) }}" enctype="multipart/form-data">
     <div class="upload-box" id="dropZone" onclick="document.getElementById('fileInput').click()">
       <div class="upload-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

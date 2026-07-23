@@ -484,11 +484,17 @@
       </div>
       <!-- Sticky Footer -->
       <div class="sticky-footer">
-        <button class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back</button>
+        <!-- Navigates to the previous screen in the browser history -->
+        <button onclick="history.back()" class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back</button>
+        
         <span class="text-muted small">Click any value to edit before accepting.</span>
+        
         <div class="d-flex gap-3">
-          <button class="btn btn-outline-secondary fw-semibold px-4 py-2">✕ Reject</button>
-          <button class="btn btn-danger-custom fw-semibold px-4 py-2">✓ Accept & Send Report</button>
+          <!-- Routes back to the main upload dashboard (using operator_id=1 as a default) -->
+          <a href="{{ url_for('update.update_operator', operator_id=1) }}" class="btn btn-outline-secondary fw-semibold px-4 py-2">✕ Reject</a>
+          
+          <!-- Routes to the Manager Preview page, passing the current document's ID -->
+          <a href="{{ url_for('update.preview_submission', doc_id=document.id) }}" class="btn btn-danger-custom fw-semibold px-4 py-2 text-decoration-none">✓ Accept & Send Report</a>
         </div>
       </div>
     </div>

@@ -196,18 +196,18 @@
         <span class="badge bg-success">Verified Signature</span>
       </div>
       <!-- Embeds the signed PDF uploaded in the previous step -->
-      <embed class="pdf-viewer" src="{{ url_for('serve_signed_pdf', filename=signed_filename) }}" type="application/pdf">
+      <embed class="pdf-viewer" src="{{ url_for('update.serve_signed_pdf', filename=signed_filename) }}" type="application/pdf">
     </div>
 
   </div>
 
   <!-- Sticky Footer -->
   <div class="sticky-footer">
-    <a href="{{ url_for('upload_signed_report_route') }}" class="btn btn-outline-secondary fw-semibold px-4 py-2">Re-upload File</a>
+    <a href="{{ url_for('update.upload_signed_report_form', doc_id=document.id) }}" class="btn btn-outline-secondary fw-semibold px-4 py-2">Re-upload File</a>
     
     <div class="text-muted small">By publishing, you confirm the database tables map correctly to the signed document.</div>
     
-    <form action="{{ url_for('publish_to_production') }}" method="POST" style="margin: 0;">
+    <form action="{{ url_for('update.publish_to_production') }}" method="POST" style="margin: 0;">
       <input type="hidden" name="document_id" value="{{ document.id }}">
       <button type="submit" class="btn btn-danger-custom fw-bold rounded-pill">
         Publish to Database

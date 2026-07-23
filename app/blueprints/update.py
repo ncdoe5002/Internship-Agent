@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, send_from_directory
 from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 from ..extensions import db
@@ -216,3 +216,135 @@ def seed_dummy_data():
 
     db.session.commit()
     return "Successfully seeded Header, Models, Rates, and Commitments! You can now view the extracted data."
+
+# -------------------------------------------------------------------
+# 5. PREVIEW SUBMISSION (Manager Queue Preview)
+# -------------------------------------------------------------------
+@update_bp.route("/update/preview-submission/<int:doc_id>", methods=["GET"])
+@login_required
+def preview_submission(doc_id):
+    doc = Document.query.get_or_404(doc_id)
+    
+    # Fetch all the connected data from the database using your dummy ID
+    agmt_id = "AGMT_EXTRACT_001"
+    header = AgmtHeaderStg.query.filter_by(AGMT_ID=agmt_id).first()
+    models = AgmtModelsStg.query.filter_by(AGMT_ID=agmt_id).all()
+    rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID=agmt_id).all()
+    commitments = AgmtCommitment.query.filter_by(AGMT_ID=agmt_id).all()
+
+    return render_template(
+        "preview_submission.html",
+        document=doc,
+        header=header,
+        models=models,
+        rates=rates,
+        commitments=commitments,
+        date_today=date.today().strftime('%d %b %Y')
+    )
+
+# -------------------------------------------------------------------
+# SAVE TO DATABASE (STAGING TO PROD LOGIC GOES HERE LATER)
+# -------------------------------------------------------------------
+@update_bp.route("/update/submit-to-db", methods=["POST"])
+@login_required
+def submit_to_db_route_name():
+    doc_id = request.form.get("document_id")
+    # In the future, you can update the status of the staging records to 'PENDING_REVIEW' here
+    
+    # Send user to the upload signed report screen
+    return redirect(url_for('update.upload_signed_report_form', doc_id=doc_id))
+
+# -------------------------------------------------------------------
+# 6. UPLOAD SIGNED REPORT
+# -------------------------------------------------------------------
+@update_bp.route("/update/upload-signed-report/<int:doc_id>", methods=["GET"])
+@login_required
+def upload_signed_report_form(doc_id):
+    # Fetch the header data to get the dynamic operator name
+    agmt_id = "AGMT_EXTRACT_001" # Using your current dummy ID logic
+    header = AgmtHeaderStg.query.filter_by(AGMT_ID=agmt_id).first()
+    
+    # Extract the SENDER name, with a safe fallback just in case
+    dynamic_operator_name = header.SENDER if header else "Unknown Operator"
+
+    return render_template(
+        "upload_signed_report.html", 
+        operator_name=dynamic_operator_name, 
+        document_id=doc_id
+    )
+
+@update_bp.route("/update/upload-signed-report/<int:doc_id>", methods=["POST"])
+@login_required
+def upload_signed_report(doc_id):
+    file = request.files.get("signed_pdf")
+    
+    if not file or not file.filename:
+        flash("No file selected.", "warning")
+        return redirect(request.url)
+
+    filename = secure_filename(file.filename)
+    unique_filename = f"signed_{doc_id}_{filename}"
+    
+    # Save to the same static/pdfs directory used in step 1
+    upload_folder = os.path.join(current_app.root_path, 'static', 'pdfs')
+    os.makedirs(upload_folder, exist_ok=True)
+    
+    file_path = os.path.join(upload_folder, unique_filename)
+    file.save(file_path)
+    
+    # Move to the final review
+    return redirect(url_for("update.final_review", doc_id=doc_id, signed_filename=unique_filename))
+
+# -------------------------------------------------------------------
+# 7. FINAL SPLIT-PANE PUBLISH VIEW
+# -------------------------------------------------------------------
+@update_bp.route("/update/final-review/<int:doc_id>/<signed_filename>", methods=["GET"])
+@login_required
+def final_review(doc_id, signed_filename):
+    doc = Document.query.get_or_404(doc_id)
+    
+    # Fetch staging data again for the left pane
+    agmt_id = "AGMT_EXTRACT_001"
+    header = AgmtHeaderStg.query.filter_by(AGMT_ID=agmt_id).first()
+    models = AgmtModelsStg.query.filter_by(AGMT_ID=agmt_id).all()
+    rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID=agmt_id).all()
+
+    return render_template(
+        "submission.html",
+        document=doc,
+        header=header,
+        models=models, 
+        rates=rates,
+        signed_filename=signed_filename
+    )
+
+@update_bp.route("/update/serve-signed-pdf/<filename>")
+@login_required
+def serve_signed_pdf(filename):
+    """Serves the signed PDF from the static folder to the embed tag"""
+    upload_folder = os.path.join(current_app.root_path, 'static', 'pdfs')
+    return send_from_directory(upload_folder, filename)
+
+@update_bp.route("/update/publish-to-production", methods=["POST"])
+@login_required
+def publish_to_production():
+    """
+    Final publishing endpoint. Reads `document_id` from the POST form,
+    performs any DB publish logic, and renders the final status UI.
+    """
+    # Read document id from the submitted form
+    doc_id = request.form.get("document_id")
+    if not doc_id:
+        flash("No document id provided.", "warning")
+        return redirect(url_for("update.update_operator", operator_id=1))
+
+    # Try to fetch the document and update status
+    doc = Document.query.get(doc_id)
+    if doc:
+        doc.status = "PUBLISHED"
+        db.session.commit()
+
+    # Render the final publishing status UI with the document object
+    return render_template("final_publish.html", document=doc)
+
+# -------------------------------------------------------------------

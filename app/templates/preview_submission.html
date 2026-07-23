@@ -274,7 +274,7 @@
     <a href="#" class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back to Edits</a>
     <div class="text-muted small">This data will be inserted into the PostgreSQL staging tables.</div>
     
-    <form action="{{ url_for('submit_to_db_route_name') }}" method="POST" style="margin: 0;">
+    <form action="{{ url_for('update.submit_to_db_route_name') }}" method="POST" style="margin: 0;">
       <!-- If you need to pass an ID to the backend, do it via hidden input -->
       <input type="hidden" name="document_id" value="{{ document.id }}">
       <button type="submit" class="btn btn-danger-custom fw-semibold px-4 py-2">
