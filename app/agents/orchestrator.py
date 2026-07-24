@@ -306,6 +306,12 @@ class Orchestrator:
         Returns:
             Updated state with extraction result or error
         """
+        if state.input is None:
+            logger.error("Extraction node called without state.input")
+            return {
+                "extraction_result": None,
+                "extraction_error": "Input payload missing",
+            }
         try:
             logger.info(
                 f"Starting extraction for {state.input.filename} (type: {state.input.file_type})"
@@ -337,6 +343,8 @@ class Orchestrator:
         Returns:
             Updated state with verification result or error
         """
+        if state.input is None:
+            return {"risk_result": None, "risk_error": "Input payload missing"}
         try:
             if state.extraction_result is None:
                 logger.warning("Skipping verification: extraction failed")
@@ -374,6 +382,8 @@ class Orchestrator:
         Returns:
             Updated state with risk result or error
         """
+        if state.input is None:
+            return {"risk_result": None, "risk_error": "Input payload missing"}
         try:
             # Convert extraction result to comparison rows for risk assessment
             comparison_rows = self._extract_comparison_rows(
@@ -414,7 +424,11 @@ class Orchestrator:
         Returns:
             dict: Partial state update containing the (possibly annotated) risk result.
         """
-        if not state.risk_result or not state.risk_result.items:
+        if (
+            not state.risk_result
+            or not state.risk_result.items
+            or self.structured_model is None
+        ):
             return {"risk_result": state.risk_result}
 
         flagged = [i for i in state.risk_result.items if i.risk_level != "LOW"]
