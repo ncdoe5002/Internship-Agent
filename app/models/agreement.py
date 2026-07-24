@@ -70,16 +70,36 @@ class AgmtHeaderStg(db.Model):
 
 
 class AgmtModelsStg(db.Model):
-    """Links an agreement to its rate models."""
+    """Links an agreement to its rate models.
+
+    Uses a surrogate autoincrement ``id`` as the primary key so that
+    multiple documents can each have a MODEL_SEQ starting at 1 without
+    colliding.  A unique constraint on (AGMT_ID, MODEL_SEQ) enforces
+    logical uniqueness within each agreement.
+    """
 
     __tablename__ = "AGMT_MODELS_STG"
 
-    MODEL_SEQ = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    MODEL_SEQ = db.Column(db.Integer, nullable=False)
     MODEL_TYPE = db.Column(db.String(20))
     AGMT_ID = db.Column(db.String(50), db.ForeignKey("AGMT_HEADER_STG.AGMT_ID"))
     MODEL_NAME = db.Column(db.String(100))
 
-    normal_rates = db.relationship("AgmtMdlNormalStg", backref="model", lazy=True)
+    __table_args__ = (
+        db.UniqueConstraint("AGMT_ID", "MODEL_SEQ", name="uq_agmt_model_seq"),
+    )
+
+    # Relationship via AGMT_ID + MODEL_SEQ (no DB-level FK needed on the rate side)
+    normal_rates = db.relationship(
+        "AgmtMdlNormalStg",
+        primaryjoin=(
+            "and_(AgmtModelsStg.AGMT_ID == foreign(AgmtMdlNormalStg.AGMT_ID),"
+            " AgmtModelsStg.MODEL_SEQ == foreign(AgmtMdlNormalStg.MODEL_SEQ))"
+        ),
+        lazy=True,
+        viewonly=True,
+    )
 
 
 class AgmtMdlNormalStg(db.Model):
@@ -87,9 +107,7 @@ class AgmtMdlNormalStg(db.Model):
 
     __tablename__ = "AGMT_MDL_NORMAL_STG"
 
-    id = db.Column(
-        db.Integer, primary_key=True, autoincrement=True
-    )  # surrogate PK, table has no natural one listed
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     AGMT_ID = db.Column(db.String(50), db.ForeignKey("AGMT_HEADER_STG.AGMT_ID"))
     REC_TYPE = db.Column(db.String(20))
     ZONE_CODE = db.Column(db.String(20))
@@ -98,7 +116,9 @@ class AgmtMdlNormalStg(db.Model):
     DISC_RATE_PERC = db.Column(db.Numeric(9, 4))
     CHARGE_INCLUDE_TAX = db.Column(db.Boolean)
     CHARGE_FIELD = db.Column(db.Numeric(50))
-    MODEL_SEQ = db.Column(db.Integer, db.ForeignKey("AGMT_MODELS_STG.MODEL_SEQ"))
+    # Logical FK to AgmtModelsStg(AGMT_ID, MODEL_SEQ) — no DB-level FK constraint
+    # because MODEL_SEQ is no longer the sole primary key on AGMT_MODELS_STG.
+    MODEL_SEQ = db.Column(db.Integer)
 
 
 class AgmtCommitment(db.Model):
@@ -106,9 +126,7 @@ class AgmtCommitment(db.Model):
 
     __tablename__ = "AGMT_COMMITMENT"
 
-    id = db.Column(
-        db.Integer, primary_key=True, autoincrement=True
-    )  # surrogate PK, table has no natural one listed
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     AGMT_ID = db.Column(db.String(50), db.ForeignKey("AGMT_HEADER_STG.AGMT_ID"))
     COMMITMENT_NAME = db.Column(db.String(100))
     COMMITMENT_TYPE = db.Column(db.String(50))

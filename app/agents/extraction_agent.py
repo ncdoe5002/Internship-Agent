@@ -370,7 +370,8 @@ class ExtractionAgent:
                 else str(response)
             )
 
-            return self._extract_json_from_response(response_text)
+            result = self._extract_json_from_response(response_text)
+            return result if result is not None else ExtractionResult(tables=[])
 
         except Exception as e:
             logger.error(f"Text-based Gemini call failed: {e}")

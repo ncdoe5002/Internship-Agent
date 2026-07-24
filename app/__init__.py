@@ -28,7 +28,7 @@ def create_app():
 
     # ── Import models so Flask-Migrate can see them ───────────────
     # Must happen AFTER db.init_app(app)
-    from .models import audit_log, document, production_record, user  # noqa: F401
+    from .models import agreement, audit_log, document, production_record, user  # noqa: F401
 
     # ── Register blueprints ───────────────────────────────────────
     from .blueprints.auth import auth_bp

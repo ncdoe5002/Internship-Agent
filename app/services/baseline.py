@@ -15,7 +15,7 @@ def _normalize_partner_name(partner_name: str) -> str:
     return " ".join(partner_name.strip().lower().split())
 
 
-def _agreement_table(title: str, headers: list[str], rows: list[list[str]]) -> dict:
+def _agreement_table(title: str, headers: list[str], rows: list[list]) -> dict:
     return {"title": title, "headers": headers, "rows": rows}
 
 
@@ -31,14 +31,16 @@ def get_baseline_rates(partner_name: str) -> dict:
 
     normalized_partner = _normalize_partner_name(partner_name)
 
+    # NOTE: ORM attribute names match the Python column names (uppercase) as defined
+    # on the model class, e.g. AgmtHeaderStg.SENDER, .RP, .CREATED_DATE, .AGMT_ID.
     headers = (
         AgmtHeaderStg.query.filter(
             or_(
-                db.func.lower(db.func.trim(AgmtHeaderStg.sender)) == normalized_partner,
-                db.func.lower(db.func.trim(AgmtHeaderStg.rp)) == normalized_partner,
+                db.func.lower(db.func.trim(AgmtHeaderStg.SENDER)) == normalized_partner,
+                db.func.lower(db.func.trim(AgmtHeaderStg.RP)) == normalized_partner,
             )
         )
-        .order_by(AgmtHeaderStg.created_date.desc().nullslast(), AgmtHeaderStg.agmt_id)
+        .order_by(AgmtHeaderStg.CREATED_DATE.desc().nullslast(), AgmtHeaderStg.AGMT_ID)
         .all()
     )
 
@@ -47,12 +49,12 @@ def get_baseline_rates(partner_name: str) -> dict:
         headers = (
             AgmtHeaderStg.query.filter(
                 or_(
-                    AgmtHeaderStg.sender.ilike(like_partner),
-                    AgmtHeaderStg.rp.ilike(like_partner),
+                    AgmtHeaderStg.SENDER.ilike(like_partner),
+                    AgmtHeaderStg.RP.ilike(like_partner),
                 )
             )
             .order_by(
-                AgmtHeaderStg.created_date.desc().nullslast(), AgmtHeaderStg.agmt_id
+                AgmtHeaderStg.CREATED_DATE.desc().nullslast(), AgmtHeaderStg.AGMT_ID
             )
             .all()
         )
@@ -60,61 +62,61 @@ def get_baseline_rates(partner_name: str) -> dict:
     if not headers:
         return {"partner_name": partner_name, "tables": []}
 
-    agmt_ids = [header.agmt_id for header in headers if header.agmt_id]
+    agmt_ids = [header.AGMT_ID for header in headers if header.AGMT_ID]
     tables: list[dict] = []
 
     model_rows = (
         db.session.query(AgmtModelsStg, AgmtMdlNormalStg)
         .join(
             AgmtMdlNormalStg,
-            (AgmtModelsStg.agmt_id == AgmtMdlNormalStg.agmt_id)
-            & (AgmtModelsStg.model_seq == AgmtMdlNormalStg.model_seq),
+            (AgmtModelsStg.AGMT_ID == AgmtMdlNormalStg.AGMT_ID)
+            & (AgmtModelsStg.MODEL_SEQ == AgmtMdlNormalStg.MODEL_SEQ),
             isouter=True,
         )
-        .filter(AgmtModelsStg.agmt_id.in_(agmt_ids))
-        .order_by(AgmtModelsStg.agmt_id, AgmtModelsStg.model_seq)
+        .filter(AgmtModelsStg.AGMT_ID.in_(agmt_ids))
+        .order_by(AgmtModelsStg.AGMT_ID, AgmtModelsStg.MODEL_SEQ)
         .all()
     )
 
     commitments = (
-        AgmtCommitment.query.filter(AgmtCommitment.agmt_id.in_(agmt_ids))
-        .order_by(AgmtCommitment.agmt_id, AgmtCommitment.commitment_name)
+        AgmtCommitment.query.filter(AgmtCommitment.AGMT_ID.in_(agmt_ids))
+        .order_by(AgmtCommitment.AGMT_ID, AgmtCommitment.COMMITMENT_NAME)
         .all()
     )
 
-    rows_by_agmt: dict[str, list[list[str]]] = {}
+    rows_by_agmt: dict[str, list[list]] = {}
     for model, normal in model_rows:
-        model_name = model.model_name or model.model_type or f"MODEL_{model.model_seq}"
+        model_name = model.MODEL_NAME or model.MODEL_TYPE or f"MODEL_{model.MODEL_SEQ}"
         charge_value = (
-            normal.charge_field if normal and normal.charge_field is not None else ""
+            normal.CHARGE_FIELD if normal and normal.CHARGE_FIELD is not None else ""
         )
-        rows_by_agmt.setdefault(model.agmt_id, []).append(
+        rows_by_agmt.setdefault(model.AGMT_ID, []).append(
             [
                 model_name,
                 charge_value,
-                model.model_type or "",
-                model.agmt_id,
-                model.model_seq,
+                model.MODEL_TYPE or "",
+                model.AGMT_ID,
+                model.MODEL_SEQ,
             ]
         )
 
-    commitment_rows_by_agmt: dict[str, list[list[str]]] = {}
+    commitment_rows_by_agmt: dict[str, list[list]] = {}
     for commitment in commitments:
-        commitment_rows_by_agmt.setdefault(commitment.agmt_id, []).append(
+        commitment_rows_by_agmt.setdefault(commitment.AGMT_ID, []).append(
             [
-                commitment.commitment_name or "",
-                commitment.amount or "",
-                commitment.commitment_type or "",
-                commitment.direction or "",
-                commitment.agmt_id,
+                commitment.COMMITMENT_NAME or "",
+                commitment.AMOUNT or "",
+                commitment.COMMITMENT_TYPE or "",
+                commitment.DIRECTION or "",
+                commitment.AGMT_ID,
             ]
         )
 
     for header in headers:
-        if header.agmt_id in rows_by_agmt:
+        if header.AGMT_ID in rows_by_agmt:
             tables.append(
                 _agreement_table(
-                    f"AGMT_MDL_NORMAL_STG - {header.agmt_id}",
+                    f"AGMT_MDL_NORMAL_STG - {header.AGMT_ID}",
                     [
                         "MODEL_NAME",
                         "CHARGE_FIELD",
@@ -122,14 +124,14 @@ def get_baseline_rates(partner_name: str) -> dict:
                         "AGMT_ID",
                         "MODEL_SEQ",
                     ],
-                    rows_by_agmt[header.agmt_id],
+                    rows_by_agmt[header.AGMT_ID],
                 )
             )
 
-        if header.agmt_id in commitment_rows_by_agmt:
+        if header.AGMT_ID in commitment_rows_by_agmt:
             tables.append(
                 _agreement_table(
-                    f"AGMT_COMMITMENT - {header.agmt_id}",
+                    f"AGMT_COMMITMENT - {header.AGMT_ID}",
                     [
                         "COMMITMENT_NAME",
                         "AMOUNT",
@@ -137,7 +139,7 @@ def get_baseline_rates(partner_name: str) -> dict:
                         "DIRECTION",
                         "AGMT_ID",
                     ],
-                    commitment_rows_by_agmt[header.agmt_id],
+                    commitment_rows_by_agmt[header.AGMT_ID],
                 )
             )
 

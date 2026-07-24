@@ -220,12 +220,12 @@
             processorUI.updateStepByIndex(currentStepIndex, 'processing');
         }
 
-        if (data.status === 'COMPLETED') {
+        if (data.status === 'READY') {
           clearInterval(pollInterval);
           processorUI.updateStepByIndex(4, 'completed'); 
           processorUI.completeProcess();
-          setTimeout(() => { window.location.href = `/extracted/${docId}`; }, 1000);
-        } else if (data.status === 'ERROR') {
+          setTimeout(() => { window.location.href = `/update/extracted/${docId}`; }, 1000);
+        } else if (data.status === 'FAILED' || data.status === 'ERROR') {
           clearInterval(pollInterval);
           processorUI.updateStepByIndex(currentStepIndex, 'error');
           processorUI.completeProcess("Processing Failed");
