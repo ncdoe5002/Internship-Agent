@@ -502,6 +502,7 @@ class Orchestrator:
                                     "original": category,
                                     "rate": parsed_rate,
                                 }
+        is_first_upload = not bool(baseline_data and baseline_data.get("tables"))
 
         # Process extracted tables
         for table_idx, table in enumerate(tables):
@@ -675,20 +676,16 @@ class Orchestrator:
 
         # Build summary
         if state.risk_result:
+            recommendation = state.risk_result.recommendation
+            if not state.input.baseline_data:
+                recommendation = "INITIAL_UPLOAD: Baseline file established for new company. Review tariff tables before committing to database."
+
             summary = ReviewSummary(
                 total_rows=state.risk_result.total_rows,
                 changed_rows=state.risk_result.changed_rows,
                 flagged_rows=state.risk_result.flagged_rows,
                 highest_risk=state.risk_result.highest_risk,
-                recommendation=state.risk_result.recommendation,
-            )
-        else:
-            summary = ReviewSummary(
-                total_rows=0,
-                changed_rows=0,
-                flagged_rows=0,
-                highest_risk="LOW",
-                recommendation="Unable to assess - risk analysis failed",
+                recommendation=recommendation,
             )
 
         # Collect errors

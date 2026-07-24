@@ -54,16 +54,14 @@ def extract_from_excel(file_bytes: bytes) -> ExtractionResult:
                 )
                 break
 
-            df = pd.read_excel(xls, sheet_name=sheet_name)
+            df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
             if df.empty:
                 continue
 
             rows = []
             for _, row in df.iterrows():
                 if row_count >= MAX_ROW_COUNT:
-                    logger.warning(
-                        f"Row count exceeded limit {MAX_ROW_COUNT}"
-                    )
+                    logger.warning(f"Row count exceeded limit {MAX_ROW_COUNT}")
                     break
                 row_str = [str(v) if pd.notna(v) else "" for v in row]
                 rows.append(row_str)
@@ -85,7 +83,7 @@ def extract_from_excel(file_bytes: bytes) -> ExtractionResult:
 
     except Exception as e:
         logger.error("Excel extraction failed: %s", str(e))
-        raise ValueError(f"Failed to extract from Excel file: {str(e)}") from e 
+        raise ValueError(f"Failed to extract from Excel file: {str(e)}") from e
 
     return ExtractionResult(
         tables=tables,

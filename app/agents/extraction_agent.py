@@ -53,8 +53,9 @@ logger = logging.getLogger(__name__)
 
 class ExtractionPayload(BaseModel):
     """Input payload for the extraction agent."""
+
     document_bytes: bytes
-    document_type: str             # "pdf", "docx", "xlsx"
+    document_type: str  # "pdf", "docx", "xlsx"
     filename: str = ""
     use_telecom_prompt: bool = True
 
@@ -145,19 +146,26 @@ class ExtractionAgent:
             logger.warning(f"Image extraction failed: {e}")
 
         # Attempt 3: Text-based extraction
-        logger.info("PDF extraction: attempting text-based approach")
+        logger.info("PDF extraction: attempting text and table adapter fallback")
         try:
+            # First attempt PyMuPDF table extraction if available, otherwise raw text
+            from app.services.extraction.pdf_adapter import extract_tables_from_pdf
+
+            extracted_tables = extract_tables_from_pdf(pdf_bytes)
+            raw_text = extract_text_from_pdf(pdf_bytes)
+
+            fallback_context = f"=== PDF EXTRACTED TABLES ===\n{json.dumps(extracted_tables, indent=2)}\n\n=== PDF TEXT ===\n{raw_text[:30000]}"
+
             result = self._extract_via_text(
-                payload.document_bytes, payload.use_telecom_prompt
+                payload.document_bytes,
+                payload.use_telecom_prompt,
+                text_override=fallback_context,
             )
             if result and result.tables:
-                logger.info(f"Text extraction succeeded: {len(result.tables)} tables")
+                logger.info(f"Text fallback succeeded: {len(result.tables)} tables")
                 return result
         except Exception as e:
-            logger.error(f"Text extraction failed: {e}")
-
-        logger.error("All PDF extraction attempts failed")
-        return ExtractionResult(tables=[])
+            logger.error(f"Text fallback failed: {e}")
 
     # ── PDF Attempt 1: Direct upload ────────────────────────────────────
 
@@ -234,19 +242,23 @@ class ExtractionAgent:
         content_parts = []
         for img_bytes in page_images:
             img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-            content_parts.append({
-                "inline_data": {
-                    "mime_type": "image/png",
-                    "data": img_b64,
+            content_parts.append(
+                {
+                    "inline_data": {
+                        "mime_type": "image/png",
+                        "data": img_b64,
+                    }
                 }
-            })
-
-        content_parts.append({
-            "text": (
-                f"This document has {len(page_images)} pages shown above. "
-                f"{prompt}"
             )
-        })
+
+        content_parts.append(
+            {
+                "text": (
+                    f"This document has {len(page_images)} pages shown above. "
+                    f"{prompt}"
+                )
+            }
+        )
 
         try:
             model_name = getattr(self.model, "model", "gemini-1.5-flash")
@@ -278,51 +290,50 @@ class ExtractionAgent:
         Extract structured data from a Word document.
 
         Strategy:
-            1. Extract tables directly via python-docx (fast, no API call)
-            2. Extract full text and send to Gemini for non-table data
-               (key-value pairs in paragraphs, unstructured rate info, etc.)
-            3. Merge results, deduplicating by table title
+            1. Extract tables directly via python-docx (fast structure capture)
+            2. Extract full paragraph text
+            3. Send BOTH table contents and text to Gemini for schema normalization
         """
         docx_bytes = payload.document_bytes
 
-        # ── Step 1: Direct table extraction via python-docx ─────────
+        # Extract direct tables and text
         direct_tables = extract_tables_from_docx(docx_bytes)
-
-        tables = []
-        for dt in direct_tables:
-            tables.append(
-                TableData(
-                    title=dt["title"],
-                    headers=dt["headers"],
-                    rows=dt["rows"],
-                )
-            )
-
-        logger.info(f"python-docx extracted {len(tables)} tables directly")
-
-        # ── Step 2: Send text to Gemini for additional structured data
         text = extract_text_from_docx(docx_bytes)
 
+        # Build composite context for Gemini
+        context_parts = []
+        if direct_tables:
+            context_parts.append("=== EXTRACTED WORD TABLES ===")
+            context_parts.append(json.dumps(direct_tables, indent=2))
+
         if text.strip():
-            gemini_result = self._extract_via_text(
-                docx_bytes, payload.use_telecom_prompt, text_override=text
+            context_parts.append("=== EXTRACTED WORD TEXT ===")
+            context_parts.append(text[:30000])
+
+        combined_context = "\n\n".join(context_parts)
+
+        if not combined_context.strip():
+            logger.warning("No readable text or tables found in Word document")
+            return ExtractionResult(tables=[])
+
+        # Let Gemini perform schema normalization on all extracted Word content
+        gemini_result = self._extract_via_text(
+            document_bytes=docx_bytes,
+            use_telecom_prompt=payload.use_telecom_prompt,
+            text_override=combined_context,
+        )
+
+        if gemini_result and gemini_result.tables:
+            logger.info(
+                f"Word extraction complete: {len(gemini_result.tables)} normalized tables"
             )
+            return gemini_result
 
-            if gemini_result and gemini_result.tables:
-                # Merge: add Gemini tables that aren't duplicates
-                existing_titles = {t.title for t in tables}
-                for gt in gemini_result.tables:
-                    if gt.title not in existing_titles:
-                        tables.append(gt)
-
-                logger.info(
-                    f"Gemini added {len(gemini_result.tables)} additional tables"
-                )
-
-        logger.info(f"Word extraction complete: {len(tables)} tables total")
+        logger.warning(
+            "Gemini normalization returned no tables. Returning empty result."
+        )
         return ExtractionResult(
-            tables=tables,
-            raw_text_summary=text[:2000] if text else None,
+            tables=[], raw_text_summary=text[:2000] if text else None
         )
 
     # ═══════════════════════════════════════════════════════════════════
@@ -365,9 +376,7 @@ class ExtractionAgent:
             response = self.model.invoke(full_prompt)
 
             response_text = (
-                response.content
-                if hasattr(response, "content")
-                else str(response)
+                response.content if hasattr(response, "content") else str(response)
             )
 
             result = self._extract_json_from_response(response_text)
@@ -381,9 +390,7 @@ class ExtractionAgent:
     # JSON response parser
     # ═══════════════════════════════════════════════════════════════════
 
-    def _extract_json_from_response(
-        self, raw_text: str
-    ) -> Optional[ExtractionResult]:
+    def _extract_json_from_response(self, raw_text: str) -> Optional[ExtractionResult]:
         """
         Parse Gemini's raw text output into an ExtractionResult.
 
@@ -453,18 +460,16 @@ class ExtractionAgent:
             # Coerce all values to strings (schema requirement)
             headers = [str(h) for h in headers]
             rows = [
-                [str(cell) for cell in row]
-                for row in rows
-                if isinstance(row, list)
+                [str(cell) for cell in row] for row in rows if isinstance(row, list)
             ]
 
             if headers:
-                tables.append(
-                    TableData(title=title, headers=headers, rows=rows)
-                )
+                tables.append(TableData(title=title, headers=headers, rows=rows))
 
         logger.info(f"Parsed {len(tables)} tables from response")
-        summary_val = data.get("raw_text_summary", None) if isinstance(data, dict) else None
+        summary_val = (
+            data.get("raw_text_summary", None) if isinstance(data, dict) else None
+        )
         return ExtractionResult(
             tables=tables,
             raw_text_summary=summary_val,
