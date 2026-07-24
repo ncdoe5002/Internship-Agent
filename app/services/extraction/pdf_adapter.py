@@ -31,9 +31,9 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
         Concatenated text from all pages, or "" on failure.
     """
     try:
-        import fitz
+        import pymupdf as fitz
     except ImportError:
-        logger.error("PyMuPDF not installed. Install with: pip install PyMuPDF")
+        logger.error("PyMuPDF not installed. Install with: pip install pymupdf")
         return ""
 
     text_parts = []
@@ -80,7 +80,7 @@ def extract_tables_from_pdf(pdf_bytes: bytes) -> list[dict]:
         Returns empty list if no tables detected or on failure.
     """
     try:
-        import fitz
+        import pymupdf as fitz
     except ImportError:
         logger.error("PyMuPDF not installed.")
         return []
@@ -146,7 +146,7 @@ def extract_tables_from_pdf(pdf_bytes: bytes) -> list[dict]:
 def get_pdf_page_count(pdf_bytes: bytes) -> int:
     """Return the number of pages in the PDF, or 0 on failure."""
     try:
-        import fitz
+        import pymupdf as fitz
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         count = len(doc)
         doc.close()
@@ -178,7 +178,7 @@ def pdf_to_images(
         List of PNG byte arrays, one per rendered page.
     """
     try:
-        import fitz
+        import pymupdf as fitz
     except ImportError:
         logger.error("PyMuPDF not installed.")
         return []

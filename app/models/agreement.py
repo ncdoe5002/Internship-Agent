@@ -63,6 +63,9 @@ class AgmtHeaderStg(db.Model):
     AGMT_VERIFIED = db.Column(db.Boolean)
     AGMT_VERIFIED_BY = db.Column(db.String(50))
     AGMT_VERIFIED_DATE = db.Column(db.DateTime)
+    # It stores a pydantic verification confidence result and unresolved conflict result
+    EXTRACTION_CONFIDENCE = db.Column(db.Numeric(5, 2))
+    HAS_UNRESOLVED_CONFLICT = db.Column(db.Boolean, default=False)
 
     models = db.relationship("AgmtModelsStg", backref="agreement", lazy=True)
     commitments = db.relationship("AgmtCommitment", backref="agreement", lazy=True)
@@ -116,3 +119,6 @@ class AgmtCommitment(db.Model):
     CAPTURE_RATE_PCT = db.Column(db.Numeric(9, 4))
     PARTY_FROM = db.Column(db.String(100))
     PARTY_TO = db.Column(db.String(100))
+    SOURCE_TYPE = db.Column(db.String(20))       # "PROSE" or "TABLE"
+    CONFLICT_FLAG = db.Column(db.Boolean, default=False)
+    CONFLICT_NOTE = db.Column(db.Text)

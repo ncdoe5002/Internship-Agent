@@ -1,5 +1,7 @@
 # Python
 __pycache__/
+.pytest_cache/
+.cache/
 *.py[cod]
 *.pyo
 *.pyd
@@ -10,6 +12,7 @@ dist/
 build/
 .eggs/
 *.so
+pytest.ini
 
 # Virtual environments
 .venv/
