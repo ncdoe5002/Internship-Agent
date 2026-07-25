@@ -1,74 +1,33 @@
-import json
-import os
+"""
+gemini.py — DEPRECATED.
 
-import google.generativeai as genai
-from langchain_google_genai import ChatGoogleGenerativeAI
+This module previously initialised a LangChain / Google Gemini model.
+The application has been migrated to a local-first architecture:
+all LLM calls now go through ``app.services.llm_client`` which targets
+the LM Studio OpenAI-compatible API.
 
-from ..schemas.extraction import ExtractionResult
+This file is kept as a stub to avoid ImportError in any code that has
+not yet been updated.  Nothing here creates a real model or makes any
+network call.
 
-EXTRACTION_PROMPT = """
-You are a data extraction assistant. Extract all tabular data from the provided PDF content.
-Return a JSON object with this exact structure:
-{
-  "tables": [
-    {
-      "title": "Table name or empty string",
-      "headers": ["Column 1", "Column 2", ...],
-      "rows": [
-        ["cell value", "cell value", ...],
-        ...
-      ]
-    }
-  ],
-  "raw_text_summary": "brief summary of the document"
-}
-Return only valid JSON, no markdown code fences.
+If you see this imported somewhere, update that import to use
+``app.services.llm_client`` instead.
 """
 
+import logging
 
-def extract_table_data(pdf_bytes: bytes) -> ExtractionResult:
-    """Send PDF bytes to Gemini and return validated ExtractionResult."""
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-
-    response = model.generate_content(
-        [
-            EXTRACTION_PROMPT,
-            {"mime_type": "application/pdf", "data": pdf_bytes},
-        ]
-    )
-
-    raw_json = response.text.strip()
-    data = json.loads(raw_json)
-    return ExtractionResult(**data)
+logger = logging.getLogger(__name__)
 
 
-def get_langchain_model(model_name: str = "gemini-1.5-flash", temperature: float = 0.0):
+def get_langchain_model(*args, **kwargs):  # type: ignore[no-untyped-def]
     """
-    Initialize and return a LangChain-compatible ChatGoogleGenerativeAI model.
-    
-    This function creates a LangChain wrapper around Google's Gemini model,
-    which is compatible with LangGraph workflows and agent orchestration.
-    
-    Args:
-        model_name: The Gemini model to use (default: gemini-1.5-flash)
-        temperature: Temperature for generation (default: 0.0 for deterministic output)
-        
-    Returns:
-        ChatGoogleGenerativeAI: LangChain-compatible model instance
-        
+    Deprecated.  Previously returned a ChatGoogleGenerativeAI instance.
+
     Raises:
-        ValueError: If GEMINI_API_KEY is not set in environment
+        NotImplementedError: Always — use llm_client.chat_complete() instead.
     """
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY environment variable is not set")
-    
-    model = ChatGoogleGenerativeAI(
-        model=model_name,
-        temperature=temperature,
-        api_key=api_key
+    raise NotImplementedError(
+        "get_langchain_model() has been removed. "
+        "Use app.services.llm_client.chat_complete() or "
+        "app.services.llm_client.chat_complete_json() instead."
     )
-    
-    return model

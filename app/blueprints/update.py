@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 from ..extensions import db
 from ..models.document import Document
 
-from ..tasks.process_pdf import process_pdf
+
 from ..models.agreement import AgmtHeaderStg, AgmtModelsStg, AgmtMdlNormalStg, AgmtCommitment
 from datetime import date
 from sqlalchemy import text
@@ -66,11 +66,6 @@ def update_operator(operator_id):
 
     db.session.add(doc)
     db.session.commit()
-
-    # Kick off the Celery background task
-    process_task = getattr(process_pdf, "delay", None)
-    if callable(process_task):
-        process_task(doc.id)
 
     return redirect(url_for("update.view_processing", doc_id=doc.id))
 
