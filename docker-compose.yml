@@ -26,8 +26,16 @@ services:
       - "8000:8000"
     volumes:
       - ./uploads:/app/uploads
+      - ./app/static/pdfs:/app/app/static/pdfs
     env_file:
       - .env
+    environment:
+      # Override .env values with Docker-internal service hostnames.
+      # "postgres" and "redis" are the service names above, which Docker
+      # resolves inside the container network. The .env uses "localhost"
+      # which is only correct when Flask runs directly on your host machine.
+      DATABASE_URL: "postgresql://postgres:prasanth2contractextract@postgres:5432/edch_adivisor"
+      REDIS_URL: "redis://redis:6379/0"
     depends_on:
       - postgres
       - redis
@@ -40,6 +48,9 @@ services:
       - ./app/static/pdfs:/app/app/static/pdfs
     env_file:
       - .env
+    environment:
+      DATABASE_URL: "postgresql://postgres:prasanth2contractextract@postgres:5432/edch_adivisor"
+      REDIS_URL: "redis://redis:6379/0"
     depends_on:
       - postgres
       - redis

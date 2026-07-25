@@ -1,6 +1,7 @@
 from flask_login import UserMixin
 from ..extensions import db, login_manager
 
+
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
@@ -11,6 +12,8 @@ class User(UserMixin, db.Model):
     documents = db.relationship("Document", backref="uploader", lazy=True)
     audit_logs = db.relationship("AuditLog", backref="reviewer", lazy=True)
 
+
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    # db.session.get() is the SQLAlchemy 2.x replacement for the deprecated Query.get()
+    return db.session.get(User, int(user_id))
