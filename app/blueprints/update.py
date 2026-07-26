@@ -2,6 +2,10 @@ import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, send_from_directory
 from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
+# Add this import at the top of update_bp.py
+from app.blueprints.jobs import process_contract_task 
+# Assuming you have a helper function to read text from PDFs/DOCX
+from ..utils import extract_text_from_file
 from ..extensions import db
 from ..models.document import Document
 
@@ -55,6 +59,9 @@ def update_operator(operator_id):
     file_path = os.path.join(upload_folder, filename)
     file.save(file_path)
 
+    # 1. Extract text from the saved file
+    document_text = extract_text_from_file(file_path)
+
     # Create the Document record
     doc = Document()
     doc.filename = filename
@@ -66,6 +73,9 @@ def update_operator(operator_id):
 
     db.session.add(doc)
     db.session.commit()
+
+    #TRIGGER THE BACKGROUND TASK!
+    process_contract_task.delay(doc.id, document_text) # type: ignore
 
     return redirect(url_for("update.view_processing", doc_id=doc.id))
 
@@ -84,15 +94,12 @@ def view_processing(doc_id):
 # 3. THE STATUS API (Polled by the Processing UI every 2 s)
 # -------------------------------------------------------------------
 @update_bp.route("/api/update/<int:doc_id>/status", methods=["GET"])
-@login_required
 def get_status(doc_id):
     doc = Document.query.get_or_404(doc_id)
     return jsonify({
-        "document_id": doc.id,
-        "filename": doc.filename,
         "status": doc.status,
-        "current_step": doc.current_step or 0,
-        "error_message": doc.error_message or None,
+        "current_step": doc.current_step,
+        "error_message": doc.error_message
     })
 
 
@@ -111,6 +118,10 @@ def view_extracted(doc_id):
     rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
     commitments = AgmtCommitment.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
 
+    header_dict = {}
+    if header:
+        header_dict = {c.name: getattr(header, c.name) for c in header.__table__.columns}
+
     # Count displayable fields
     total_fields = 0
     if header:
@@ -125,7 +136,7 @@ def view_extracted(doc_id):
         "extracted.html",
         document=doc,
         current_doc=None,   # No baseline document pane yet
-        header=header,
+        header=header_dict,
         models=models,
         rates=rates,
         commitments=commitments,
@@ -148,10 +159,14 @@ def preview_submission(doc_id):
     rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
     commitments = AgmtCommitment.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
 
+    header_dict = {}
+    if header:
+        header_dict = {column.name: getattr(header, column.name) for column in header.__table__.columns}
+
     return render_template(
         "preview_submission.html",
         document=doc,
-        header=header,
+        header=header_dict,
         models=models,
         rates=rates,
         commitments=commitments,
@@ -219,10 +234,17 @@ def final_review(doc_id, signed_filename):
     models = AgmtModelsStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
     rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
 
+    header_dict = {}
+    if header:
+        header_dict = {
+            column.name: getattr(header, column.name) 
+            for column in header.__table__.columns
+        }
+
     return render_template(
         "submission.html",
         document=doc,
-        header=header,
+        header=header_dict,
         models=models,
         rates=rates,
         signed_filename=signed_filename,

@@ -165,32 +165,27 @@
 
       <!-- 1. HEADER DATA TABLE -->
       <div class="section-title">Agreement Header (AGMT_HEADER_STG)</div>
-      <table class="db-table">
-          <thead>
-              <tr>
-                  <th>Agreement ID</th>
-                  <th>Sender</th>
-                  <th>Receiving Partner</th>
-                  <th>Start Date</th>
-                  <th>End Date</th>
-                  <th>Status</th>
-              </tr>
-          </thead>
-          <tbody>
-              {% if header %}
-              <tr>
-                  <td><strong>{{ header.AGMT_ID }}</strong></td>
-                  <td>{{ header.SENDER }}</td>
-                  <td>{{ header.RP }}</td>
-                  <td>{{ header.START_DATE }}</td>
-                  <td>{{ header.END_DATE }}</td>
-                  <td><span class="badge bg-warning text-dark">PENDING_REVIEW</span></td>
-              </tr>
-              {% else %}
-              <tr><td colspan="6">No header data found.</td></tr>
-              {% endif %}
-          </tbody>
-      </table>
+      
+      <div class="row g-3 mb-4">
+          {% if header %}
+              {% for key, value in header.items() %}
+              <div class="col-md-3 col-sm-6">
+                  <div class="p-2 border rounded bg-white h-100">
+                      <div class="text-muted small fw-bold text-uppercase">{{ key }}</div>
+                      <div class="text-dark mt-1" style="font-size: 0.9rem; word-break: break-word;">
+                          {% if key == 'AGMT_ID' %}
+                              <strong>{{ value or '-' }}</strong>
+                          {% else %}
+                              {{ value or '-' }}
+                          {% endif %}
+                      </div>
+                  </div>
+              </div>
+              {% endfor %}
+          {% else %}
+              <div class="col-12 text-muted">No header data found.</div>
+          {% endif %}
+      </div>
 
       <!-- 2. MODELS DATA TABLE -->
       <div class="section-title">Rate Models (AGMT_MODELS_STG)</div>

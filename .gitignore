@@ -12,6 +12,7 @@ dist/
 build/
 .eggs/
 *.so
+*.pdf
 pytest.ini
 
 # Virtual environments

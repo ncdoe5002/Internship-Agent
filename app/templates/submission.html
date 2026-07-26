@@ -149,19 +149,25 @@
         <p class="text-muted small mb-4">These records will be moved from STG to Production.</p>
 
         <div class="section-title">Header Record</div>
-        <table class="db-table">
-          <thead>
-            <tr><th>Agreement ID</th><th>Sender</th><th>Partner</th><th>Start Date</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>{{ header.AGMT_ID }}</strong></td>
-              <td>{{ header.SENDER }}</td>
-              <td>{{ header.RP }}</td>
-              <td>{{ header.START_DATE }}</td>
-            </tr>
-          </tbody>
-        </table>
+        
+        <div class="row g-3 mb-4">
+            {% if header %}
+                {% for key, value in header.items() %}
+                <div class="col-6">
+                    <div class="text-muted small fw-bold text-uppercase">{{ key }}</div>
+                    <div class="text-dark mb-2" style="font-size: 0.85rem; word-break: break-word;">
+                        {% if key == 'AGMT_ID' %}
+                            <strong>{{ value or '-' }}</strong>
+                        {% else %}
+                            {{ value or '-' }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12 text-muted small">No header data found.</div>
+            {% endif %}
+        </div>
 
         <div class="section-title">Rate Models</div>
         <table class="db-table">

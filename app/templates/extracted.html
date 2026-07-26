@@ -382,32 +382,23 @@
 
         <!-- 1. HEADER DATA TABLE -->
         <div class="section-title">Agreement Header</div>
-        <table class="db-table">
-            <thead>
-                <tr>
-                    <th>Agreement ID</th>
-                    <th>Sender</th>
-                    <th>Receiving Partner</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if header %}
-                <tr>
-                    <td contenteditable="true" class="editable-cell"><strong>{{ header.AGMT_ID }}</strong></td>
-                    <td contenteditable="true" class="editable-cell">{{ header.SENDER }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ header.RP }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ header.START_DATE }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ header.END_DATE }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ header.AGMT_STATUS }}</td>
-                </tr>
-                {% else %}
-                <tr><td colspan="6">No header data found.</td></tr>
-                {% endif %}
-            </tbody>
-        </table>
+        <div class="row g-3 mb-4">
+            {% if header %}
+                <!-- Loop through the Python dictionary keys and values -->
+                {% for key, value in header.items() %}
+                <div class="col-md-4">
+                    <div class="p-2 border rounded bg-white">
+                        <div class="text-muted small fw-bold text-uppercase">{{ key }}</div>
+                        <div contenteditable="true" class="editable-cell mt-1" style="min-height: 24px;">
+                            {{ value or '' }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12 text-muted">No header data found.</div>
+            {% endif %}
+        </div>
 
         <!-- 2. MODELS DATA TABLE -->
         <div class="section-title">Rate Models</div>
