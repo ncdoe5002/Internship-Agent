@@ -1,6 +1,5 @@
 import logging
 from app.services.prompts import ROAMING_AGREEMENT_PROMPT, GENERIC_TABLE_EXTRACTION_PROMPT
-import json
 from app.services.llm_client import chat_complete_json
 
 logger = logging.getLogger(__name__)
