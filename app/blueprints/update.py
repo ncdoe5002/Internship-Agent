@@ -8,13 +8,31 @@ from app.blueprints.jobs import process_contract_task
 from ..utils import extract_text_from_file
 from ..extensions import db
 from ..models.document import Document
-
-
 from ..models.agreement import AgmtHeaderStg, AgmtModelsStg, AgmtMdlNormalStg, AgmtCommitment
-from datetime import date
+from datetime import date, datetime, timezone
 from sqlalchemy import text
 
 update_bp = Blueprint("update", __name__)
+
+from ..models.mno import Mno
+from ..models.agreement_temp import (
+    TempAgmtHeader, 
+    TempAgmtModels, 
+    TempAgmtMdlNormal, 
+    TempAgmtCommitment
+)
+from ..models.agreement_prod import (
+    ProdAgmtHeader, 
+    ProdAgmtModels, 
+    ProdAgmtMdlNormal, 
+    ProdAgmtCommitment
+)
+from ..models.agreement_archive import (
+    ArchiveAgmtHeader, 
+    ArchiveAgmtModels, 
+    ArchiveAgmtMdlNormal, 
+    ArchiveAgmtCommitment
+)
 
 
 def allowed_file(filename: str) -> bool:
@@ -110,17 +128,25 @@ def get_status(doc_id):
 @login_required
 def view_extracted(doc_id):
     doc = Document.query.get_or_404(doc_id)
-    agmt_id = _get_agmt_id_for_doc(doc)
 
-    # Fetch staged records extracted from this document
-    header = AgmtHeaderStg.query.filter_by(AGMT_ID=agmt_id).first() if agmt_id else None
-    models = AgmtModelsStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
-    rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
-    commitments = AgmtCommitment.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
+    # Fetch staged records extracted
+    header = TempAgmtHeader.query.filter_by(document_id=doc_id).first()
+    
+    # WHY: If a header exists, we use its auto-generated integer `id` to find the child records 
+    # (models and commitments). This enforces the new surrogate key relational logic.
+    if header:
+        models = TempAgmtModels.query.filter_by(header_id=header.id).all()
+        rates = TempAgmtMdlNormal.query.join(TempAgmtModels).filter(TempAgmtModels.header_id == header.id).all()
+        commitments = TempAgmtCommitment.query.filter_by(header_id=header.id).all()
+    else:
+        models = []
+        rates = []
+        commitments = []
 
     header_dict = {}
     if header:
         header_dict = {c.name: getattr(header, c.name) for c in header.__table__.columns}
+        
 
     # Count displayable fields
     total_fields = 0
@@ -130,12 +156,36 @@ def view_extracted(doc_id):
     total_fields += len(rates) * 4
     total_fields += len(commitments) * 4
 
+    current_contract_data = None
+
+    if doc.partner_name: 
+        mno = Mno.query.filter_by(name=doc.partner_name).first()
+        
+        if mno:
+            # WHY: Because of our new PROD schema's Unique Constraint, 
+            # there is mathematically only EVER one active header per mno_id.
+            prod_header = ProdAgmtHeader.query.filter_by(mno_id=mno.id).first()
+            
+            if prod_header:
+                prod_models = ProdAgmtModels.query.filter_by(header_id=prod_header.id).all()
+                prod_rates = ProdAgmtMdlNormal.query.join(ProdAgmtModels).filter(ProdAgmtModels.header_id == prod_header.id).all()
+                prod_commitments = ProdAgmtCommitment.query.filter_by(header_id=prod_header.id).all()
+                
+                # Bundle the production data so the Jinja template can render it easily
+                current_contract_data = {
+                    "header": {c.name: getattr(prod_header, c.name) for c in prod_header.__table__.columns},
+                    "models": prod_models,
+                    "rates": prod_rates,
+                    "commitments": prod_commitments
+                }
+
+
     confidence_score = doc.confidence_score if doc.confidence_score is not None else 0
 
     return render_template(
         "extracted.html",
         document=doc,
-        current_doc=None,   # No baseline document pane yet
+        current_doc=current_contract_data,
         header=header_dict,
         models=models,
         rates=rates,
@@ -152,12 +202,17 @@ def view_extracted(doc_id):
 @login_required
 def preview_submission(doc_id):
     doc = Document.query.get_or_404(doc_id)
-    agmt_id = _get_agmt_id_for_doc(doc)
-
-    header = AgmtHeaderStg.query.filter_by(AGMT_ID=agmt_id).first() if agmt_id else None
-    models = AgmtModelsStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
-    rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
-    commitments = AgmtCommitment.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
+    
+    # WHY: Replacing the old _get_agmt_id_for_doc logic with our direct document_id lookup
+    header = TempAgmtHeader.query.filter_by(document_id=doc_id).first()
+    
+    # WHY: Traversing the surrogate keys (header.id) just like we did in view_extracted
+    if header:
+        models = TempAgmtModels.query.filter_by(header_id=header.id).all()
+        rates = TempAgmtMdlNormal.query.join(TempAgmtModels).filter(TempAgmtModels.header_id == header.id).all()
+        commitments = TempAgmtCommitment.query.filter_by(header_id=header.id).all()
+    else:
+        models, rates, commitments = [], [], []
 
     header_dict = {}
     if header:
@@ -191,8 +246,9 @@ def submit_to_db_route_name():
 @login_required
 def upload_signed_report_form(doc_id):
     doc = Document.query.get_or_404(doc_id)
-    agmt_id = _get_agmt_id_for_doc(doc)
-    header = AgmtHeaderStg.query.filter_by(AGMT_ID=agmt_id).first() if agmt_id else None
+    
+    # WHY: Fetching the dynamic operator name directly from TempAgmtHeader via document_id
+    header = TempAgmtHeader.query.filter_by(document_id=doc_id).first()
     dynamic_operator_name = header.SENDER if header else "Unknown Operator"
 
     return render_template(
@@ -228,11 +284,14 @@ def upload_signed_report(doc_id):
 @login_required
 def final_review(doc_id, signed_filename):
     doc = Document.query.get_or_404(doc_id)
-    agmt_id = _get_agmt_id_for_doc(doc)
-
-    header = AgmtHeaderStg.query.filter_by(AGMT_ID=agmt_id).first() if agmt_id else None
-    models = AgmtModelsStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
-    rates = AgmtMdlNormalStg.query.filter_by(AGMT_ID=agmt_id).all() if agmt_id else []
+    
+    # WHY: Consistent lookup via document_id and surrogate header_id
+    header = TempAgmtHeader.query.filter_by(document_id=doc_id).first()
+    if header:
+        models = TempAgmtModels.query.filter_by(header_id=header.id).all()
+        rates = TempAgmtMdlNormal.query.join(TempAgmtModels).filter(TempAgmtModels.header_id == header.id).all()
+    else:
+        models, rates = [], []
 
     header_dict = {}
     if header:
@@ -278,6 +337,9 @@ def serve_pdf(doc_id):
 # -------------------------------------------------------------------
 # 9. PUBLISH TO PRODUCTION
 # -------------------------------------------------------------------
+# -------------------------------------------------------------------
+# 9. PUBLISH TO PRODUCTION (Evacuate to Archive)
+# -------------------------------------------------------------------
 @update_bp.route("/update/publish-to-production", methods=["POST"])
 @login_required
 def publish_to_production():
@@ -287,9 +349,101 @@ def publish_to_production():
         return redirect(url_for("update.update_operator", operator_id=1))
 
     doc = Document.query.get(doc_id)
-    if doc:
-        doc.status = "PUBLISHED"
-        db.session.commit()
+    if not doc:
+        flash("Document not found.", "danger")
+        return redirect(url_for("dashboard.index"))
+
+    # 1. FETCH TEMP DATA
+    temp_header = TempAgmtHeader.query.filter_by(document_id=doc_id).first()
+    if not temp_header:
+        flash("No staging data found to publish.", "danger")
+        return redirect(url_for("dashboard.index"))
+
+    # 2. LOCATE OR CREATE THE MNO
+    mno = Mno.query.filter_by(name=doc.partner_name).first()
+    
+    # If the MNO doesn't exist in the database, stop the publish transaction
+    if not mno:
+        flash(f"Operator '{doc.partner_name}' not found. Please add them in the MNO dashboard before publishing.", "warning")
+        return redirect(url_for("dashboard.index")) # Or redirect to your MNO creation route
+
+    # 3. CHECK FOR EXISTING PRODUCTION CONTRACT (EVACUATE TO ARCHIVE)
+    prod_header = ProdAgmtHeader.query.filter_by(mno_id=mno.id).first()
+    
+    if prod_header:
+        # Evacuate Header
+        archive_header_data = {c.name: getattr(prod_header, c.name) for c in prod_header.__table__.columns if c.name not in ['id', 'mno_id']}
+        archive_header_data['mno_id'] = mno.id
+        archive_header = ArchiveAgmtHeader(**archive_header_data)
+        db.session.add(archive_header)
+        db.session.flush()
+
+        # Evacuate Models & Rates
+        prod_models = ProdAgmtModels.query.filter_by(header_id=prod_header.id).all()
+        for p_model in prod_models:
+            archive_model_data = {c.name: getattr(p_model, c.name) for c in p_model.__table__.columns if c.name not in ['id', 'header_id']}
+            archive_model_data['header_id'] = archive_header.id
+            a_model = ArchiveAgmtModels(**archive_model_data)
+            db.session.add(a_model)
+            db.session.flush() # Generate model id
+            
+            prod_rates = ProdAgmtMdlNormal.query.filter_by(model_id=p_model.id).all()
+            for p_rate in prod_rates:
+                archive_rate_data = {c.name: getattr(p_rate, c.name) for c in p_rate.__table__.columns if c.name not in ['id', 'model_id']}
+                archive_rate_data['model_id'] = a_model.id
+                a_rate = ArchiveAgmtMdlNormal(**archive_rate_data)
+                db.session.add(a_rate)
+
+        # Evacuate Commitments
+        prod_commitments = ProdAgmtCommitment.query.filter_by(header_id=prod_header.id).all()
+        for p_comm in prod_commitments:
+            archive_comm_data = {c.name: getattr(p_comm, c.name) for c in p_comm.__table__.columns if c.name not in ['id', 'header_id']}
+            archive_comm_data['header_id'] = archive_header.id
+            a_comm = ArchiveAgmtCommitment(**archive_comm_data)
+            db.session.add(a_comm)
+
+        # DELETE OLD PROD DATA
+        db.session.delete(prod_header)
+        db.session.flush()
+
+    # 4. INSERT TEMP DATA INTO PRODUCTION
+    new_prod_header_data = {c.name: getattr(temp_header, c.name) for c in temp_header.__table__.columns if c.name not in ['id', 'document_id']}
+    new_prod_header_data['mno_id'] = mno.id
+    new_prod_header = ProdAgmtHeader(**new_prod_header_data)
+    db.session.add(new_prod_header)
+    db.session.flush()
+
+    # Push Temp Models & Rates to Prod
+    temp_models = TempAgmtModels.query.filter_by(header_id=temp_header.id).all()
+    for t_model in temp_models:
+        prod_model_data = {c.name: getattr(t_model, c.name) for c in t_model.__table__.columns if c.name not in ['id', 'header_id']}
+        prod_model_data['header_id'] = new_prod_header.id
+        p_model = ProdAgmtModels(**prod_model_data)
+        db.session.add(p_model)
+        db.session.flush()
+        
+        temp_rates = TempAgmtMdlNormal.query.filter_by(model_id=t_model.id).all()
+        for t_rate in temp_rates:
+            prod_rate_data = {c.name: getattr(t_rate, c.name) for c in t_rate.__table__.columns if c.name not in ['id', 'model_id']}
+            prod_rate_data['model_id'] = p_model.id
+            p_rate = ProdAgmtMdlNormal(**prod_rate_data)
+            db.session.add(p_rate)
+
+    # Push Temp Commitments to Prod
+    temp_commitments = TempAgmtCommitment.query.filter_by(header_id=temp_header.id).all()
+    for t_comm in temp_commitments:
+        prod_comm_data = {c.name: getattr(t_comm, c.name) for c in t_comm.__table__.columns if c.name not in ['id', 'header_id']}
+        prod_comm_data['header_id'] = new_prod_header.id
+        p_comm = ProdAgmtCommitment(**prod_comm_data)
+        db.session.add(p_comm)
+
+    # 5. CLEAN UP TEMP 
+    db.session.delete(temp_header)
+
+    # 6. FINALIZE TRANSACTION
+    doc.status = "PUBLISHED"
+    mno.last_updated = datetime.now(timezone.utc).strftime('%d %b %Y')
+    db.session.commit()
 
     return render_template("final_publish.html", document=doc)
 

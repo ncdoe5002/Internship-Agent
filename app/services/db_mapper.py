@@ -1,11 +1,11 @@
 import logging
 from app.extensions import db
 from app.models.document import Document
-from app.models.agreement import (
-    AgmtHeaderStg, 
-    AgmtModelsStg, 
-    AgmtMdlNormalStg, 
-    AgmtCommitment
+from app.models.agreement_temp import (
+    TempAgmtHeader, 
+    TempAgmtModels, 
+    TempAgmtMdlNormal, 
+    TempAgmtCommitment
 )
 
 logger = logging.getLogger(__name__)
@@ -18,16 +18,15 @@ def save_extracted_tables_to_db(document_id: int, extracted_json: dict):
     if not doc:
         raise ValueError(f"Document ID {document_id} not found in database.")
 
-    # --- ADD THE CONFIDENCE SCORE HERE ---
-    # Retrieve the score from the dictionary (defaults to 0 if not found)
-    # This works for both Approach 1 (LLM self-evaluation) and Approach 2 (Logprobs)
     doc.confidence_score = int(extracted_json.get("confidence_score", 0))
-    # -------------------------------------
 
     tables = extracted_json.get("tables", [])
-    extracted_agmt_id = None
-
-   
+    
+    # WHY: We need to store references to the parent tables as we create them. 
+    # Because we are using auto-incrementing integer IDs now, we have to wait for the database 
+    # to generate the ID for the Header before we can attach the Models and Commitments to it.
+    current_header = None
+    model_mapping = {}  # Maps the string MODEL_SEQ from the AI to the actual database model.id
 
     for table in tables:
         title = table.get("title", "").upper()
@@ -35,94 +34,85 @@ def save_extracted_tables_to_db(document_id: int, extracted_json: dict):
         rows = table.get("rows", [])
 
         for row in rows:
-            # Zip headers and row values into a dictionary: {"START_DATE": "2026-01-01", ...}
             row_data = dict(zip(headers, row))
             row_data = sanitize_row_data(row_data)
             
             # 1. Map Agreement Header
             if "HEADER" in title or "AGMT_STATUS" in headers:
-                record = AgmtHeaderStg()
-                _populate_record(record, row_data)
-                db.session.merge(record)
+                current_header = TempAgmtHeader()
+                current_header.document_id = document_id # WHY: Explicitly link to the Document ID
+                _populate_record(current_header, row_data)
                 
-                # Capture the AGMT_ID so we can link it to the Document model later
-                if row_data.get("AGMT_ID"):
-                    extracted_agmt_id = row_data.get("AGMT_ID")
+                db.session.add(current_header)
+                # WHY: flush() pushes the object to the database immediately without finalizing the transaction.
+                # This generates `current_header.id` so we can use it for the child tables below.
+                db.session.flush() 
 
             # 2. Map Agreement Models
-            # FIX: Use "MODEL_TYPE" instead of "MODEL_SEQ" to avoid overlapping with Rate Details
             elif "MODELS" in title or "MODEL_TYPE" in headers:
-                agmt_id = row_data.get("AGMT_ID")
-                model_seq = row_data.get("MODEL_SEQ")
+                if not current_header: continue # Safety check
                 
-                # 1. Query the database using the Unique Constraint fields
-                existing_record = AgmtModelsStg.query.filter_by(
-                    AGMT_ID=agmt_id, 
-                    MODEL_SEQ=model_seq
-                ).first()
+                model = TempAgmtModels()
+                model.header_id = current_header.id # WHY: Relational link via the new integer key
+                _populate_record(model, row_data)
                 
-                if existing_record:
-                    # 2a. If it exists, update the existing object
-                    _populate_record(existing_record, row_data)
-                    # SQLAlchemy automatically tracks changes to 'existing_record', so no add() is needed!
-                else:
-                    # 2b. If it does not exist, create a new one
-                    record = AgmtModelsStg()
-                    _populate_record(record, row_data)
-                    db.session.add(record)
+                db.session.add(model)
+                db.session.flush() # WHY: Generate model.id immediately
+                
+                # WHY: Save this model's ID so the Rate rows know which parent to attach to
+                seq = row_data.get("MODEL_SEQ")
+                if seq is not None:
+                    model_mapping[str(seq)] = model.id
 
             # 3. Map Rate Details
             elif "RATE" in title or "CHARGE_FIELD" in headers:
-                record = AgmtMdlNormalStg()
-                _populate_record(record, row_data)
+                rate = TempAgmtMdlNormal()
                 
-                # Ensure numeric casting for CHARGE_FIELD if the AI returned a string
-                if hasattr(record, 'CHARGE_FIELD') and record.CHARGE_FIELD:
+                # WHY: Find the parent model's real database ID using the sequence number the AI gave us
+                ai_seq = str(row_data.get("MODEL_SEQ", "1"))
+                rate.model_id = model_mapping.get(ai_seq) 
+                
+                _populate_record(rate, row_data)
+                
+                if hasattr(rate, 'CHARGE_FIELD') and rate.CHARGE_FIELD:
                     try:
-                        record.CHARGE_FIELD = float(record.CHARGE_FIELD)
+                        rate.CHARGE_FIELD = float(rate.CHARGE_FIELD)
                     except ValueError:
-                        record.CHARGE_FIELD = 0.0
+                        rate.CHARGE_FIELD = 0.0
                         
-                db.session.merge(record)
+                db.session.add(rate)
 
             # 4. Map Commitments
             elif "COMMITMENT" in title or "COMMITMENT_TYPE" in headers:
-                record = AgmtCommitment()
-                _populate_record(record, row_data)
+                if not current_header: continue
                 
-                if hasattr(record, 'AMOUNT') and record.AMOUNT:
+                commitment = TempAgmtCommitment()
+                commitment.header_id = current_header.id # WHY: Link to header surrogate key
+                _populate_record(commitment, row_data)
+                
+                if hasattr(commitment, 'AMOUNT') and commitment.AMOUNT:
                     try:
-                        record.AMOUNT = float(record.AMOUNT)
+                        commitment.AMOUNT = float(commitment.AMOUNT)
                     except ValueError:
-                        record.AMOUNT = 0.0
+                        commitment.AMOUNT = 0.0
                         
-                db.session.merge(record)
+                db.session.add(commitment)
+    
 
-    # Link the extracted AGMT_ID back to the original document
-    if extracted_agmt_id:
-        doc.agmt_id = extracted_agmt_id
-
-    # Commit all staged records to the database at once
     db.session.commit()
     logger.info(f"Successfully saved all extracted tables for document {document_id} to DB.")
 
 
 def _populate_record(sqlalchemy_record, row_data: dict):
-    """
-    Helper function to safely dynamically assign dictionary values to a SQLAlchemy model.
-    Only sets the attribute if the column actually exists on the model.
-    """
     for key, value in row_data.items():
         if hasattr(sqlalchemy_record, key):
-            # Convert empty strings to None for cleaner database entries
             clean_value = None if value == "" else value
             setattr(sqlalchemy_record, key, clean_value)
 
+
 def sanitize_row_data(row_dict: dict) -> dict:
-    """Converts common string booleans from the LLM into actual Python Booleans."""
     for key, value in row_dict.items():
         if isinstance(value, str):
-            # Clean up whitespace just in case
             val_upper = value.strip().upper()
             if val_upper in ('Y', 'YES', 'TRUE'):
                 row_dict[key] = True
