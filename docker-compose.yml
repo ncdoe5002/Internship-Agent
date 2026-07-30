@@ -25,6 +25,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - .:/app
       - ./uploads:/app/uploads
       - ./app/static/pdfs:/app/app/static/pdfs
     env_file:
