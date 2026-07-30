@@ -1,219 +1,165 @@
-# ContractExtract
+# EDCH Roaming Advisor
 
 <p align="center">
-  <img src="app/static/images/ContractExtract.png" width="900" alt="ContractExtract Banner">
-</p>
-ContractExtract is a document processing system for contract and PDF extraction workflows. It uses Flask for the web application, Celery for background processing, PostgreSQL for persistence, Redis as the message broker and cache layer, and Google Gemini for AI-powered extraction. Human review is built into the flow so extracted data can be validated before it is permanently saved.
-
-The project is designed for a practical enterprise-style workflow:
-
-A user uploads a PDF.
-The file is queued for background processing.
-Gemini extracts structured data.
-A reviewer checks the extracted output.
-Approved records are stored permanently.
-
-<p align="center">
-  <a href="https://skillicons.dev">
-    <img src="https://skillicons.dev/icons?i=python,flask,html,css,javascript" />
-  </a>
+      <img src="app/static/images/ContractExtract.png" width="900" alt="EDCH Roaming Advisor banner">
 </p>
 
+EDCH Roaming Advisor is a Flask-based document processing platform for roaming agreement review. It ingests contract-style files, runs asynchronous extraction and validation in the background, and supports a human review flow before records are published.
+
+The application is built around a practical operator workflow:
+
+1. A user uploads a PDF, DOCX, XLSX, or XLS file.
+2. Flask stores the file and creates a document record.
+3. Celery processes the document in the background.
+4. The extraction pipeline pulls structured agreement data from the file.
+5. Verification and risk checks help reviewers assess the result.
+6. Signed output can be uploaded and published to production.
+
 <p align="center">
-  <b>PDF/Excel/Docx upload → AI extraction → human review → permanent save</b>
+      <b>Upload → background extraction → verification → final review → publish</b>
 </p>
 
 ---
 
+## Highlights
+
+- Asynchronous document processing with Celery and Redis.
+- Flask web UI for upload, dashboard, review, and publishing flows.
+- AI-assisted extraction built around Google Gemini and LangChain components.
+- Local LM Studio integration for OpenAI-compatible model calls during extraction.
+- Structured agreement models for headers, rate tables, and commitments.
+- Human review steps for extracted output, signed reports, and final approval.
+- Dynamic review templates that scale as agreement header fields expand.
+- PostgreSQL persistence with Flask-Migrate support.
+- Dockerized local development and deployment.
+
 ## How It Works
- 
-```text
-User uploads PDF, Excel, Docx
-      ↓
-Flask receives file
-      ↓
-File stored locally or in mounted volume
-      ↓
-Celery task starts
-      ↓
-Gemini extracts structured data
-      ↓
-Reviewer verifies output
-      ↓
-Approved record saved to PostgreSQL
-      ↓
-Document marked as APPROVED
+
+```mermaid
+flowchart TD
+            A[Upload document] --> B[Flask creates document record]
+            B --> C[Celery worker processes file]
+            C --> D[Extraction Agent]
+            D --> E[Verification Agent]
+            E --> F[Risk Agent]
+            F --> G[Reviewer checks extracted data]
+            G --> H[Signed report uploaded]
+            H --> I[Publish to production]
 ```
 
-## Quick start
+## Tech Stack
+
+| Layer | Tools |
+|---|---|
+| Web | Flask, Jinja2 |
+| Background jobs | Celery |
+| Queue and cache | Redis |
+| Database | PostgreSQL |
+| AI / orchestration | Google Gemini, LangChain, LangGraph |
+| Local inference | LM Studio via OpenAI-compatible client |
+| Data validation | Pydantic |
+| File handling | PyMuPDF, python-docx, openpyxl, pandas |
+| Deployment | Docker, Docker Compose, Gunicorn |
+
+## Quick Start
 
 ### Prerequisites
-- Docker Desktop installed and running
-- A Google Gemini API key from [Google AI Studio](https://aistudio.google.com/)
 
+- Docker Desktop installed and running.
+- A Google Gemini API key.
+- A populated `.env` file with the runtime settings below.
 
-## Features
+### 1. Configure the environment
 
-<details>
-<summary><strong>Click to expand the feature set</strong></summary>
+Create a `.env` file in the project root and add at least these values:
 
-- Upload PDF/Excel/Docx documents through a web interface.
-- Process documents asynchronously with Celery workers.
-- Extract structured data using Google Gemini.
-- Present AI output for human verification.
-- Track document lifecycle states such as pending, processing, ready, approved, and failed.
-- Store metadata and final approved results in PostgreSQL.
-- Use Redis for task brokering and queue management.
-- Support a modular Flask project structure.
-- Containerized development with Docker.
-- Database migrations with Flask-Migrate.
+- `SECRET_KEY`
+- `DATABASE_URL`
+- `REDIS_URL`
+- `GOOGLE_API_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `UPLOAD_FOLDER`
 
-</details>
-
-### 1. Clone and configure
-
-```bash
-git clone <repo-url>
-cd ContractExtract
-cp .env.example .env
-# Edit .env — add your GEMINI_API_KEY and change SECRET_KEY
-```
-
-### 2. Start everything
+### 2. Start the stack
 
 ```bash
 docker compose up --build
 ```
 
-Open your browser to **http://localhost:8000**
+Open the app at `http://localhost:8000`.
 
-### 3. Create the database tables (first time only)
+If you want to use the local model integration, start LM Studio on the host machine and make sure its OpenAI-compatible server is available at `http://localhost:1234`.
+
+### 3. Apply database migrations
 
 ```bash
 docker compose exec web flask db upgrade
 ```
 
-### 4. Create your first user (dev helper)
-
-```bash
-docker compose exec web python -c "
-from app import create_app
-from app.extensions import db
-from app.models.user import User
-from werkzeug.security import generate_password_hash
-app = create_app()
-with app.app_context():
-    u = User(username='admin', email='admin@example.com', password_hash=generate_password_hash('admin123'), is_admin=True)
-    db.session.add(u)
-    db.session.commit()
-    print('User created: admin / admin123')
-"
-```
-
-## Project structure
-
-```text
-app/
-├── blueprints/
-│   ├── auth.py
-│   ├── upload.py
-│   ├── review.py
-│   └── jobs.py
-├── models/
-│   ├── user.py
-│   ├── document.py
-|   ├── agreement.py
-│   ├── audit_log.py
-│   └── production_record.py
-|   ├── agreement.py
-├── services/
-│   ├── storage.py
-│   ├── gemini.py
-│   └── baseline.py
-├── tasks/
-│   └── process_pdf.py
-├── schemas/
-│   └── extraction.py
-└── templates/
-    ├── base.html
-    ├── upload.html
-    ├── review.html
-    └── dashboard.html
-```
----
-
-## Tech Stack
-
-<p align="center">
-  <img src="https://skillicons.dev/icons?i=python,flask,postgres,redis,docker,html,css" alt="Tech Stack" />
-</p>
-
-| Layer | Tools |
-|---|---|
-| Frontend | Jinja2, HTMX, HTML, CSS |
-| Backend | Flask |
-| Background Jobs | Celery |
-| Queue / Cache | Redis |
-| Database | PostgreSQL |
-| AI | Google Gemini |
-| Deployment | Docker, Docker Compose |
-| Validation | Pydantic |
-
-## Document status flow
-
-```
-PENDING → PROCESSING → READY → APPROVED
-                    ↘ FAILED (after 3 retries)
-```
-## Architecture
-
-```text
-┌──────────────────────────────┐
-│          Browser UI          │
-│      Upload / Review Pages   │
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│         Flask App            │
-│ Routes, validation, auth     │
-└──────────────┬───────────────┘
-               │
-               ├──────────────► PostgreSQL
-               │
-               ├──────────────► Redis
-               │
-               ▼
-┌──────────────────────────────┐
-│        Celery Worker         │
-│  Background DOC processing   │
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│       Google Gemini          │
-│ Structured extraction logic  │
-└──────────────────────────────┘
-```
-
-## Development (without Docker)
+## Local Development
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+.venv\Scripts\activate
 pip install -r requirements.txt
-# Start postgres and redis separately, then:
-flask run --port 8000
+flask --app wsgi run --port 8000
+```
+
+Run the worker in a second terminal:
+
+```bash
 celery -A celery_worker.celery worker --loglevel=info
 ```
 
-## Environment variables
+## Project Structure
 
-| Variable | Description |
+```text
+app/
+├── agents/                # Extraction, verification, and risk orchestration
+├── blueprints/            # Auth, dashboard, jobs, and update routes
+├── models/                # SQLAlchemy models for users, documents, agreements, and logs
+├── schemas/               # Pydantic schemas for extracted data
+├── services/              # Gemini, baseline, storage, and file adapters
+├── static/                # CSS, images, and stored PDFs
+├── tasks/                 # Celery jobs
+└── templates/             # Dashboard and review views
+migrations/                # Alembic migration environment and revisions
+uploads/                   # Local upload target
+```
+
+## Document Lifecycle
+
+The main document states used by the app are `PENDING`, `PROCESSING`, `READY`, `FAILED`, and `PUBLISHED`.
+
+## Extraction And Mapping
+
+The latest branch work adds a local model client in [app/services/llm_client.py](app/services/llm_client.py) and a database mapping layer in [app/services/db_mapper.py](app/services/db_mapper.py). Together, these pieces convert extracted JSON into staging records, attach confidence scoring, and keep the document linked to the extracted `AGMT_ID`.
+
+The review pages now render agreement headers dynamically so the UI can accommodate additional header fields without a hard-coded form update.
+
+## Testing
+
+```bash
+pytest
+```
+
+The repository includes unit, integration, end-to-end, and slow test markers in `pytest.ini`.
+
+## Configuration Reference
+
+| Variable | Purpose |
 |---|---|
+| `SECRET_KEY` | Flask session secret |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `GEMINI_API_KEY` | Google AI Studio API key |
-| `SECRET_KEY` | Flask session secret (make it long and random) |
-| `DB_PASSWORD` | PostgreSQL password (used by docker-compose) |
-| `UPLOAD_FOLDER` | Where PDFs are stored locally (default: `uploads`) |
+| `REDIS_URL` | Redis broker and result backend |
+| `GOOGLE_API_KEY` | Gemini API key |
+| `SUPABASE_URL` | Supabase project URL used by the dashboard |
+| `SUPABASE_ANON_KEY` | Supabase anonymous key used by the dashboard |
+| `UPLOAD_FOLDER` | Local upload destination |
+
+## Notes
+
+- Supported uploads are PDF, DOCX, XLSX, and XLS.
+- Files are stored under `app/static/pdfs/` for browser-based preview and review.
+- The app uses Flask-Migrate, so schema changes should be managed through migrations rather than direct table edits.
