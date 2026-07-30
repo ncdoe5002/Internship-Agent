@@ -1,152 +1,21 @@
 """
-Verification Agent - Validates extracted tariff data and calculates text grounding confidence.
+Verification Agent - Validates extracted tariff data.
+
+This agent performs validation checks on extracted tariff data to ensure
+data quality and completeness. It compares extracted data against baseline
+tables (if available) and returns a verification status with confidence scores.
+
+Usage:
+    agent = VerificationAgent()
+    result = agent.run(payload)
 """
 
 from __future__ import annotations
-
-import logging
-import re
-from datetime import datetime
-from difflib import SequenceMatcher
+import logging, re
 from typing import Any
-
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
-
-# --- Grounding Helpers from Test Code ---
-
-SYSTEM_METADATA_FIELDS = {
-    "AGMT_ID",
-    "BULK_ID",
-    "USER_ACT_ID",
-    "CREATED_DATE",
-    "MODIFIED_DATE",
-    "CREATED_USER",
-    "MODIFIED_USER",
-    "AGMT_VERIFIED_BY",
-    "STATUS",
-    "IS_ACTIVE",
-}
-
-NUMERIC_FIELDS = {
-    "AMOUNT",
-    "COMMIT_VALUE",
-    "BASELINE_VALUE",
-    "DISC_RATE_PERC",
-    "CAPTURE_RATE_PCT",
-    "TOTAL_AGMT_MONTH",
-    "GPRS_LIMIT",
-    "RATE",
-    "PRICE",
-    "COST",
-}
-
-DATE_FIELDS = {
-    "START_DATE",
-    "END_DATE",
-    "CREATED_DATE",
-    "MODIFIED_DATE",
-    "AGMT_VERIFIED_DATE",
-}
-
-
-def normalize_text(s: str) -> str:
-    s = str(s).lower().strip()
-    s = re.sub(r"[€$£]", "", s)
-    s = re.sub(r"[,\s]+", " ", s)
-    return s.strip()
-
-
-def try_parse_number(s: Any) -> float | None:
-    s = str(s)
-    s = re.sub(r"[€$£,]", "", s)
-    match = re.search(r"-?\d+(\.\d+)?", s)
-    return float(match.group(0)) if match else None
-
-
-def try_parse_date(s: Any) -> Any | None:
-    s = str(s).strip()
-    formats = [
-        "%Y-%m-%d",
-        "%d/%m/%Y",
-        "%m/%d/%Y",
-        "%d-%m-%Y",
-        "%d %B %Y",
-        "%d %b %Y",
-        "%B %d, %Y",
-        "%b %d, %Y",
-    ]
-    for fmt in formats:
-        try:
-            return datetime.strptime(s, fmt).date()
-        except ValueError:
-            continue
-    return None
-
-
-def numeric_grounding(value: str, raw_doc_text: str) -> float:
-    target = try_parse_number(value)
-    if target is None:
-        return 0.0
-    doc_numbers = re.findall(r"-?\d[\d,]*\.?\d*", raw_doc_text)
-    for raw_num in doc_numbers:
-        parsed = try_parse_number(raw_num)
-        if parsed is not None and abs(parsed - target) < 1e-6:
-            return 1.0
-    return 0.0
-
-
-def date_grounding(value: str, raw_doc_text: str) -> float:
-    target = try_parse_date(value)
-    if target is None:
-        return 0.0
-    candidates = re.findall(
-        r"\d{1,2}\s+[A-Za-z]+\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{4}",
-        raw_doc_text,
-    )
-    for cand in candidates:
-        if try_parse_date(cand) == target:
-            return 1.0
-    return 0.0
-
-
-def text_grounding(value: str, raw_doc_text: str) -> float:
-    norm_val = normalize_text(value)
-    norm_doc = normalize_text(raw_doc_text)
-    if not norm_val:
-        return 0.0
-    if norm_val in norm_doc:
-        return 1.0
-
-    chunks = re.split(r"(?<=[.;\n])\s+", raw_doc_text)
-    chunks = [normalize_text(c) for c in chunks if len(c.strip()) > 3]
-    if not chunks:
-        return 0.0
-    return max(SequenceMatcher(None, norm_val, c).ratio() for c in chunks)
-
-
-def calculate_field_confidence(field_name: str, value: Any, raw_doc_text: str) -> float:
-    field_upper = field_name.upper()
-    if field_upper in SYSTEM_METADATA_FIELDS:
-        return 1.0
-    if (
-        value is None
-        or str(value).strip() == ""
-        or str(value).strip().lower() == "null"
-    ):
-        return 0.0
-
-    str_val = str(value).strip()
-    if field_upper in NUMERIC_FIELDS:
-        return numeric_grounding(str_val, raw_doc_text)
-    elif field_upper in DATE_FIELDS:
-        return date_grounding(str_val, raw_doc_text)
-    else:
-        return text_grounding(str_val, raw_doc_text)
-
-
-# --- Agent Models ---
 
 
 class VerificationResult(BaseModel):
@@ -159,151 +28,246 @@ class VerificationResult(BaseModel):
 
 
 class VerificationAgentInput(BaseModel):
-    partner_name: str
-    extracted_tables: dict
-    raw_doc_text: str  # Mandatory for grounding
-    baseline_tables: dict | None = None
-
-
-# --- Main Agent Class ---
+    partner_name: str = Field(description="Name of the organization")
+    extracted_tables: dict = Field(description="Extracted tables from the document")
+    baseline_tables: dict | None = Field(
+        default=None, description="Optional Tables for comparisons"
+    )
 
 
 class VerificationAgent:
-    def _check_currency_format(self, value: Any) -> bool:
-        """Validates if a value follows valid monetary/numeric patterns."""
-        if value is None or str(value).strip() == "":
-            return True
-        val_str = str(value).strip()
-        pattern = r"^[\$€£]?\s*-?\d{1,3}(,\d{3})*(\.\d+)?%?$"
-        return bool(re.match(pattern, val_str))
-
-    def _check_date_format(self, value: Any) -> bool:
-        """Validates if a date field can be parsed into a valid date."""
-        if value is None or str(value).strip() == "":
-            return True
-        return try_parse_date(value) is not None
-
-    def _validate_table_structure(self, tables_payload: dict) -> list[str]:
-        """Performs structural integrity checks on extracted tables."""
+    def _check_currency_format(self, tables: dict) -> tuple[bool, list[str]]:
         issues = []
-        tables = tables_payload.get("tables", [])
-
-        for t_idx, table in enumerate(tables):
-            title = table.get("title", f"Table #{t_idx + 1}")
-            headers = table.get("headers", [])
-            rows = table.get("rows", [])
-
-            if not headers:
-                issues.append(f"Structural Issue: '{title}' missing column headers.")
-                continue
-
-            num_cols = len(headers)
-            for r_idx, row in enumerate(rows):
-                if len(row) != num_cols:
-                    issues.append(
-                        f"Structural Issue: Row {r_idx + 1} in '{title}' has {len(row)} columns, expected {num_cols}."
-                    )
-
-                for c_idx, cell in enumerate(row):
-                    if c_idx >= num_cols:
-                        break
-                    header_name = headers[c_idx].upper()
-
-                    if (
-                        header_name in NUMERIC_FIELDS
-                        and not self._check_currency_format(cell)
-                    ):
-                        issues.append(
-                            f"Format Issue: Invalid numeric value '{cell}' for column '{headers[c_idx]}' in row {r_idx + 1}."
-                        )
-
-                    if header_name in DATE_FIELDS and not self._check_date_format(cell):
-                        issues.append(
-                            f"Format Issue: Invalid date format '{cell}' for column '{headers[c_idx]}' in row {r_idx + 1}."
-                        )
-
-        return issues
-
-    def _check_baseline_variances(
-        self, extracted_tables: dict, baseline_tables: dict | None
-    ) -> list[str]:
-        """Compares extracted data against baseline tables if present."""
-        issues = []
-        if not baseline_tables:
-            return issues
-
-        logger.info("Executing baseline comparison checks...")
-        return issues
-
-    def _calculate_overall_confidence(
-        self, tables: dict, raw_doc_text: str
-    ) -> tuple[int, list[str]]:
-        scores = []
-        issues = []
-
+        currency_pattern = re.compile(r"^[\$€£¥]?\s*[\d,]+\.?\d*\s*[\$€£¥]?$")
+        rate_keywords = (
+            "rate",
+            "price",
+            "cost",
+            "tariff",
+            "amount",
+            "fee",
+            "charge",
+        )  # to check if any of these keywords match for the cost value
         for table in tables.get("tables", []):
             headers = table.get("headers", [])
-            for row in table.get("rows", []):
-                for col_idx, cell_value in enumerate(row):
-                    if col_idx < len(headers):
-                        field_name = headers[col_idx]
-                        score = calculate_field_confidence(
-                            field_name, cell_value, raw_doc_text
+            if isinstance(headers, list):
+                rate_indices = [
+                    idx
+                    for idx, header in enumerate(headers)
+                    if isinstance(header, str)
+                    and any(keyword in header.lower() for keyword in rate_keywords)
+                ]
+            else:
+                rate_indices = []
+
+            if not rate_indices and isinstance(headers, list) and len(headers) >= 2:
+                rate_indices = [1]
+
+            rows = table.get("rows", [])
+            for row_idx, row in enumerate(rows):
+                if not isinstance(row, list):
+                    continue
+                for col_idx in rate_indices:
+                    if col_idx >= len(row):
+                        continue
+                    cell = row[col_idx]
+                    if cell is None or str(cell).strip() == "":
+                        continue
+                    if not currency_pattern.match(str(cell).strip()):
+                        issues.append(
+                            f"Table '{table.get('title', 'Untitled')}', row {row_idx}, "
+                            f"column {col_idx}: Invalid currency format '{cell}'"
                         )
-                        scores.append(score)
-                        if score < 0.65 and str(cell_value).strip() != "":
-                            issues.append(
-                                f"Low confidence ({score * 100:.0f}%) for {field_name}: '{cell_value}' in table '{table.get('title', 'Unknown')}'"
-                            )
+        return len(issues) == 0, issues
 
-        if not scores:
-            return 0, ["No fields extracted to calculate confidence."]
+    def _check_effective_date(self, tables: dict) -> tuple[bool, list[str]]:
+        """
+           Checks for all the date formats
 
-        avg_score = int((sum(scores) / len(scores)) * 100)
-        return avg_score, issues
+        Args:
+            tables (dict): checks for date in the tables
+
+        Returns:
+            tuple[bool, list[str]]: Returns a boolean if date are matching and present and issues like
+        """
+        issues = []
+        date_found = False
+        date_patterns = [
+            r"\d{4}-\d{2}-\d{2}",
+            r"\d{2}/\d{2}/\d{4}",
+            r"\d{2}-\d{2}-\d{4}",
+            r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}",
+        ]
+        for table in tables.get("tables", []):
+            headers = table.get("headers", [])
+            for header in headers:
+                if "effective" in header.lower() or "date" in header.lower():
+                    date_found = True
+                    break
+            rows = table.get("rows", [])
+            for row in rows:
+                for cell in row:
+                    for pattern in date_patterns:
+                        if re.search(pattern, cell, re.IGNORECASE):
+                            date_found = True
+                            break
+                    if date_found:
+                        break
+                if date_found:
+                    break
+            if date_found:
+                break
+        if not date_found:
+            issues.append("No effective date found in the document")
+        return date_found, issues
+
+    def _check_partner_agreement(
+        self, tables: dict, partner_name: str
+    ) -> tuple[bool, list[str]]:
+        issues = []
+        partner_normalized = partner_name.lower().strip()
+        partner_found = False
+        for table in tables.get("tables", []):
+            title = table.get("title", "")
+            if partner_normalized in title.lower():
+                partner_found = True
+                break
+            headers = table.get("headers", [])
+            for header in headers:
+                if partner_normalized in header.lower():
+                    partner_found = True
+                    break
+            rows = table.get("rows", [])
+            for row in rows:
+                for cell in row:
+                    if partner_normalized in cell.lower():
+                        partner_found = True
+                        break
+                if partner_found:
+                    break
+            if partner_found:
+                break
+        if not partner_found:
+            issues.append(f"Partner name '{partner_name}' not found in document")
+        return partner_found, issues
+
+    def _check_table_structure(self, tables: dict) -> tuple[bool, list[str]]:
+        issues = []
+        for table_idx, table in enumerate(tables.get("tables", [])):
+            headers = table.get("headers", [])
+            rows = table.get("rows", [])
+            if not headers:
+                issues.append(f"Table {table_idx}: Missing headers")
+                continue
+            for row_idx, row in enumerate(rows):
+                for col_idx, cell in enumerate(row):
+                    if not cell or cell.strip() == "":
+                        issues.append(
+                            f"Table {table_idx}, row {row_idx}, column {col_idx}: "
+                            f"Empty cell (header: '{headers[col_idx] if col_idx < len(headers) else 'N/A'}')"
+                        )
+        return len(issues) == 0, issues
+
+    def _check_edch_services(self, tables: dict) -> tuple[bool, list[str]]:
+        """
+        A service to look at tables that contains certain keywords
+
+        Args:
+            tables (dict): contains the data of each tables row and columns values
+
+        Returns:
+            tuple[bool, list[str]]: Returns the if the services and the issues
+        """
+        issues = []
+        found_categories = set()
+        for table in tables.get("tables", []):
+            title = str(table.get("title", "")).lower()
+            if any(
+                k in title for k in ("tariff", "roaming", "agreement", "rate", "edch")
+            ):
+                rows = table.get("rows", [])
+                for row in rows:
+                    if isinstance(row, list) and len(row) > 0 and row[0]:
+                        found_categories.add(str(row[0]).lower().strip())
+        if found_categories:
+            mandatory = {"voice", "data", "sms"}
+            missing = [
+                m for m in mandatory if not any(m in cat for cat in found_categories)
+            ]
+            if len(missing) == len(mandatory):
+                issues.append(
+                    f"Advisory: Standard roaming service categories missing: {', '.join(missing)}"
+                )
+        return True, issues
 
     def run(self, payload: VerificationAgentInput) -> VerificationResult:
-        tables_exist = bool(payload.extracted_tables.get("tables"))
+        checks = []
         issues = []
-        checks = ["Tables extracted"]
+        check_results = {}
 
+        tables_exist = bool(payload.extracted_tables.get("tables"))
+        check_results["tables_extracted"] = tables_exist
+        checks.append("Tables extracted")
         if not tables_exist:
             issues.append("No tables were extracted from the document")
-            return VerificationResult(
-                status="FAILED", confidence=0, checks=checks, issues=issues
+
+        if tables_exist:
+            currency_passed, currency_issues = self._check_currency_format(
+                payload.extracted_tables
             )
+            check_results["currency_format"] = currency_passed
+            checks.append("Currency format verified")
+            issues.extend(currency_issues)
 
-        # 1. Structural Checks
-        structural_issues = self._validate_table_structure(payload.extracted_tables)
-        issues.extend(structural_issues)
-        checks.append("Table structure and column format verified")
+            date_passed, date_issues = self._check_effective_date(
+                payload.extracted_tables
+            )
+            check_results["effective_date"] = date_passed
+            checks.append("Effective date verified")
+            issues.extend(date_issues)
 
-        # 2. Baseline Comparison Checks
-        baseline_issues = self._check_baseline_variances(
-            payload.extracted_tables, payload.baseline_tables
-        )
-        issues.extend(baseline_issues)
-        if payload.baseline_tables:
-            checks.append("Baseline comparison verified")
+            partner_passed, partner_issues = self._check_partner_agreement(
+                payload.extracted_tables, payload.partner_name
+            )
+            check_results["partner_agreement"] = partner_passed
+            checks.append("Partner agreement matched")
+            issues.extend(partner_issues)
 
-        # 3. Grounding Confidence Checks
-        confidence, grounding_issues = self._calculate_overall_confidence(
-            payload.extracted_tables, payload.raw_doc_text
-        )
-        issues.extend(grounding_issues)
-        checks.append("Field-level text grounding verified")
+            structure_passed, structure_issues = self._check_table_structure(
+                payload.extracted_tables
+            )
+            check_results["table_structure"] = structure_passed
+            checks.append("Table structure verified")
+            issues.extend(structure_issues)
 
-        # 4. Final Status Evaluation
-        if confidence < 70:
+            edch_passed, edch_issues = self._check_edch_services(
+                payload.extracted_tables
+            )
+            check_results["edch_services"] = edch_passed
+            checks.append("EDCH service categories checked")
+            issues.extend(edch_issues)
+
+        confidence = 100 if tables_exist else 0
+        if tables_exist:
+            confidence = max(0, 100 - (len(issues) * 10))
+
+        total_checks = len(check_results)
+        passed_checks = sum(1 for result in check_results.values() if result)
+
+        if not tables_exist:
             status = "FAILED"
-        elif confidence < 90 or len(issues) > 0:
+        elif confidence < 70:
+            status = "FAILED"
+        elif confidence < 90:
             status = "REVIEW"
         else:
             status = "READY"
 
         logger.info(
-            f"Verification completed: status={status}, confidence={confidence}, issues={len(issues)}"
+            f"Verification completed: status={status}, confidence={confidence}, "
+            f"checks_passed={passed_checks}/{total_checks}, issues={len(issues)}"
         )
+
         return VerificationResult(
             status=status, confidence=confidence, checks=checks, issues=issues
         )

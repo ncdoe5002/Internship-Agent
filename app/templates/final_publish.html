@@ -4,87 +4,121 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Database Publish Status</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
+    /* Reset and Base Styles */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background-color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      min-height: 100vh;
-      display: flex;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f2f3f5;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; color: #111827;
       flex-direction: column;
-      justify-content: center;
-      align-items: center;
+    }
+    .container { width: 100%; max-width: 600px; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+
+    /* Spinner Styles */
+    .spinner-wrapper { position: relative; width: 64px; height: 64px; margin-bottom: 24px; transition: opacity 0.3s; }
+    .spinner-wrapper.hidden { display: none; }
+    .spinner-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid #fee2e2; }
+    .spinner-progress { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: #dc2626; animation: spin 1s linear infinite; }
+    
+    .logo-center { 
+      position: absolute; 
+      top: 50%; left: 50%; 
+      transform: translate(-50%, -50%); 
+      width: 28px; height: 28px; 
+      object-fit: contain;
     }
 
-    /* Custom Spinner */
-    .spinner-wrapper { position: relative; width: 64px; height: 64px; transition: opacity 0.3s; margin: 0 auto; }
-    .spinner-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 3px solid #fee2e2; }
-    .spinner-progress { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 3px solid transparent; border-top-color: #dc2626; animation: spin 1s linear infinite; }
-    .logo-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 26px; height: 26px; object-fit: contain; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
 
-    /* Card & List */
-    .status-card {
-      border: 1px solid #e2e8f0;
-      border-top: 4px solid #dc2626;
-      border-radius: 12px;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-      background-color: white;
-      overflow: hidden;
-    }
-    
-    .status-item {
-      display: flex; align-items: center; padding: 20px 24px; border-bottom: 1px solid #f1f5f9; gap: 16px; transition: all 0.3s ease;
-    }
-    .status-item:last-child { border-bottom: none; }
-    
-    .status-item[data-state="pending"] .item-text { color: #94a3b8; }
-    .status-item[data-state="processing"] .item-text { color: #334155; font-weight: 500; }
-    .status-item[data-state="completed"] .item-text { color: #0f172a; font-weight: 500; }
-    .status-item[data-state="error"] .item-text { color: #dc2626; font-weight: 500; }
+    /* Typography */
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; color: #0f172a; text-align: center; }
+    .subtitle { font-size: 0.95rem; color: #6b7280; margin-bottom: 32px; text-align: center; }
 
-    .icon-wrapper { width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+    /* Card Styles */
+    .status-card { width: 100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); overflow: hidden; border-top: 4px solid #dc2626; }
+    .status-list { list-style: none; width: 100%; }
+    
+    /* List Items */
+    .status-item { display: flex; align-items: center; padding: 20px 24px; border-bottom: 1px solid #f3f4f6; gap: 16px; transition: all 0.3s ease; }
+    .status-item:last-child { border-bottom: none; }
+    .item-text { font-size: 1rem; font-weight: 400; }
+
+    /* States */
+    .status-item[data-state="pending"] .item-text { color: #9ca3af; }
+    .status-item[data-state="processing"] .item-text { color: #4b5563; }
+    .status-item[data-state="completed"] .item-text { color: #111827; }
+    .status-item[data-state="error"] .item-text { color: #dc2626; }
+
+    /* Icons */
+    .icon-wrapper { width: 24px; height: 24px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
     .status-item[data-state="completed"] .icon-wrapper { background-color: #dcfce7; color: #16a34a; }
     .status-item[data-state="error"] .icon-wrapper { background-color: #fee2e2; color: #dc2626; }
     .status-item[data-state="processing"] .icon-wrapper,
-    .status-item[data-state="pending"] .icon-wrapper { background-color: #f1f5f9; }
+    .status-item[data-state="pending"] .icon-wrapper { background-color: #f3f4f6; }
     
-    .status-item[data-state="pending"] .dot { width: 6px; height: 6px; border-radius: 50%; background-color: #cbd5e1; }
-    .status-item[data-state="processing"] .dot { width: 8px; height: 8px; border-radius: 50%; background-color: #dc2626; animation: pulse 1.2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.7); } }
+    /* Processing dots */
+    .status-item[data-state="pending"] .dot { width: 6px; height: 6px; border-radius: 50%; background-color: #d1d5db; }
+    .status-item[data-state="processing"] .dot { width: 6px; height: 6px; border-radius: 50%; background-color: #dc2626; animation: pulse 1.5s infinite; }
 
-    /* Button */
-    .btn-return {
-      background-color: #0f172a; color: white; transition: all 0.2s; display: none;
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
     }
-    .btn-return:hover { background-color: #1e293b; color: white; transform: translateY(-1px); }
+
+    /* Return Button Styles */
+    .return-button {
+      margin-top: 32px;
+      padding: 12px 32px;
+      background-color: #111827;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      display: none; /* Hidden until complete */
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .return-button:hover {
+      background-color: #374151;
+      transform: translateY(-1px);
+    }
+    .return-button.visible {
+      display: inline-flex;
+    }
   </style>
 </head>
 <body>
 
-  <div class="container" style="max-width: 600px;">
+  <div class="container">
+    <div class="spinner-wrapper" id="main-spinner">
+      <div class="spinner-bg"></div>
+      <div class="spinner-progress"></div>
+      <!-- Add your actual static logo path here -->
+      <img src="{{ url_for('static', filename='images/Logo-EDCH.png') }}" alt="Logo" class="logo-center" onerror="this.style.display='none'">
+    </div>
     
-    <div class="text-center mb-4">
-      <div class="spinner-wrapper mb-3" id="main-spinner">
-        <div class="spinner-bg"></div>
-        <div class="spinner-progress"></div>
-        <img src="{{ url_for('static', filename='images/Logo-EDCH.png') }}" alt="Logo" class="logo-center" onerror="this.style.display='none'">
-      </div>
-      <h3 id="main-title" class="fw-bold text-dark mb-1">Publishing to Production</h3>
-      <p id="subtitle-display" class="text-muted">Migrating Document ID: {{ document.id }}</p>
+    <h1 id="main-title">Publishing to Production</h1>
+    <p class="subtitle" id="subtitle-display">Migrating Document ID: {{ document.id }}</p>
+
+    <div class="status-card">
+      <ul class="status-list" id="status-list"></ul>
     </div>
 
-    <div class="status-card w-100 mb-4">
-      <ul class="list-unstyled m-0" id="status-list"></ul>
-    </div>
-
-    <div class="text-center">
-      <a href="{{ url_for('dashboard.index') }}" class="btn btn-return px-4 py-2 fw-medium rounded-pill shadow-sm" id="return-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-        Return to Dashboard
-      </a>
-    </div>
-
+    <!-- Returns to the main MNO dashboard -->
+    <a href="{{ url_for('auth.dashboard') }}" class="return-button" id="return-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      Return to Dashboard
+    </a>
   </div>
 
   <script>
@@ -126,19 +160,19 @@
       }
 
       completeProcess(success = true) {
-        this.spinnerElement.classList.add('d-none');
+        this.spinnerElement.classList.add('hidden');
         if (success) {
             this.titleElement.textContent = "Successfully Published!";
-            this.titleElement.classList.replace("text-dark", "text-success");
-            this.subtitleElement.textContent = "All records have been securely moved to production.";
-            this.returnBtn.style.display = 'inline-flex';
+            this.titleElement.style.color = "#16a34a";
+            this.subtitleElement.textContent = "All records have been moved to production.";
+            this.returnBtn.classList.add('visible');
         } else {
             this.titleElement.textContent = "Publishing Failed";
-            this.titleElement.classList.replace("text-dark", "text-danger");
+            this.titleElement.style.color = "#dc2626";
             this.subtitleElement.textContent = "Check system logs for details.";
-            this.returnBtn.style.display = 'inline-flex';
+            this.returnBtn.classList.add('visible');
             this.returnBtn.textContent = "Go Back";
-            this.returnBtn.classList.add("bg-danger");
+            this.returnBtn.style.backgroundColor = "#dc2626";
         }
       }
 
@@ -149,12 +183,16 @@
           li.id = `step-${stepData.id}`;
           li.className = 'status-item';
           li.setAttribute('data-state', stepData.state);
-          li.innerHTML = `<div class="icon-wrapper">${this.icons.dot}</div><span class="item-text">${stepData.label}</span>`;
+          li.innerHTML = `
+            <div class="icon-wrapper">${this.icons.dot}</div>
+            <span class="item-text">${stepData.label}</span>
+          `;
           this.listElement.appendChild(li);
         });
       }
     }
 
+    // Initialize UI
     const publishUI = new DatabasePublishUI({
       listElementId: 'status-list',
       titleElementId: 'main-title',
@@ -170,6 +208,7 @@
       ]
     });
 
+    // Simulate the database steps natively in the browser
     let currentStep = 0;
     const totalSteps = 5;
     
@@ -183,9 +222,9 @@
         publishUI.updateStepByIndex(currentStep, 'processing');
       } else {
         clearInterval(simulateProgress);
-        publishUI.completeProcess(true);
+        publishUI.completeProcess(true); // Show success UI
       }
-    }, 1200);
+    }, 1200); // Wait 1.2 seconds between each fake database step
   </script>
 </body>
 </html>

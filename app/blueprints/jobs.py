@@ -1,46 +1,29 @@
-import logging
-from celery import shared_task
-from app.extensions import db
-from app.models.document import Document
-from app.services.extractors import extract_roaming_agreement
-from app.services.db_mapper import save_extracted_tables_to_db
+from flask import Blueprint, render_template_string
+from flask_login import login_required
 
-logger = logging.getLogger(__name__)
+from ..extensions import db
+from ..models.document import Document
 
-@shared_task(bind=True)
-def process_contract_task(self, document_id: int, contract_text: str):
-    doc = Document.query.get(document_id)
-    
-    try:
-        # 2. Update UI: Step 1 & 2 (Extracting & Matching)
-        if doc:
-            doc.current_step = 2
-            db.session.commit()
+jobs_bp = Blueprint("jobs", __name__, url_prefix="/jobs")
 
-        # Run the LLM extraction
-        extracted_json = extract_roaming_agreement(contract_text)
+STATUS_SNIPPET = """
+{% if status == 'PENDING' or status == 'PROCESSING' %}
+  <span class="badge badge-processing">⏳ Processing…</span>
+{% elif status == 'READY' %}
+  <span class="badge badge-ready">✅ Ready for review</span>
+{% elif status == 'APPROVED' %}
+  <span class="badge badge-approved">✔ Approved</span>
+{% elif status == 'FAILED' %}
+  <span class="badge badge-failed">❌ Failed — contact admin</span>
+{% endif %}
+"""
 
-        # 3. Update UI: Step 3 & 4 (Cross-checking & Comparing)
-        if doc:
-            doc.current_step = 4
-            db.session.commit()
 
-        # Save to staging tables
-        save_extracted_tables_to_db(document_id, extracted_json)
-        
-        # 4. THE MAGIC BULLET: Tell the UI it's completely finished
-        if doc:
-            doc.status = 'READY'
-            doc.current_step = 5
-            db.session.commit()
-
-    except Exception as e:
-        logger.error(f"AI Processing failed for document {document_id}: {str(e)}")
-        
-        # Capture error directly into the Document model for the UI
-        if doc:
-            doc.status = "FAILED"
-            doc.error_message = str(e)
-            db.session.commit()
-            
-        raise e
+@jobs_bp.route("/<int:doc_id>/status")
+@login_required
+def status(doc_id):
+    # FIX: Document.query.get_or_404() is deprecated in SQLAlchemy 2.x.
+    # The modern replacement is db.get_or_404(Model, id).
+    # Both do the same: fetch by primary key, return 404 if not found.
+    doc = db.get_or_404(Document, doc_id)
+    return render_template_string(STATUS_SNIPPET, status=doc.status)
