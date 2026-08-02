@@ -278,7 +278,6 @@ class Orchestrator:
                 "extraction_error": "Input payload or document text missing",
             }
         try:
-            # Delegate directly to friend's extractor logic
             if state.input.use_telecom_prompt:
                 raw_extracted = extract_roaming_agreement(state.input.raw_doc_text)
             else:
@@ -334,20 +333,22 @@ class Orchestrator:
             risk_items = [
                 RiskItem(
                     category=r.category,
-                    proposed_rate=r.proposed_rate,
-                    baseline_rate=r.baseline_rate,
-                    pct_change=r.pct_change,
+                    new_rate=float(r.proposed_rate) if r.proposed_rate is not None else 0.0,
+                    old_rate=float(r.baseline_rate) if r.baseline_rate is not None else 0.0,
+                    delta_pct=float(r.pct_change) if r.pct_change is not None else 0.0,
                     risk_level=r.flag,
                 )
                 for r in comparison_rows
             ]
 
             risk_input = RiskAgentInput(
+                partner_name=state.input.partner_name,
                 confidence=state.verification_result.confidence,
-                items=risk_items,
+                comparison_rows=risk_items,
             )
 
-            result = self.risk_agent.run(risk_input)
+            # FIX 1: Updated to match the `assess` method from your friend's risk_agent.py
+            result = self.risk_agent.assess(risk_input) 
             return {"risk_result": result, "risk_error": None}
         except Exception as e:
             logger.error(f"Risk assessment failed: {str(e)}")
@@ -409,9 +410,14 @@ class Orchestrator:
             issues=["Verification stage failed"],
         )
 
+        # FIX 2: Added the missing required parameters for the RiskSummary fallback
         risk = state.risk_result or RiskSummary(
-            overall_risk="HIGH",
-            summary="Assessment incomplete due to errors",
+            partner_name=state.input.partner_name,
+            total_rows=0,
+            changed_rows=0,
+            flagged_rows=0,
+            highest_risk="HIGH",
+            recommendation="Assessment incomplete due to errors",
             items=[],
         )
 

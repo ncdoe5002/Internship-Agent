@@ -52,19 +52,9 @@
       align-items: center;
       transition: background-color 0.2s ease;
     }
-    .resizer:hover, .resizer:active {
-      background-color: #ef4444; 
-    }
-    .resizer::after {
-      content: "";
-      width: 40px;
-      height: 2px;
-      background-color: #6b7280;
-      border-radius: 2px;
-    }
-    .resizer:hover::after, .resizer:active::after {
-      background-color: #fff;
-    }
+    .resizer:hover, .resizer:active { background-color: #ef4444; }
+    .resizer::after { content: ""; width: 40px; height: 2px; background-color: #6b7280; border-radius: 2px; }
+    .resizer:hover::after, .resizer:active::after { background-color: #fff; }
 
     .resizer-vertical {
       width: 8px;
@@ -76,16 +66,8 @@
       align-items: center;
       transition: background-color 0.2s ease;
     }
-    .resizer-vertical:hover, .resizer-vertical:active {
-      background-color: #ef4444;
-    }
-    .resizer-vertical::after {
-      content: "";
-      height: 40px;
-      width: 2px;
-      background-color: #6b7280;
-      border-radius: 2px;
-    }
+    .resizer-vertical:hover, .resizer-vertical:active { background-color: #ef4444; }
+    .resizer-vertical::after { content: ""; height: 40px; width: 2px; background-color: #6b7280; border-radius: 2px; }
 
     .doc-header {
       padding: 10px 16px;
@@ -114,7 +96,7 @@
     .pane-right {
       width: 50%;
       height: 100%;
-      background-color: #f3f4f6; /* Softer background to make cards pop */
+      background-color: #f8fafc;
       display: flex;
       flex-direction: column;
       position: relative;
@@ -162,56 +144,39 @@
     }
     
     .data-body::-webkit-scrollbar { width: 8px; }
-    .data-body::-webkit-scrollbar-track { background: #f3f4f6; }
+    .data-body::-webkit-scrollbar-track { background: #f8fafc; }
     .data-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .data-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-    /* --- NEW DATA CARD UI --- */
+    /* --- DATA CARDS & TABLES --- */
     .data-card {
       background-color: #ffffff;
       border-radius: 8px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid #e2e8f0;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       margin-bottom: 24px;
       overflow: hidden;
     }
 
     .data-card-header {
-      background-color: #f8fafc;
-      border-bottom: 1px solid #e5e7eb;
+      background-color: #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
       padding: 12px 20px;
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 0.85rem;
       font-weight: 700;
-      color: #475569;
+      color: #334155;
       letter-spacing: 0.5px;
       text-transform: uppercase;
     }
     
     .data-card-header::before { 
-      content: ''; 
-      display: inline-block; 
-      width: 4px; 
-      height: 16px; 
-      background-color: #dc2626; 
-      border-radius: 2px; 
+      content: ''; display: inline-block; width: 4px; height: 16px; 
+      background-color: #dc2626; border-radius: 2px; 
     }
 
-    .data-card-body {
-      padding: 20px;
-    }
-
-    .property-box {
-      background-color: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      padding: 10px 12px;
-      height: 100%;
-    }
-
-    /* Bootstrap Table Overrides for a cleaner look */
     .table-custom th {
       font-size: 0.75rem;
       text-transform: uppercase;
@@ -219,26 +184,41 @@
       color: #64748b;
       border-bottom-width: 1px;
       font-weight: 600;
+      background-color: #f8fafc;
+      padding: 14px 16px;
     }
     
     .table-custom td {
       font-size: 0.9rem;
       color: #1e293b;
       vertical-align: middle;
+      padding: 16px;
     }
 
-    /* --- REFINED EDITABLE CELL --- */
+    /* Sub-headers for List Groups (Models, Rates) */
+    .table-custom tr.group-header td {
+      background-color: #f8fafc;
+      font-weight: 700;
+      color: #475569;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    /* --- EDITABLE CELL --- */
     .editable-cell {
-      padding: 4px 8px;
+      padding: 6px 10px;
       border-radius: 4px;
       border: 1px solid transparent;
       transition: all 0.2s ease;
       min-height: 28px;
       display: inline-block;
       width: 100%;
+      background-color: #f8fafc;
     }
     .editable-cell:hover {
-      background-color: #f1f5f9; /* Subtle light gray on hover */
+      background-color: #f1f5f9;
       border-color: #cbd5e1;
       cursor: text;
     }
@@ -246,10 +226,24 @@
       background-color: #ffffff;
       border-color: #3b82f6;
       outline: none;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); /* Sleek blue focus ring */
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
     }
 
-    /* Empty States */
+    /* --- ALERTS & FLAGS --- */
+    .flag-alert {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: #dc2626;
+      background-color: #fef2f2;
+      border: 1px solid #fecaca;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
     .empty-state {
       padding: 32px 0;
       text-align: center;
@@ -260,18 +254,10 @@
 
     /* Sticky Footer */
     .sticky-footer {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: white;
-      border-top: 1px solid #e5e7eb;
-      padding: 16px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
-      z-index: 20;
+      position: absolute; bottom: 0; left: 0; width: 100%;
+      background: white; border-top: 1px solid #e2e8f0; padding: 16px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); z-index: 20;
     }
     
     .btn-outline-secondary { color: #475569; border-color: #cbd5e1; }
@@ -279,19 +265,94 @@
     .btn-danger-custom { background-color: #dc2626; color: white; border: none; }
     .btn-danger-custom:hover { background-color: #b91c1c; color: white; }
 
-    .dragging iframes-disabled iframe {
-      pointer-events: none !important;
-    }
+    .dragging iframes-disabled iframe { pointer-events: none !important; }
   </style>
 </head>
 <body>
+
+  <!-- ==========================================
+       JINJA MACROS FOR LOGIC AND UI REUSABILITY
+       ========================================== -->
+
+  <!-- Macro: Calculate and Display Delta -->
+  {% macro render_delta(prev, new) %}
+    {% set prev_num = prev|float(-999999) if prev else -999999 %}
+    {% set new_num = new|float(-999999) if new else -999999 %}
+    
+    {% if prev_num != -999999 and new_num != -999999 and prev_num != 0 %}
+      {% set delta = ((new_num - prev_num) / prev_num * 100) %}
+      {% if delta > 0 %}
+        <!-- Cost Increase (Red Up Arrow) -->
+        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2 d-inline-flex align-items-center gap-1">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+          {{ delta|round(1) }}%
+        </span>
+      {% elif delta < 0 %}
+        <!-- Cost Decrease (Green Down Arrow) -->
+        {% set abs_delta = delta * -1 %}
+        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2 d-inline-flex align-items-center gap-1">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
+          {{ abs_delta|round(1) }}%
+        </span>
+      {% else %}
+        <!-- No Change -->
+        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Unchanged</span>
+      {% endif %}
+    {% else %}
+      <span class="text-muted small">-</span>
+    {% endif %}
+  {% endmacro %}
+
+  <!-- Macro: Render AI Confidence Badge -->
+  {% macro render_confidence(score, status) %}
+    {% set pct = (score * 100)|round|int %}
+    {% if status == 'HIGH' or pct >= 80 %}
+      <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2"><i class="bi bi-check-circle me-1"></i> {{ pct }}% {{ status }}</span>
+    {% elif status == 'MISSING' or pct == 0 %}
+      <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">{{ status }}</span>
+    {% else %}
+      <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 py-1 px-2">{{ pct }}% {{ status }}</span>
+    {% endif %}
+  {% endmacro %}
+
+  <!-- Macro: Render Standard Table Row -->
+  {% macro field_row(field_name, field_data, prev_val) %}
+    <tr>
+      <td class="fw-semibold text-dark ps-4" style="width: 20%;">{{ field_name }}</td>
+      <td class="text-muted" style="width: 15%;">{{ prev_val if prev_val is not none else '-' }}</td>
+      <td style="width: 35%;">
+        <!-- Editable Value -->
+        <div contenteditable="true" class="editable-cell fw-bold text-dark">{{ field_data.value if field_data.value is not none else '-' }}</div>
+        
+        <!-- Field Flags Warning -->
+        {% if field_data.flags %}
+          <div class="d-flex flex-column align-items-start">
+            {% for flag in field_data.flags %}
+              <div class="flag-alert shadow-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                {{ flag }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </td>
+      <td style="width: 15%;">
+        {{ render_delta(prev_val, field_data.value) }}
+      </td>
+      <td class="pe-4" style="width: 15%;">
+        {{ render_confidence(field_data.confidence_score, field_data.status) }}
+      </td>
+    </tr>
+  {% endmacro %}
+  
+  <!-- ==========================================
+       MAIN HTML LAYOUT
+       ========================================== -->
 
   <div class="split-layout">
     
     <!-- LEFT PANE: Document Viewers -->
     <div class="pane-left" id="pane-left">
-      
-      <!-- Proposed Document (Top) -->
       <div class="doc-viewer" id="viewer-top">
         <div class="doc-header proposed">
           <div class="d-flex align-items-center gap-2">
@@ -300,14 +361,11 @@
           </div>
           <div class="badge-status badge-proposed">PROPOSED</div>
         </div>
-        <!-- Injected uploaded document rendering -->
         <iframe src="{{ url_for('static', filename=document.file_key) }}" width="100%" height="100%" style="border:none;"></iframe>
       </div>
 
-      <!-- Resizer / Splitter Handle -->
       <div class="resizer" id="resizer"></div>
 
-      <!-- Current Document (Bottom) -->
       <div class="doc-viewer" id="viewer-bottom">
         <div class="doc-header on-file">
           <div class="d-flex align-items-center gap-2">
@@ -316,13 +374,10 @@
           </div>
           <div class="badge-status badge-onfile">ON FILE</div>
         </div>
-        <!-- Real implementation iframe pointing to your DB -->
         {% if current_doc %}
           <iframe src="{{ url_for('static', filename=current_doc.file_key) }}" width="100%" height="100%" style="border:none;"></iframe>
         {% else %}
-          <div class="d-flex h-100 justify-content-center align-items-center text-muted">
-            No existing document on file.
-          </div>
+          <div class="d-flex h-100 justify-content-center align-items-center text-muted">No existing document on file.</div>
         {% endif %}
       </div>
     </div>
@@ -332,7 +387,7 @@
     <!-- RIGHT PANE: Extracted Data -->
     <div class="pane-right" id="pane-right">
       
-      <!-- Header -->
+      <!-- Top Extracted Data Header -->
       <div class="data-header">
         <div class="d-flex align-items-center gap-3">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"></path></svg>
@@ -343,82 +398,82 @@
         <div class="confidence-widget">
           {% set conf_color = '#10b981' %} 
           {% set conf_label = 'High accuracy' %}
-          
           {% if confidence_score < 75 %}
-            {% set conf_color = '#ef4444' %} 
-            {% set conf_label = 'Review carefully' %}
+            {% set conf_color = '#ef4444' %} {% set conf_label = 'Review carefully' %}
           {% elif confidence_score < 90 %}
-            {% set conf_color = '#f59e0b' %} 
-            {% set conf_label = 'Good accuracy' %}
+            {% set conf_color = '#f59e0b' %} {% set conf_label = 'Good accuracy' %}
           {% endif %}
           
           <div class="circle-score" style="border-color: {{ conf_color }}; color: {{ conf_color }};">
             {{ confidence_score }}
           </div>
-          
           <div class="d-flex flex-column" style="line-height: 1.2;">
-            <span class="fw-bold text-dark" style="font-size: 0.8rem;">AI Confidence</span>
+            <span class="fw-bold text-dark" style="font-size: 0.8rem;">Overall Score</span>
             <span style="font-size: 0.75rem; color: {{ conf_color }};">{{ conf_label }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Scrolling Body -->
+      <!-- Scrolling Data Body -->
       <div class="data-body">
 
         <!-- 1. HEADER DATA CARD -->
         <div class="data-card">
-          <div class="data-card-header">Agreement Header</div>
-          <div class="data-card-body">
-            <div class="row g-3">
-                {% if header %}
-                    {% for key, value in header.items() %}
-                    <div class="col-md-4 col-sm-6">
-                        <div class="property-box">
-                            <div class="text-muted small fw-bold text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">{{ key }}</div>
-                            <div contenteditable="true" class="editable-cell fw-medium text-dark">
-                                {{ value or '' }}
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="col-12 empty-state">
-                      <svg class="mb-2 opacity-50" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg><br>
-                      No header data found.
-                    </div>
-                {% endif %}
-            </div>
+          <div class="data-card-header">Agreement Header (AGMT_HEADER_STG)</div>
+          <div class="table-responsive mb-0">
+            <table class="table table-hover table-custom mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Field</th>
+                        <th>Current on File</th>
+                        <th>Extracted Value</th>
+                        <th>Delta</th>
+                        <th class="pe-4">AI Analysis</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if header %}
+                        {% for key, field_data in header.items() %}
+                            {% set prev = current_doc.header.get(key) if current_doc and current_doc.header else none %}
+                            {{ field_row(key, field_data, prev) }}
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="5" class="empty-state">No header data found.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
           </div>
         </div>
 
         <!-- 2. MODELS DATA CARD -->
         <div class="data-card">
-          <div class="data-card-header">Rate Models</div>
+          <div class="data-card-header">Rate Models (AGMT_MODELS_STG)</div>
           <div class="table-responsive mb-0">
             <table class="table table-hover table-custom mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th class="ps-4">Model Seq</th>
-                        <th>Model Type</th>
-                        <th class="pe-4">Model Name</th>
+                        <th class="ps-4">Field</th>
+                        <th>Current on File</th>
+                        <th>Extracted Value</th>
+                        <th>Delta</th>
+                        <th class="pe-4">AI Analysis</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for model in models %}
-                    <tr>
-                        <td class="ps-4"><div contenteditable="true" class="editable-cell">{{ model.MODEL_SEQ }}</div></td>
-                        <td><div contenteditable="true" class="editable-cell">{{ model.MODEL_TYPE }}</div></td>
-                        <td class="pe-4"><div contenteditable="true" class="editable-cell">{{ model.MODEL_NAME }}</div></td>
-                    </tr>
+                    {% if models %}
+                        {% for model in models %}
+                            <!-- Sub-header dividing multiple models -->
+                            <tr class="group-header">
+                                <td colspan="5" class="ps-4">Model Record #{{ loop.index }}</td>
+                            </tr>
+                            {% for key, field_data in model.items() %}
+                                {% set prev = current_doc.models[loop.index0].get(key) if current_doc and current_doc.models and loop.index0 < current_doc.models|length else none %}
+                                {{ field_row(key, field_data, prev) }}
+                            {% endfor %}
+                        {% endfor %}
                     {% else %}
-                    <tr>
-                      <td colspan="3" class="empty-state">
-                        <svg class="mb-2 opacity-50" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg><br>
-                        No model data found.
-                      </td>
-                    </tr>
-                    {% endfor %}
+                        <tr><td colspan="5" class="empty-state">No model data found.</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
           </div>
@@ -426,33 +481,33 @@
 
         <!-- 3. RATES DATA CARD -->
         <div class="data-card">
-          <div class="data-card-header">Normal Rates</div>
+          <div class="data-card-header">Normal Rates (AGMT_MDL_NORMAL_STG)</div>
           <div class="table-responsive mb-0">
             <table class="table table-hover table-custom mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th class="ps-4">Model Seq</th>
-                        <th>Record Type</th>
-                        <th>Charge Field</th>
-                        <th class="pe-4">Currency</th>
+                        <th class="ps-4">Field</th>
+                        <th>Current on File</th>
+                        <th>Extracted Value</th>
+                        <th>Delta</th>
+                        <th class="pe-4">AI Analysis</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for rate in rates %}
-                    <tr>
-                        <td class="ps-4"><div contenteditable="true" class="editable-cell">{{ rate.MODEL_SEQ }}</div></td>
-                        <td><div contenteditable="true" class="editable-cell">{{ rate.REC_TYPE }}</div></td>
-                        <td><div contenteditable="true" class="editable-cell fw-bold">{{ rate.CHARGE_FIELD }}</div></td>
-                        <td class="pe-4"><div contenteditable="true" class="editable-cell">{{ rate.RATE_CURRENCY }}</div></td>
-                    </tr>
+                    {% if rates %}
+                        {% for rate in rates %}
+                            <!-- Sub-header dividing multiple rates -->
+                            <tr class="group-header">
+                                <td colspan="5" class="ps-4">Rate Record #{{ loop.index }}</td>
+                            </tr>
+                            {% for key, field_data in rate.items() %}
+                                {% set prev = current_doc.rates[loop.index0].get(key) if current_doc and current_doc.rates and loop.index0 < current_doc.rates|length else none %}
+                                {{ field_row(key, field_data, prev) }}
+                            {% endfor %}
+                        {% endfor %}
                     {% else %}
-                    <tr>
-                      <td colspan="4" class="empty-state">
-                        <svg class="mb-2 opacity-50" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><br>
-                        No rate data found.
-                      </td>
-                    </tr>
-                    {% endfor %}
+                        <tr><td colspan="5" class="empty-state">No rate data found.</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
           </div>
@@ -460,33 +515,33 @@
 
         <!-- 4. COMMITMENTS DATA CARD -->
         <div class="data-card">
-          <div class="data-card-header">Commitments</div>
+          <div class="data-card-header">Commitments (AGMT_COMMITMENT)</div>
           <div class="table-responsive mb-0">
             <table class="table table-hover table-custom mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th class="ps-4">Name</th>
-                        <th>Type</th>
-                        <th>Direction</th>
-                        <th class="pe-4">Amount</th>
+                        <th class="ps-4">Field</th>
+                        <th>Current on File</th>
+                        <th>Extracted Value</th>
+                        <th>Delta</th>
+                        <th class="pe-4">AI Analysis</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for commitment in commitments %}
-                    <tr>
-                        <td class="ps-4"><div contenteditable="true" class="editable-cell">{{ commitment.COMMITMENT_NAME }}</div></td>
-                        <td><div contenteditable="true" class="editable-cell">{{ commitment.COMMITMENT_TYPE }}</div></td>
-                        <td><div contenteditable="true" class="editable-cell">{{ commitment.DIRECTION }}</div></td>
-                        <td class="pe-4"><div contenteditable="true" class="editable-cell fw-bold">{{ commitment.AMOUNT }}</div></td>
-                    </tr>
+                    {% if commitments %}
+                        {% for commitment in commitments %}
+                            <!-- Sub-header dividing multiple commitments -->
+                            <tr class="group-header">
+                                <td colspan="5" class="ps-4">Commitment Record #{{ loop.index }}</td>
+                            </tr>
+                            {% for key, field_data in commitment.items() %}
+                                {% set prev = current_doc.commitments[loop.index0].get(key) if current_doc and current_doc.commitments and loop.index0 < current_doc.commitments|length else none %}
+                                {{ field_row(key, field_data, prev) }}
+                            {% endfor %}
+                        {% endfor %}
                     {% else %}
-                    <tr>
-                      <td colspan="4" class="empty-state">
-                        <svg class="mb-2 opacity-50" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg><br>
-                        No commitment data found.
-                      </td>
-                    </tr>
-                    {% endfor %}
+                        <tr><td colspan="5" class="empty-state">No commitment data found.</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
           </div>
@@ -497,7 +552,7 @@
       <!-- Sticky Footer -->
       <div class="sticky-footer">
         <button onclick="history.back()" class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back</button>
-        <span class="text-muted small d-none d-md-block">Click any value to edit before accepting.</span>
+        <span class="text-muted small d-none d-md-block">Click any value to edit before accepting. Review all warnings carefully.</span>
         <div class="d-flex gap-3">
           <a href="{{ url_for('update.update_operator', operator_id=1) }}" class="btn btn-outline-secondary fw-semibold px-4 py-2">✕ Reject</a>
           <a href="{{ url_for('update.preview_submission', doc_id=document.id) }}" class="btn btn-danger-custom fw-semibold px-4 py-2 text-decoration-none">✓ Accept & Send Report</a>
