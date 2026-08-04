@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import BaseModel, Field
+from orchestrator import ReviewTableRow
 
 RiskLevel = Literal["LOW", "MEDIUM", "HIGH"]
 
@@ -33,8 +34,8 @@ class RiskAgentInput(BaseModel):
     confidence: int = Field(
         ge=0, le=100, description="Confidence score from verification (0-100)"
     )
-    comparison_rows: list[RiskItem] = Field(
-        description="List of rate changes to assess"
+    comparison_rows: list[ReviewTableRow] = Field(
+        description="List of rate comparison rows from Orchestrator"
     )
 
 
@@ -53,23 +54,65 @@ class RiskSummary(BaseModel):
 class RiskAgent:
     def assess(self, payload: RiskAgentInput) -> RiskSummary:
         total_rows = len(payload.comparison_rows)
+
+        # Track changed/flagged rows using ReviewTableRow status
         changed_rows = sum(
-            1 for row in payload.comparison_rows if row.old_rate != row.new_rate
-        )
-        flagged_rows = sum(
-            1 for row in payload.comparison_rows if row.risk_level != "LOW"
+            1 for row in payload.comparison_rows if row.status in ("VARIANCE", "NEW")
         )
 
-        if any(row.risk_level == "HIGH" for row in payload.comparison_rows):
+        # Calculate risk per item if not already set
+        risk_items: list[RiskItem] = []
+        for row in payload.comparison_rows:
+            # Parse values safely
+            try:
+                old_val = float(row.baseline_value)
+                new_val = float(row.uploaded_value)
+                delta = (
+                    round(((new_val - old_val) / old_val) * 100, 2)
+                    if old_val != 0
+                    else 0.0
+                )
+            except (ValueError, TypeError):
+                old_val, new_val, delta = 0.0, 0.0, 0.0
+
+            # Determine Risk Level based on Variance & Cell Confidence
+            if row.status == "VARIANCE" and abs(delta) > 20.0:
+                risk_level: RiskLevel = "HIGH"
+                note = f"High rate shift detected ({delta}% variance)."
+            elif row.status in ("VARIANCE", "NEW") or row.confidence_score < 0.65:
+                risk_level = "MEDIUM"
+                note = (
+                    row.ai_note
+                    or f"Moderate variance or low confidence cell ({int(row.confidence_score*100)}%)."
+                )
+            else:
+                risk_level = "LOW"
+                note = "Rate matches baseline standard."
+
+            risk_items.append(
+                RiskItem(
+                    category=row.category,
+                    old_rate=old_val,
+                    new_rate=new_val,
+                    delta_pct=delta,
+                    risk_level=risk_level,
+                    note=note,
+                )
+            )
+
+        flagged_rows = sum(1 for item in risk_items if item.risk_level != "LOW")
+
+        if any(item.risk_level == "HIGH" for item in risk_items):
             highest_risk: RiskLevel = "HIGH"
-        elif any(row.risk_level == "MEDIUM" for row in payload.comparison_rows):
+        elif any(item.risk_level == "MEDIUM" for item in risk_items):
             highest_risk = "MEDIUM"
         else:
             highest_risk = "LOW"
 
-        if payload.confidence < 90 or highest_risk == "HIGH":
+        # Recommendation logic aligned with Verification thresholds
+        if payload.confidence < 70 or highest_risk == "HIGH":
             recommendation = "Manager approval required"
-        elif flagged_rows > 0:
+        elif payload.confidence < 90 or flagged_rows > 0:
             recommendation = "Review recommended before approval"
         else:
             recommendation = "Safe to proceed"
@@ -81,5 +124,5 @@ class RiskAgent:
             flagged_rows=flagged_rows,
             highest_risk=highest_risk,
             recommendation=recommendation,
-            items=payload.comparison_rows,
+            items=risk_items,
         )

@@ -64,8 +64,20 @@ class ReviewSummary(BaseModel):
 class OrchestratorOutput(BaseModel):
     partner_name: str
     filename: str
+    document_id: str = Field(description="Stable hash identifier (DOC_XXXXXXXXXXXX)")
     verification: VerificationResult
     risk: RiskSummary
+
+    # Plain flat dictionaries for HTML form passthrough
+    header: dict[str, Any] = Field(default_factory=dict)
+    models: list[dict[str, Any]] = Field(default_factory=list)
+    rates: list[dict[str, Any]] = Field(default_factory=list)
+    commitments: list[dict[str, Any]] = Field(default_factory=list)
+
+    # Granular detail breakdown for UI inspection
+    field_details: dict[str, Any] = Field(default_factory=dict)
+    total_fields: int = Field(default=0)
+
     comparison_table: list[ReviewTableRow] = Field(default_factory=list)
     summary: ReviewSummary = Field(default_factory=ReviewSummary)
     errors: list[str] = Field(default_factory=list)
@@ -333,8 +345,12 @@ class Orchestrator:
             risk_items = [
                 RiskItem(
                     category=r.category,
-                    new_rate=float(r.proposed_rate) if r.proposed_rate is not None else 0.0,
-                    old_rate=float(r.baseline_rate) if r.baseline_rate is not None else 0.0,
+                    new_rate=(
+                        float(r.proposed_rate) if r.proposed_rate is not None else 0.0
+                    ),
+                    old_rate=(
+                        float(r.baseline_rate) if r.baseline_rate is not None else 0.0
+                    ),
                     delta_pct=float(r.pct_change) if r.pct_change is not None else 0.0,
                     risk_level=r.flag,
                 )
@@ -348,7 +364,7 @@ class Orchestrator:
             )
 
             # FIX 1: Updated to match the `assess` method from your friend's risk_agent.py
-            result = self.risk_agent.assess(risk_input) 
+            result = self.risk_agent.assess(risk_input)
             return {"risk_result": result, "risk_error": None}
         except Exception as e:
             logger.error(f"Risk assessment failed: {str(e)}")
@@ -408,9 +424,9 @@ class Orchestrator:
             confidence=0,
             checks=[],
             issues=["Verification stage failed"],
+            field_details={},
         )
 
-        # FIX 2: Added the missing required parameters for the RiskSummary fallback
         risk = state.risk_result or RiskSummary(
             partner_name=state.input.partner_name,
             total_rows=0,
@@ -421,6 +437,45 @@ class Orchestrator:
             items=[],
         )
 
+        # 1. Deterministic Document ID using SHA256
+        import hashlib
+
+        doc_raw_id = f"{state.input.filename}_{state.input.partner_name}"
+        document_id = (
+            f"DOC_{hashlib.sha256(doc_raw_id.encode()).hexdigest()[:12].upper()}"
+        )
+
+        # 2. Extract Plain Flat Schemas
+        flat_header: dict[str, Any] = {}
+        flat_models: list[dict[str, Any]] = []
+        flat_rates: list[dict[str, Any]] = []
+        flat_commitments: list[dict[str, Any]] = []
+
+        tables = (state.extraction_result or {}).get("tables", [])
+        for t in tables:
+            title = str(t.get("title", "")).upper()
+            headers = t.get("headers", [])
+            rows = t.get("rows", [])
+
+            if "AGMT_HEADER_STG" in title or "HEADER" in title:
+                if rows:
+                    flat_header = dict(zip(headers, rows[0]))
+            elif "AGMT_MODELS_STG" in title or "MODELS" in title:
+                flat_models = [dict(zip(headers, r)) for r in rows]
+            elif "AGMT_MDL_NORMAL_STG" in title or "NORMAL" in title or "RATE" in title:
+                flat_rates = [dict(zip(headers, r)) for r in rows]
+            elif "AGMT_COMMITMENT" in title or "COMMITMENT" in title:
+                flat_commitments = [dict(zip(headers, r)) for r in rows]
+
+        # 3. Calculate Total Extracted Fields
+        total_fields = (
+            len(flat_header)
+            + sum(len(m) for m in flat_models)
+            + sum(len(r) for r in flat_rates)
+            + sum(len(c) for c in flat_commitments)
+        )
+
+        # 4. Extract DB vs Uploaded Comparison Rows
         comparison_rows = self._extract_comparison_rows(
             state.extraction_result, state.input.baseline_data
         )
@@ -443,8 +498,15 @@ class Orchestrator:
         output = OrchestratorOutput(
             partner_name=state.input.partner_name,
             filename=state.input.filename,
+            document_id=document_id,
             verification=verification,
             risk=risk,
+            header=flat_header,
+            models=flat_models,
+            rates=flat_rates,
+            commitments=flat_commitments,
+            field_details=verification.field_details,
+            total_fields=total_fields,
             comparison_table=comparison_rows,
             summary=summary,
             errors=errors,
