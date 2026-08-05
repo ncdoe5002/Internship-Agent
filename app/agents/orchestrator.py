@@ -24,6 +24,8 @@ from .verification_agent import (
     VerificationResult,
 )
 
+from .risk_agent import ReviewTableRow, RiskSummary, RiskAgentInput
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,16 +42,6 @@ class OrchestratorInput(BaseModel):
     baseline_data: dict | None = None
     file_type: str = "pdf"
     use_telecom_prompt: bool = True
-
-
-class ReviewTableRow(BaseModel):
-    category: str
-    proposed_rate: float | str | None = None
-    baseline_rate: float | str | None = None
-    pct_change: float | None = None
-    status: Literal["MATCH", "VARIANCE", "NEW", "MISSING"] = "MATCH"
-    flag: Literal["HIGH", "MEDIUM", "LOW"] = "LOW"
-    ai_note: str | None = None
 
 
 class ReviewSummary(BaseModel):
