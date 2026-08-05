@@ -3,7 +3,7 @@ import json
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.pipeline_options import PdfPipelineOptions, TableStructureOptions
 from docling.datamodel.base_models import InputFormat
-
+from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
 from google import genai
 from yaspin import yaspin
 
@@ -15,11 +15,17 @@ from .extractor_template import (
     AgmtCommitment,
 )
 
-def read_pdf_text(filePath, use_ocr=True):
-    pipeline_options = PdfPipelineOptions()
+def read_pdf_text(filePath, use_ocr=False):
+    accelerator_options = AcceleratorOptions(
+        device=AcceleratorDevice.CUDA
+    )
+    
+    # Pass the accelerator options into the pipeline
+    pipeline_options = PdfPipelineOptions(
+        accelerator_options=accelerator_options
+    )
     pipeline_options.do_ocr = use_ocr
     pipeline_options.do_table_structure = True
-    
     pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=True)
     
     converter = DocumentConverter(
