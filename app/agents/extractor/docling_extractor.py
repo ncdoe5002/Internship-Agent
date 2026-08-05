@@ -15,19 +15,18 @@ from .extractor_template import (
     AgmtCommitment,
 )
 
+
 def read_pdf_text(filePath, use_ocr=False):
-    accelerator_options = AcceleratorOptions(
-        device=AcceleratorDevice.CUDA
-    )
-    
+    accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CUDA)
+
     # Pass the accelerator options into the pipeline
-    pipeline_options = PdfPipelineOptions(
-        accelerator_options=accelerator_options
-    )
+    pipeline_options = PdfPipelineOptions(accelerator_options=accelerator_options)
     pipeline_options.do_ocr = use_ocr
     pipeline_options.do_table_structure = True
-    pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=True)
-    
+    pipeline_options.table_structure_options = TableStructureOptions(
+        do_cell_matching=True
+    )
+
     converter = DocumentConverter(
         format_options={
             InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
@@ -44,9 +43,7 @@ def fill_fields(structuredText, API_KEY):
 
     template_path = os.path.join(os.path.dirname(__file__), "extractor_template.py")
 
-    schema_file = client.files.upload(
-        file=template_path
-    )
+    schema_file = client.files.upload(file=template_path)
 
     prompt = f"""
 You are a data extraction engine.
@@ -98,15 +95,10 @@ Output format:
 """
     response = client.models.generate_content(
         model="gemini-3.6-flash",
-        contents=[
-            prompt,
-            schema_file
-        ],
-        config={
-            "response_mime_type": "application/json"
-        }
+        contents=[prompt, schema_file],
+        config={"response_mime_type": "application/json"},
     )
-    
+
     return json.loads(response.text or "{}")
 
 

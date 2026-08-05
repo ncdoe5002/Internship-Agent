@@ -6,7 +6,7 @@ Integrates friend's extractors.py logic seamlessly with LangGraph execution grap
 from __future__ import annotations
 
 import logging
-import re
+import re, os
 from difflib import SequenceMatcher
 from typing import Any, Literal
 
@@ -14,7 +14,7 @@ from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
 # Local client and friend's extractor functions
-from app.services.extractors import extract_generic_document, extract_roaming_agreement
+from app.agents.extractor.docling_extractor import get_contents
 from app.services.llm_client import chat_complete_json
 
 from .risk_agent import RiskAgent, RiskAgentInput, RiskItem, RiskSummary
@@ -33,14 +33,12 @@ logger = logging.getLogger(__name__)
 
 
 class OrchestratorInput(BaseModel):
-    pdf_bytes: bytes
+    file_path: str
     filename: str
     partner_name: str
-    raw_doc_text: (
-        str  
-    )
+    raw_doc_text: str
     baseline_data: dict | None = None
-    file_type: str = "pdf"
+    pre_extracted: dict | None = None
     use_telecom_prompt: bool = True
 
 
@@ -277,23 +275,28 @@ class Orchestrator:
     # --- Graph Execution Nodes ---
 
     def _extraction_node(self, state: OrchestratorState) -> dict:
-        if state.input is None or not state.input.raw_doc_text:
-            return {
-                "extraction_result": None,
-                "extraction_error": "Input payload or document text missing",
-            }
+        if state.input is None:
+            return {"extraction_result": None, "extraction_error": "No input provided"}
         try:
-            if state.input.use_telecom_prompt:
-                raw_extracted = extract_roaming_agreement(state.input.raw_doc_text)
-            else:
-                raw_extracted = extract_generic_document(state.input.raw_doc_text)
+            if state.input.pre_extracted:
+                adapted_result = self._adapt_staging_schema(state.input.pre_extracted)
+                return {"extraction_result": adapted_result, "extraction_error": None}
 
-            adapted_result = self._adapt_staging_schema(raw_extracted)
-
-            return {
-                "extraction_result": adapted_result,
-                "extraction_error": None,
+            # Fallback: run Docling if pre_extracted not provided
+            api_key = os.environ["GEMINI_API_KEY"]
+            header, model, normal_model, commitment = get_contents(
+                filePath=state.input.file_path,
+                use_ocr=True,
+                api_key=api_key,
+            )
+            raw_extracted = {
+                "header": header.model_dump() if header else {},
+                "model": [model.model_dump()] if model else [],
+                "normal_model": [normal_model.model_dump()] if normal_model else [],
+                "commitment": [commitment.model_dump()] if commitment else [],
             }
+            adapted_result = self._adapt_staging_schema(raw_extracted)
+            return {"extraction_result": adapted_result, "extraction_error": None}
         except Exception as e:
             logger.error(f"Extraction failed: {str(e)}")
             return {"extraction_result": None, "extraction_error": str(e)}
@@ -488,7 +491,7 @@ class Orchestrator:
             comparison_table=comparison_rows,
             summary=summary,
             errors=errors,
-            raw_extraction=state.extraction_result or {}
+            raw_extraction=state.extraction_result or {},
         )
 
         return {"orchestrator_output": output}
