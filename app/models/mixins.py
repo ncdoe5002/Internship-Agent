@@ -4,7 +4,7 @@ class AgmtHeaderMixin:
     """Contains all business columns for the Header, independent of schema."""
     AGMT_ID = db.Column(db.String(50))
     SENDER = db.Column(db.String(100))
-    RP = db.Column(db.String(100))
+    RP = db.Column(db.String(255))
     TAP_DIRECTION = db.Column(db.String(20))
     REV_NO = db.Column(db.Integer)
     START_DATE = db.Column(db.Date)
@@ -38,7 +38,7 @@ class AgmtHeaderMixin:
     MASTER_AGMT_ID = db.Column(db.String(50))
     MODIFIED_USER = db.Column(db.String(50))
     MODIFIED_DATE = db.Column(db.DateTime)
-    AGMT_TYPE = db.Column(db.String(20))
+    AGMT_TYPE = db.Column(db.String(255))
     BULK_ID = db.Column(db.String(50))
     IS_BASELINE_APPLICABLE = db.Column(db.Boolean)
     AGMT_LEVEL_RC_TYPE = db.Column(db.String(20))

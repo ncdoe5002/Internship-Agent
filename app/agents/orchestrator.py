@@ -35,7 +35,7 @@ class OrchestratorInput(BaseModel):
     filename: str
     partner_name: str
     raw_doc_text: (
-        str  # Document text passed into friend's extractor & verification grounding
+        str  
     )
     baseline_data: dict | None = None
     file_type: str = "pdf"
@@ -69,6 +69,7 @@ class OrchestratorOutput(BaseModel):
     comparison_table: list[ReviewTableRow] = Field(default_factory=list)
     summary: ReviewSummary = Field(default_factory=ReviewSummary)
     errors: list[str] = Field(default_factory=list)
+    raw_extraction: dict = Field(default_factory=dict)
 
 
 class OrchestratorState(BaseModel):
@@ -448,6 +449,7 @@ class Orchestrator:
             comparison_table=comparison_rows,
             summary=summary,
             errors=errors,
+            raw_extraction=state.extraction_result or {}
         )
 
         return {"orchestrator_output": output}

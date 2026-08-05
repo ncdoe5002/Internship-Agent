@@ -1,28 +1,13 @@
-# extractor_docling.py
-#
-# This script uses "docling" to read a PDF (with OCR if needed),
-# then does simple semantic analysis on the text to fill in the
-# schema objects from extractor_template.py.
-#
-# get_contents(filePath) is the main function.
-# It returns a filled-in IOTAgreement, which contains:
-#   - header          -> AgmtHeaderStg
-#   - models          -> list of AgmtModelsStg
-#   - normal_models   -> list of AgmtMdlNormalStg
-#   - commitments     -> list of AgmtCommitment
-#
-# Install requirement:
-#   pip install docling
-
+import os
+import json
 from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.pipeline_options import PdfPipelineOptions, TableStructureOptions
 from docling.datamodel.base_models import InputFormat
 
 from google import genai
 from yaspin import yaspin
-import json
 
-from extractor_template import (
+from .extractor_template import (
     IOTAgreement,
     AgmtHeaderStg,
     AgmtModelsStg,
@@ -30,14 +15,13 @@ from extractor_template import (
     AgmtCommitment,
 )
 
-
 def read_pdf_text(filePath, use_ocr=True):
-    # Turns the PDF into plain text using docling.
-    # use_ocr=True also reads scanned/image pages.
     pipeline_options = PdfPipelineOptions()
     pipeline_options.do_ocr = use_ocr
     pipeline_options.do_table_structure = True
-    pipeline_options.table_structure_options.do_cell_matching = True
+    
+    pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=True)
+    
     converter = DocumentConverter(
         format_options={
             InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
@@ -47,14 +31,15 @@ def read_pdf_text(filePath, use_ocr=True):
     result = converter.convert(filePath)
     text = result.document.export_to_markdown()
     return text
-from google import genai
+
 
 def fill_fields(structuredText, API_KEY):
-
     client = genai.Client(api_key=API_KEY)
 
+    template_path = os.path.join(os.path.dirname(__file__), "extractor_template.py")
+
     schema_file = client.files.upload(
-        file="extractor_template.py"
+        file=template_path
     )
 
     prompt = f"""
@@ -115,12 +100,11 @@ Output format:
             "response_mime_type": "application/json"
         }
     )
-    return json.loads(response.text)
     
-from yaspin import yaspin
+    return json.loads(response.text or "{}")
+
 
 def get_contents(filePath, use_ocr, api_key):
-
     with yaspin(text="Extracting document with Docling...", color="cyan") as spinner:
         docling_dump = read_pdf_text(filePath=filePath, use_ocr=use_ocr)
         spinner.ok("✔")
