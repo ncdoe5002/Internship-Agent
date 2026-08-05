@@ -342,28 +342,13 @@ class Orchestrator:
                 state.extraction_result, state.input.baseline_data
             )
 
-            risk_items = [
-                RiskItem(
-                    category=r.category,
-                    new_rate=(
-                        float(r.proposed_rate) if r.proposed_rate is not None else 0.0
-                    ),
-                    old_rate=(
-                        float(r.baseline_rate) if r.baseline_rate is not None else 0.0
-                    ),
-                    delta_pct=float(r.pct_change) if r.pct_change is not None else 0.0,
-                    risk_level=r.flag,
-                )
-                for r in comparison_rows
-            ]
-
+            # Pass ReviewTableRow objects directly to RiskAgentInput
             risk_input = RiskAgentInput(
                 partner_name=state.input.partner_name,
                 confidence=state.verification_result.confidence,
-                comparison_rows=risk_items,
+                comparison_rows=comparison_rows,
             )
 
-            # FIX 1: Updated to match the `assess` method from your friend's risk_agent.py
             result = self.risk_agent.assess(risk_input)
             return {"risk_result": result, "risk_error": None}
         except Exception as e:

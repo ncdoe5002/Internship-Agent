@@ -175,6 +175,10 @@ class VerificationResult(BaseModel):
     issues: list[str] = Field(
         default_factory=list, description="List of identified issues"
     )
+    field_details: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Structured per-field breakdown mapping header, models, rates, commitments",
+    )
 
 
 class VerificationAgentInput(BaseModel):
@@ -445,8 +449,10 @@ class VerificationAgent:
             checks.append("Baseline comparison verified")
 
         # 3. Grounding Confidence Checks
-        confidence, grounding_issues = self._calculate_overall_confidence(
-            payload.extracted_tables, payload.raw_doc_text
+        confidence, grounding_issues, field_details = (
+            self._calculate_overall_confidence(
+                payload.extracted_tables, payload.raw_doc_text
+            )
         )
         issues.extend(grounding_issues)
         checks.append("Field-level text grounding verified")
@@ -470,5 +476,9 @@ class VerificationAgent:
             f"Verification completed: status={status}, confidence={confidence}, issues={len(issues)}"
         )
         return VerificationResult(
-            status=status, confidence=confidence, checks=checks, issues=issues
+            status=status,
+            confidence=confidence,
+            checks=checks,
+            issues=issues,
+            field_details=field_details,
         )

@@ -1,23 +1,24 @@
 """
 Risk Agent - Assesses risk levels for tariff changes.
-
-This agent analyzes tariff rate changes and assesses the risk level for each change.
-It provides a summary with recommendations on whether the changes require
-manager approval, review, or can proceed safely.
-
-Usage:
-    agent = RiskAgent()
-    summary = agent.assess(payload)
 """
 
 from __future__ import annotations
 
-from typing import Literal
-
+from typing import Any, Literal
 from pydantic import BaseModel, Field
-from orchestrator import ReviewTableRow
 
 RiskLevel = Literal["LOW", "MEDIUM", "HIGH"]
+
+
+class ReviewTableRow(BaseModel):
+    category: str
+    proposed_rate: float | str | None = None
+    baseline_rate: float | str | None = None
+    pct_change: float | None = None
+    status: Literal["MATCH", "VARIANCE", "NEW", "MISSING"] = "MATCH"
+    flag: Literal["HIGH", "MEDIUM", "LOW"] = "LOW"
+    ai_note: str | None = None
+    confidence_score: float = 1.0  # Added field with a default fallbacck
 
 
 class RiskItem(BaseModel):
@@ -54,19 +55,21 @@ class RiskSummary(BaseModel):
 class RiskAgent:
     def assess(self, payload: RiskAgentInput) -> RiskSummary:
         total_rows = len(payload.comparison_rows)
-
-        # Track changed/flagged rows using ReviewTableRow status
         changed_rows = sum(
             1 for row in payload.comparison_rows if row.status in ("VARIANCE", "NEW")
         )
 
-        # Calculate risk per item if not already set
         risk_items: list[RiskItem] = []
+
+        # --- PLACE THE LOOP HERE ---
         for row in payload.comparison_rows:
-            # Parse values safely
             try:
-                old_val = float(row.baseline_value)
-                new_val = float(row.uploaded_value)
+                old_val = (
+                    float(row.baseline_rate) if row.baseline_rate is not None else 0.0
+                )
+                new_val = (
+                    float(row.proposed_rate) if row.proposed_rate is not None else 0.0
+                )
                 delta = (
                     round(((new_val - old_val) / old_val) * 100, 2)
                     if old_val != 0
@@ -83,12 +86,13 @@ class RiskAgent:
                 risk_level = "MEDIUM"
                 note = (
                     row.ai_note
-                    or f"Moderate variance or low confidence cell ({int(row.confidence_score*100)}%)."
+                    or f"Moderate variance or low confidence cell ({int(row.confidence_score * 100)}%)."
                 )
             else:
                 risk_level = "LOW"
-                note = "Rate matches baseline standard."
+                note = row.ai_note or ""
 
+            # Append the calculated items to your list
             risk_items.append(
                 RiskItem(
                     category=row.category,
@@ -100,6 +104,7 @@ class RiskAgent:
                 )
             )
 
+        # --- CONTINUATION OF ASSESS METHOD ---
         flagged_rows = sum(1 for item in risk_items if item.risk_level != "LOW")
 
         if any(item.risk_level == "HIGH" for item in risk_items):
@@ -109,7 +114,6 @@ class RiskAgent:
         else:
             highest_risk = "LOW"
 
-        # Recommendation logic aligned with Verification thresholds
         if payload.confidence < 70 or highest_risk == "HIGH":
             recommendation = "Manager approval required"
         elif payload.confidence < 90 or flagged_rows > 0:
