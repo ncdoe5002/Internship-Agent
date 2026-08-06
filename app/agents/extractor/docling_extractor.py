@@ -119,7 +119,7 @@ def fill_fields(doc_text: str, API_KEY: str) -> dict:
     """
     
     response = client.chat.completions.create(
-        model="google/gemini-3.5-flash", 
+        model="google/gemma-4-26b-a4b-it:free", 
         messages=[
             {"role": "system", "content": "You are a precise data extraction assistant. Always output valid JSON without markdown wrapping."},
             {"role": "user", "content": prompt}
