@@ -1,8 +1,10 @@
 import json
-import os
 import time
-from docling.accelerator_options import AcceleratorDevice, AcceleratorOptions
-from docling.base_models import InputFormat
+from docling.datamodel.accelerator_options import (
+    AcceleratorDevice,
+    AcceleratorOptions,
+)
+from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions, TableStructureOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from openai import OpenAI
