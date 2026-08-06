@@ -90,6 +90,7 @@ Incremental rates (over allowance):
 """
 
 
+
 def read_pdf_text(filePath, use_ocr=False):
     """
     Reads PDF layout. If MOCK_DOCLING is enabled, returns instant sample text.

@@ -17,16 +17,16 @@ logger = logging.getLogger(__name__)
 def process_contract_task(self, document_id: int, contract_text: str):
     doc = Document.query.get(document_id)
     if not doc:
-        logger.error(f"Document with ID {document_id} not found in database. Aborting task.")
+        logger.error(
+            f"Document with ID {document_id} not found in database. Aborting task."
+        )
         return
-    
+
     try:
         doc.current_step = 2
         db.session.commit()
 
         file_path = os.path.join(current_app.root_path, "static", doc.file_key)
-        with open(file_path, "rb") as f:
-            pdf_bytes = f.read()
 
         api_key = os.environ.get("OPENROUTER_API_KEY", "")
         extracted = cast(Any, get_contents(
@@ -41,7 +41,7 @@ def process_contract_task(self, document_id: int, contract_text: str):
                 return {}
             if hasattr(obj, "model_dump"):  # Pydantic v2
                 return obj.model_dump()
-            elif hasattr(obj, "dict"):      # Pydantic v1
+            elif hasattr(obj, "dict"):  # Pydantic v1
                 return obj.dict()
             return obj if isinstance(obj, dict) else {}
 
@@ -80,13 +80,11 @@ def process_contract_task(self, document_id: int, contract_text: str):
         if pipeline_result.verification.status == "FAILED" or pipeline_result.risk.highest_risk == "HIGH":
             doc.status = 'REVIEW'
         else:
-            doc.status = 'READY'
-            
+            doc.status = "READY"
+
         doc.current_step = 5
         if pipeline_result.errors:
             doc.error_message = " | ".join(pipeline_result.errors)
-            
-        db.session.commit()
 
     except Exception as e:
         logger.error(f"AI Processing failed for document {document_id}: {str(e)}")
