@@ -65,7 +65,7 @@ def process_contract_task(self, document_id: int, contract_text: str):
         # Run Verification & Risk Pipeline
         orchestrator = Orchestrator()
         pipeline_input = OrchestratorInput(
-            pdf_bytes=pdf_bytes,
+            file_path=file_path,           
             filename=doc.filename,
             partner_name=doc.partner_name,
             raw_doc_text=contract_text,
