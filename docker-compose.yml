@@ -46,6 +46,8 @@ services:
     restart: unless-stopped
     command: celery -A celery_worker.celery worker --loglevel=info --concurrency=2
     volumes:
+      - .:/app                    # ADD THIS
+      - ./uploads:/app/uploads 
       - ./app/static/pdfs:/app/app/static/pdfs
     env_file:
       - .env

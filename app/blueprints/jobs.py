@@ -29,11 +29,9 @@ def process_contract_task(self, document_id: int, contract_text: str):
         file_path = os.path.join(current_app.root_path, "static", doc.file_key)
 
         api_key = os.environ.get("OPENROUTER_API_KEY", "")
-        extracted = cast(Any, get_contents(
-            filePath=file_path,
-            use_ocr=False,
-            api_key=api_key
-        ))
+        extracted = cast(
+            Any, get_contents(filePath=file_path, use_ocr=False, api_key=api_key)
+        )
         header, model, normal_model, commitment = extracted
 
         def to_dict(obj):
@@ -57,7 +55,7 @@ def process_contract_task(self, document_id: int, contract_text: str):
 
         doc.extracted_data = payload
         doc.agmt_id = payload.get("header", {}).get("agmt_id")
-        
+
         # Save baseline data for comparison
         baseline_tables = get_baseline_data(doc.partner_name)
         doc.baseline_data = baseline_tables
@@ -65,26 +63,30 @@ def process_contract_task(self, document_id: int, contract_text: str):
         # Run Verification & Risk Pipeline
         orchestrator = Orchestrator()
         pipeline_input = OrchestratorInput(
-            file_path=file_path,           
+            file_path=file_path,
             filename=doc.filename,
             partner_name=doc.partner_name,
             raw_doc_text=contract_text,
             baseline_data=baseline_tables,
             use_telecom_prompt=True,
-            pre_extracted_data=payload
+            pre_extracted=payload,
         )
-        
+
         pipeline_result = orchestrator.run(pipeline_input)
 
         doc.current_step = 4
-        if pipeline_result.verification.status == "FAILED" or pipeline_result.risk.highest_risk == "HIGH":
-            doc.status = 'REVIEW'
+        if (
+            pipeline_result.verification.status == "FAILED"
+            or pipeline_result.risk.highest_risk == "HIGH"
+        ):
+            doc.status = "REVIEW"
         else:
             doc.status = "READY"
 
         doc.current_step = 5
         if pipeline_result.errors:
             doc.error_message = " | ".join(pipeline_result.errors)
+        db.session.commit()
 
     except Exception as e:
         logger.error(f"AI Processing failed for document {document_id}: {str(e)}")

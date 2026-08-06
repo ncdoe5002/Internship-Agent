@@ -102,27 +102,44 @@ class Orchestrator:
         """
         if "tables" in raw_extraction:
             return raw_extraction
+        title_mapping = {
+            "header": "AGMT_HEADER_STG",
+            "model": "AGMT_MODELS_STG",
+            "normal_model": "AGMT_MDL_NORMAL_STG",
+            "commitment": "AGMT_COMMITMENT",
+        }
 
         adapted_tables = []
         for table_name, content in raw_extraction.items():
+            mapped_title = title_mapping.get(table_name, table_name)
+
             if isinstance(content, list) and len(content) > 0:
-                # Deduce headers from key elements of first dictionary
                 first_row = content[0]
                 if isinstance(first_row, dict):
                     headers = list(first_row.keys())
-                    rows = [
-                        [str(row_dict.get(h, "")) for h in headers]
-                        for row_dict in content
-                    ]
+                    rows = []
+                    for row in content:
+                        if hasattr(row, "model_dump"):
+                            row = row.model_dump()
+                        rows.append(
+                            [
+                                str(row.get(h, "")) if row.get(h) is not None else ""
+                                for h in headers
+                            ]
+                        )
                     adapted_tables.append(
-                        {"title": table_name, "headers": headers, "rows": rows}
+                        {"title": mapped_title, "headers": headers, "rows": rows}
                     )
-            elif isinstance(content, dict):
-                # Single object record turned into a two-column key/value table
-                headers = ["FIELD", "VALUE"]
-                rows = [[str(k), str(v)] for k, v in content.items()]
+            elif isinstance(content, dict) and content:
+                headers = list(content.keys())
+                rows = [
+                    [
+                        str(content.get(h, "")) if content.get(h) is not None else ""
+                        for h in headers
+                    ]
+                ]
                 adapted_tables.append(
-                    {"title": table_name, "headers": headers, "rows": rows}
+                    {"title": mapped_title, "headers": headers, "rows": rows}
                 )
 
         return {"tables": adapted_tables}
@@ -178,10 +195,22 @@ class Orchestrator:
         return cat_idx, rate_idx
 
     def _extract_comparison_rows(
-        self, extracted_tables: dict | None, baseline_data: dict | None
+        self,
+        extracted_tables: dict | None,
+        baseline_data: dict | None,
+        field_details: dict | None = None,
     ) -> list[ReviewTableRow]:
         rows: list[ReviewTableRow] = []
-        extracted_map: dict[str, float | None] = {}
+        extracted_map: dict[str, tuple[float | None, float]] = {}
+
+        # Build rate confidence lookup map if field_details are available
+        rate_confidences: dict[str, float] = {}
+        if field_details and "rates" in field_details:
+            for rate_item in field_details.get("rates", []):
+                # Look up rate score from field details
+                for k, v in rate_item.items():
+                    if hasattr(v, "confidence_score"):
+                        rate_confidences[k] = v.confidence_score
 
         if extracted_tables and "tables" in extracted_tables:
             for table in extracted_tables["tables"]:
@@ -195,8 +224,9 @@ class Orchestrator:
                     if len(row) > cat_idx and len(row) > rate_idx:
                         cat_str = str(row[cat_idx]).strip()
                         rate_val = self._parse_rate(row[rate_idx])
+                        conf_val = rate_confidences.get(headers[rate_idx], 1.0)
                         if cat_str:
-                            extracted_map[cat_str] = rate_val
+                            extracted_map[cat_str] = (rate_val, conf_val)
 
         baseline_map: dict[str, float | None] = {}
         if baseline_data and "tables" in baseline_data:
@@ -216,7 +246,7 @@ class Orchestrator:
 
         matched_baseline_keys = set()
 
-        for ext_cat, ext_rate in extracted_map.items():
+        for ext_cat, (ext_rate, ext_conf) in extracted_map.items():
             match_key = self._fuzzy_match_category(ext_cat, list(baseline_map.keys()))
 
             if match_key:
@@ -244,6 +274,7 @@ class Orchestrator:
                         pct_change=pct,
                         status=status,
                         flag=flag,
+                        confidence_score=ext_conf,
                     )
                 )
             else:
@@ -255,6 +286,7 @@ class Orchestrator:
                         pct_change=None,
                         status="NEW",
                         flag="LOW",
+                        confidence_score=ext_conf,
                     )
                 )
 
@@ -268,6 +300,7 @@ class Orchestrator:
                         pct_change=None,
                         status="MISSING",
                         flag="MEDIUM",
+                        confidence_score=1.0,
                     )
                 )
 
@@ -279,12 +312,13 @@ class Orchestrator:
         if state.input is None:
             return {"extraction_result": None, "extraction_error": "No input provided"}
         try:
-            if state.input.pre_extracted:
-                adapted_result = self._adapt_staging_schema(state.input.pre_extracted)
+            pre_extracted = state.input.pre_extracted or state.input.pre_extracted_data
+            if pre_extracted:
+                adapted_result = self._adapt_staging_schema(pre_extracted)
                 return {"extraction_result": adapted_result, "extraction_error": None}
 
             # Fallback: run Docling if pre_extracted not provided
-            api_key = os.environ["GEMINI_API_KEY"]
+            api_key = os.environ.get("OPENROUTER_API_KEY", "")
             header, model, normal_model, commitment = get_contents(
                 filePath=state.input.file_path,
                 use_ocr=True,
@@ -335,11 +369,13 @@ class Orchestrator:
             }
 
         try:
+            field_details = state.verification_result.field_details
             comparison_rows = self._extract_comparison_rows(
-                state.extraction_result, state.input.baseline_data
+                state.extraction_result,
+                state.input.baseline_data,
+                field_details=field_details,
             )
 
-            # Pass ReviewTableRow objects directly to RiskAgentInput
             risk_input = RiskAgentInput(
                 partner_name=state.input.partner_name,
                 confidence=state.verification_result.confidence,
@@ -442,9 +478,14 @@ class Orchestrator:
             if "AGMT_HEADER_STG" in title or "HEADER" in title:
                 if rows:
                     flat_header = dict(zip(headers, rows[0]))
-            elif "AGMT_MODELS_STG" in title or "MODELS" in title:
+            elif "AGMT_MODELS_STG" in title or "MODEL" in title:
                 flat_models = [dict(zip(headers, r)) for r in rows]
-            elif "AGMT_MDL_NORMAL_STG" in title or "NORMAL" in title or "RATE" in title:
+            elif (
+                "AGMT_MDL_NORMAL_STG" in title
+                or "NORMAL_MODEL" in title
+                or "NORMAL" in title
+                or "RATE" in title
+            ):
                 flat_rates = [dict(zip(headers, r)) for r in rows]
             elif "AGMT_COMMITMENT" in title or "COMMITMENT" in title:
                 flat_commitments = [dict(zip(headers, r)) for r in rows]

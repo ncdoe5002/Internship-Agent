@@ -6,8 +6,6 @@ from docling.datamodel.base_models import InputFormat
 from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
 import json
 from openai import OpenAI
-from google import genai
-from google.genai import types
 from yaspin import yaspin
 
 from .extractor_template import IOTAgreement
@@ -17,10 +15,11 @@ from .extractor_template import IOTAgreement
 # Set to True  => Skips Docling execution and uses instant sample text.
 # Set to False => Runs real GPU-accelerated Docling extraction.
 # =====================================================================
-MOCK_DOCLING = True
+MOCK_DOCLING = False
 
 # Global Converter Caching (used when MOCK_DOCLING = False)
 _global_converter = None
+
 
 def get_converter(use_ocr):
     global _global_converter
@@ -29,7 +28,9 @@ def get_converter(use_ocr):
         pipeline_options = PdfPipelineOptions(accelerator_options=accelerator_options)
         pipeline_options.do_ocr = use_ocr
         pipeline_options.do_table_structure = True
-        pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=True)
+        pipeline_options.table_structure_options = TableStructureOptions(
+            do_cell_matching=True
+        )
 
         _global_converter = DocumentConverter(
             format_options={
@@ -90,7 +91,6 @@ Incremental rates (over allowance):
 """
 
 
-
 def read_pdf_text(filePath, use_ocr=False):
     """
     Reads PDF layout. If MOCK_DOCLING is enabled, returns instant sample text.
@@ -109,30 +109,48 @@ def fill_fields(doc_text: str, API_KEY: str) -> dict:
         base_url="https://openrouter.ai/api/v1",
         api_key=API_KEY,
     )
-    
+
+    schema = json.dumps(IOTAgreement.model_json_schema(), indent=2)
+
     prompt = f"""
-    Extract the telecom agreement details from the following document.
-    You must respond ONLY with a valid JSON object matching the required schema.
-    
-    Document Text:
-    {doc_text}
-    """
-    
+            You are extracting structured data from a telecom roaming agreement into a Pydantic schema[cite: 6].
+
+            Return ONLY valid JSON.
+
+            The JSON MUST strictly conform to this schema:
+            {schema}
+
+            CRITICAL EXTRACTION RULES:
+            1. 'header': Extract metadata (parties, start_date, end_date, currency_code)[cite: 6]. 
+               - You MUST extract both start_date and end_date if mentioned or implied by period clauses[cite: 6].
+            2. 'normal_model': MUST NOT BE EMPTY if incremental, overage, or tariff rates exist (e.g., MOC/SMS/Data rate per minute/MB)[cite: 6]. 
+               - Populate each tier/rate into 'normal_model'[cite: 6].
+            3. 'commitment': Extract fixed revenue, send-or-pay amounts, and traffic allowance volumes into separate items[cite: 6].
+            4. Do not invent missing values; set absent non-required fields to null[cite: 6].
+
+            Document Text:
+            {doc_text}
+            """
+
     response = client.chat.completions.create(
-        model="google/gemini-3.5-flash", 
+        model="openai/gpt-oss-20b:free",
         messages=[
-            {"role": "system", "content": "You are a precise data extraction assistant. Always output valid JSON without markdown wrapping."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are a precise data extraction assistant. Always output valid JSON without markdown wrapping.",
+            },
+            {"role": "user", "content": prompt},
         ],
         response_format={"type": "json_object"},
-        max_tokens=2000
+        max_tokens=8000,
     )
-    
+    print("OpenRouter response:")
+    print(response)
+
     raw_response = response.choices[0].message.content
 
-    # 1. Type Guard: Satisfies Pyright/Pylance by ensuring raw_response is a string
     if not raw_response:
-        raise ValueError("Received an empty or null response from OpenRouter.")
+        raise ValueError(f"Empty response from OpenRouter. Full response: {response}")
 
     try:
         # 2. Clean up markdown code blocks if present
@@ -154,22 +172,43 @@ def fill_fields(doc_text: str, API_KEY: str) -> dict:
 
 
 def get_contents(filePath, use_ocr, api_key):
-    status_msg = "Using Mock Docling output..." if MOCK_DOCLING else "Extracting document with Docling..."
-    
+    status_msg = (
+        "Using Mock Docling output..."
+        if MOCK_DOCLING
+        else "Extracting document with Docling..."
+    )
+
     with yaspin(text=status_msg, color="cyan") as spinner:
         docling_dump = read_pdf_text(filePath=filePath, use_ocr=use_ocr)
         spinner.ok("✔")
         spinner.write("Text extraction completed")
 
     # Updated logging text here
-    with yaspin(text="Generating structured JSON via OpenRouter...", color="cyan") as spinner:
+    with yaspin(
+        text="Generating structured JSON via OpenRouter...", color="cyan"
+    ) as spinner:
         # Pass the OpenRouter API key into fill_fields
         json_data = fill_fields(docling_dump, API_KEY=api_key)
         spinner.ok("✔")
         spinner.write("JSON generation completed")
 
     with yaspin(text="Validating agreement schema...", color="cyan") as spinner:
+        if isinstance(json_data, list):
+            json_data = json_data[0] if json_data else {}
         agreement = IOTAgreement.model_validate(json_data)
+        print("HEADER:", agreement.header)
+        print("MODELS:", len(agreement.model))
+        print("NORMAL MODELS:", len(agreement.normal_model))
+        print("COMMITMENTS:", len(agreement.commitment))
+        if not any(
+            [
+                agreement.header,
+                agreement.model,
+                agreement.normal_model,
+                agreement.commitment,
+            ]
+        ):
+            raise ValueError("LLM extraction returned empty agreement structure")
         spinner.ok("✔")
         spinner.write("Agreement validation completed")
 

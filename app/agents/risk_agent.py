@@ -65,10 +65,16 @@ class RiskAgent:
         for row in payload.comparison_rows:
             try:
                 old_val = (
-                    float(row.baseline_rate) if row.baseline_rate is not None else 0.0
+                    float(row.baseline_rate)
+                    if row.baseline_rate is not None
+                    and str(row.baseline_rate).strip() != ""
+                    else 0.0
                 )
                 new_val = (
-                    float(row.proposed_rate) if row.proposed_rate is not None else 0.0
+                    float(row.proposed_rate)
+                    if row.proposed_rate is not None
+                    and str(row.proposed_rate).strip() != ""
+                    else 0.0
                 )
                 delta = (
                     round(((new_val - old_val) / old_val) * 100, 2)

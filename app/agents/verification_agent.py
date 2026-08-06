@@ -59,11 +59,14 @@ NUMERIC_FIELDS = {
     "RATE",
     "PRICE",
     "COST",
+    "VALUE",
 }
 
 DATE_FIELDS = {
     "START_DATE",
     "END_DATE",
+    "AGMT_EFF_DATE",
+    "AGMT_EXP_DATE",
     "CREATED_DATE",
     "MODIFIED_DATE",
     "AGMT_VERIFIED_DATE",
@@ -154,7 +157,7 @@ def calculate_field_confidence(field_name: str, value: Any, raw_doc_text: str) -
         or str(value).strip() == ""
         or str(value).strip().lower() == "null"
     ):
-        return 0.0
+        return None
 
     str_val = str(value).strip()
     if field_upper in NUMERIC_FIELDS:
@@ -328,6 +331,7 @@ class VerificationAgent:
                 )
 
         return issues
+
     def _calculate_overall_confidence(
         self, tables: dict, raw_doc_text: str
     ) -> tuple[int, list[str], dict[str, Any]]:
@@ -347,14 +351,16 @@ class VerificationAgent:
             rows = table.get("rows", [])
 
             target_key = None
-            is_single_row = False
-
             if "AGMT_HEADER_STG" in title or "HEADER" in title:
                 target_key = "header"
-                is_single_row = True
-            elif "AGMT_MODELS_STG" in title or "MODELS" in title:
+            elif "AGMT_MODELS_STG" in title or "MODEL" in title:
                 target_key = "models"
-            elif "AGMT_MDL_NORMAL_STG" in title or "NORMAL" in title or "RATE" in title:
+            elif (
+                "AGMT_MDL_NORMAL_STG" in title
+                or "NORMAL_MODEL" in title
+                or "NORMAL" in title
+                or "RATE" in title
+            ):
                 target_key = "rates"
             elif "AGMT_COMMITMENT" in title or "COMMITMENT" in title:
                 target_key = "commitments"
@@ -369,43 +375,44 @@ class VerificationAgent:
                     score = calculate_field_confidence(
                         field_name, cell_val, raw_doc_text
                     )
-                    scores.append(score)
 
                     flags = []
-                    if score < 0.65 and str(cell_val).strip() not in (
-                        "",
-                        "None",
-                        "null",
-                    ):
-                        issues.append(
-                            f"Low confidence ({score * 100:.0f}%) for {field_name}: '{cell_val}'"
+                    if score is not None:
+                        scores.append(score)
+                        if score < 0.65 and str(cell_val).strip() not in (
+                            "",
+                            "None",
+                            "null",
+                        ):
+                            issues.append(
+                                f"Low confidence ({score * 100:.0f}%) for {field_name}: '{cell_val}'"
+                            )
+                            flags.append("LOW_CONFIDENCE")
+                        status = (
+                            "CONFIDENT"
+                            if score >= 0.85
+                            else ("FLAGGED" if score >= 0.65 else "LOW")
                         )
-                        flags.append("LOW_CONFIDENCE")
+                    else:
+                        status = "CONFIDENT"  # Neutral status for optional null fields
 
-                    status = (
-                        "CONFIDENT"
-                        if score >= 0.85
-                        else ("FLAGGED" if score >= 0.65 else "LOW")
-                    )
                     detail = FieldDetail(
                         value=cell_val,
-                        confidence_score=round(score, 2),
+                        confidence_score=round(score, 2) if score is not None else 1.0,
                         status=status,
                         flags=flags,
                     )
+                    row_dict[field_name] = detail
 
-                    if is_single_row:
-                        field_details["header"][field_name] = detail
-                    else:
-                        row_dict[field_name] = detail
-
-                if not is_single_row:
-                    field_details[target_key].append(row_dict)
+                if target_key == "header":
+                    for k, v in row_dict.items():
+                        field_details["header"][k] = v
                 else:
-                    break
+                    field_details[target_key].append(row_dict)
 
         if not scores:
-            return 0, ["No fields extracted to calculate confidence."], field_details
+            # If all extracted fields were empty, default score is set to 100 for empty valid payloads
+            return 100, issues, field_details
 
         avg_score = int((sum(scores) / len(scores)) * 100)
         return avg_score, issues, field_details
@@ -426,7 +433,24 @@ class VerificationAgent:
         issues.extend(structural_issues)
         checks.append("Table structure and column format verified")
 
-        # 2. Baseline Comparison Checks
+        # 2. Date Consistency Checks (NEW: Explicitly called)
+        header_table = next(
+            (
+                t
+                for t in payload.extracted_tables.get("tables", [])
+                if "HEADER" in t.get("title", "").upper()
+            ),
+            {},
+        )
+        if header_table and header_table.get("rows"):
+            header_dict = dict(
+                zip(header_table.get("headers", []), header_table["rows"][0])
+            )
+            date_issues = self._check_date_consistency(header_dict)
+            issues.extend(date_issues)
+            checks.append("Date consistency checked")
+
+        # 3. Baseline Comparison Checks
         baseline_issues = self._check_baseline_variances(
             payload.extracted_tables, payload.baseline_tables
         )
@@ -434,31 +458,35 @@ class VerificationAgent:
         if payload.baseline_tables:
             checks.append("Baseline comparison verified")
 
-        # 3. Grounding Confidence Checks
-        confidence, grounding_issues, field_details = self._calculate_overall_confidence(
-             payload.extracted_tables, payload.raw_doc_text
+        # 4. Grounding Confidence Checks
+        confidence, grounding_issues, field_details = (
+            self._calculate_overall_confidence(
+                payload.extracted_tables, payload.raw_doc_text
+            )
         )
         issues.extend(grounding_issues)
         checks.append("Field-level text grounding verified")
-        # 4. Cross-Field Consistency Checks
+
+        # 5. Cross-Field Consistency Checks
         consistency_issues = self._check_cross_field_consistency(
             payload.extracted_tables, payload.raw_doc_text
         )
         issues.extend(consistency_issues)
-        if consistency_issues:
-            checks.append("Cross-field consistency checked")
 
-        # 4. Final Status Evaluation
-        if confidence < 70:
-            status = "FAILED"
-        elif confidence < 90 or len(issues) > 0:
-            status = "REVIEW"
+        # 6. Final Status Evaluation (Penalize missing mandatory fields)
+        if len(issues) > 0 or confidence < 90:
+            status = (
+                "FAILED"
+                if confidence < 70 or any("Missing" in i for i in issues)
+                else "REVIEW"
+            )
         else:
             status = "READY"
 
-        logger.info(
-            f"Verification completed: status={status}, confidence={confidence}, issues={len(issues)}"
-        )
         return VerificationResult(
-            status=status, confidence=confidence, checks=checks, issues=issues, field_details=field_details
+            status=status,
+            confidence=confidence,
+            checks=checks,
+            issues=issues,
+            field_details=field_details,
         )
