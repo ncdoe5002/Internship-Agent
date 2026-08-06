@@ -1,10 +1,10 @@
+import json
 import os
-import json
-from docling.document_converter import DocumentConverter, PdfFormatOption
+import time
+from docling.accelerator_options import AcceleratorDevice, AcceleratorOptions
+from docling.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions, TableStructureOptions
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
-import json
+from docling.document_converter import DocumentConverter, PdfFormatOption
 from openai import OpenAI
 from yaspin import yaspin
 
@@ -21,7 +21,7 @@ MOCK_DOCLING = False
 _global_converter = None
 
 
-def get_converter(use_ocr):
+def get_converter(use_ocr: bool):
     global _global_converter
     if _global_converter is None:
         accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CUDA)
@@ -91,17 +91,24 @@ Incremental rates (over allowance):
 """
 
 
-def read_pdf_text(filePath, use_ocr=False):
-    """
-    Reads PDF layout. If MOCK_DOCLING is enabled, returns instant sample text.
-    """
+def read_pdf_text(filePath: str, use_ocr: bool = False) -> str:
+    """Reads PDF layout using Docling with execution time tracking."""
     if MOCK_DOCLING:
         return SAMPLE_DOCLING_MARKDOWN
 
-    # Real Docling execution path
+    t0 = time.time()
     converter = get_converter(use_ocr=use_ocr)
     result = converter.convert(filePath)
-    return result.document.export_to_markdown()
+    extracted_md = result.document.export_to_markdown()
+
+    page_count = (
+        len(result.document.pages) if hasattr(result.document, "pages") else "N/A"
+    )
+    print(
+        f"[Docling] Extracted {len(extracted_md)} chars across {page_count} page(s) in {time.time() - t0:.2f}s"
+    )
+
+    return extracted_md
 
 
 def fill_fields(doc_text: str, API_KEY: str) -> dict:
@@ -113,7 +120,7 @@ def fill_fields(doc_text: str, API_KEY: str) -> dict:
     schema = json.dumps(IOTAgreement.model_json_schema(), indent=2)
 
     prompt = f"""
-            You are extracting structured data from a telecom roaming agreement into a Pydantic schema[cite: 6].
+            You are extracting structured data from a telecom roaming agreement into a Pydantic schema.
 
             Return ONLY valid JSON.
 
@@ -121,57 +128,55 @@ def fill_fields(doc_text: str, API_KEY: str) -> dict:
             {schema}
 
             CRITICAL EXTRACTION RULES:
-            1. 'header': Extract metadata (parties, start_date, end_date, currency_code)[cite: 6]. 
-               - You MUST extract both start_date and end_date if mentioned or implied by period clauses[cite: 6].
-            2. 'normal_model': MUST NOT BE EMPTY if incremental, overage, or tariff rates exist (e.g., MOC/SMS/Data rate per minute/MB)[cite: 6]. 
-               - Populate each tier/rate into 'normal_model'[cite: 6].
-            3. 'commitment': Extract fixed revenue, send-or-pay amounts, and traffic allowance volumes into separate items[cite: 6].
-            4. Do not invent missing values; set absent non-required fields to null[cite: 6].
+            1. 'header': Extract metadata (parties, start_date, end_date, currency_code).
+               - You MUST extract both start_date and end_date if mentioned or implied by period clauses.
+               - Extract currency_code (e.g., 'EUR', 'USD'). If missing explicitly, infer from symbols (€ -> EUR, $ -> USD).
+               - If 'agmt_id' is missing from document text, auto-generate as format: "{{sender}}-{{rp}}-{{start_date}}".
+            2. 'normal_model': Array of service charging tiers (MOC/SMS/Data rate per min/SMS/MB).
+               - Extract rate values into 'rate_val' and charge units into 'charge_field'.
+            3. 'commitment': Array of fixed revenues, send-or-pay amounts, and volume allowances.
+               - Separate monetary values into 'amount' and traffic caps into 'volume_value' / 'volume_unit'.
+            4. Do not invent missing values; set absent non-required fields to null.
 
             Document Text:
             {doc_text}
             """
 
+    t0 = time.time()
     response = client.chat.completions.create(
         model="openai/gpt-oss-20b:free",
         messages=[
             {
                 "role": "system",
-                "content": "You are a precise data extraction assistant. Always output valid JSON without markdown wrapping.",
+                "content": "You are a precise data extraction assistant. Always output valid raw JSON without markdown formatting.",
             },
             {"role": "user", "content": prompt},
         ],
         response_format={"type": "json_object"},
         max_tokens=8000,
     )
-    print("OpenRouter response:")
-    print(response)
+    print(f"[OpenRouter] LLM payload generation completed in {time.time() - t0:.2f}s")
 
     raw_response = response.choices[0].message.content
-
     if not raw_response:
         raise ValueError(f"Empty response from OpenRouter. Full response: {response}")
 
     try:
-        # 2. Clean up markdown code blocks if present
         cleaned_response = raw_response.strip()
         if cleaned_response.startswith("```"):
-            # Remove leading ```json or ``` and trailing ```
             cleaned_response = cleaned_response.lstrip("`")
             if cleaned_response.startswith("json"):
                 cleaned_response = cleaned_response[4:]
             cleaned_response = cleaned_response.rstrip("`").strip()
 
-        # 3. Safe to pass to json.loads now
-        json_data = json.loads(cleaned_response)
-        return json_data
+        return json.loads(cleaned_response)
 
     except json.JSONDecodeError as e:
         print(f"Failed to parse JSON from LLM: {raw_response}")
         raise e
 
 
-def get_contents(filePath, use_ocr, api_key):
+def get_contents(filePath: str, use_ocr: bool, api_key: str):
     status_msg = (
         "Using Mock Docling output..."
         if MOCK_DOCLING
@@ -183,11 +188,9 @@ def get_contents(filePath, use_ocr, api_key):
         spinner.ok("✔")
         spinner.write("Text extraction completed")
 
-    # Updated logging text here
     with yaspin(
         text="Generating structured JSON via OpenRouter...", color="cyan"
     ) as spinner:
-        # Pass the OpenRouter API key into fill_fields
         json_data = fill_fields(docling_dump, API_KEY=api_key)
         spinner.ok("✔")
         spinner.write("JSON generation completed")
@@ -195,11 +198,30 @@ def get_contents(filePath, use_ocr, api_key):
     with yaspin(text="Validating agreement schema...", color="cyan") as spinner:
         if isinstance(json_data, list):
             json_data = json_data[0] if json_data else {}
+
         agreement = IOTAgreement.model_validate(json_data)
+
+        models_count = (
+            len(agreement.model)
+            if isinstance(agreement.model, list)
+            else (1 if agreement.model else 0)
+        )
+        normal_count = (
+            len(agreement.normal_model)
+            if isinstance(agreement.normal_model, list)
+            else (1 if agreement.normal_model else 0)
+        )
+        commitment_count = (
+            len(agreement.commitment)
+            if isinstance(agreement.commitment, list)
+            else (1 if agreement.commitment else 0)
+        )
+
         print("HEADER:", agreement.header)
-        print("MODELS:", len(agreement.model))
-        print("NORMAL MODELS:", len(agreement.normal_model))
-        print("COMMITMENTS:", len(agreement.commitment))
+        print("MODELS:", models_count)
+        print("NORMAL MODELS:", normal_count)
+        print("COMMITMENTS:", commitment_count)
+
         if not any(
             [
                 agreement.header,
@@ -209,6 +231,7 @@ def get_contents(filePath, use_ocr, api_key):
             ]
         ):
             raise ValueError("LLM extraction returned empty agreement structure")
+
         spinner.ok("✔")
         spinner.write("Agreement validation completed")
 
