@@ -267,6 +267,11 @@
 
     .dragging iframes-disabled iframe { pointer-events: none !important; }
   </style>
+
+  <!-- STORE RAW JSON PAYLOAD IN DOM FOR JS TO ACCESS -->
+  <script id="raw-extracted-data" type="application/json">
+    {{ document.extracted_data | tojson | safe if document.extracted_data else '{}' }}
+  </script>
 </head>
 <body>
 
@@ -282,20 +287,17 @@
     {% if prev_num != -999999 and new_num != -999999 and prev_num != 0 %}
       {% set delta = ((new_num - prev_num) / prev_num * 100) %}
       {% if delta > 0 %}
-        <!-- Cost Increase (Red Up Arrow) -->
         <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2 d-inline-flex align-items-center gap-1">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
           {{ delta|round(1) }}%
         </span>
       {% elif delta < 0 %}
-        <!-- Cost Decrease (Green Down Arrow) -->
         {% set abs_delta = delta * -1 %}
         <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2 d-inline-flex align-items-center gap-1">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
           {{ abs_delta|round(1) }}%
         </span>
       {% else %}
-        <!-- No Change -->
         <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Unchanged</span>
       {% endif %}
     {% else %}
@@ -316,16 +318,23 @@
   {% endmacro %}
 
   <!-- Macro: Render Standard Table Row -->
-  {% macro field_row(field_name, field_data, prev_val) %}
+  <!-- ADDED: section_name and field_name parameters to build data-attributes for JS binding -->
+  {% macro field_row(section_name, field_name, field_data, prev_val) %}
+    {% set is_mapping = field_data is mapping %}
+    {% set display_val = field_data.value if is_mapping and 'value' in field_data else field_data %}
+    
     <tr>
       <td class="fw-semibold text-dark ps-4" style="width: 20%;">{{ field_name }}</td>
       <td class="text-muted" style="width: 15%;">{{ prev_val if prev_val is not none else '-' }}</td>
       <td style="width: 35%;">
-        <!-- Editable Value -->
-        <div contenteditable="true" class="editable-cell fw-bold text-dark">{{ field_data.value if field_data.value is not none else '-' }}</div>
+        <!-- Editable Value tied to section and key -->
+        <div contenteditable="true" 
+             class="editable-cell fw-bold text-dark" 
+             data-section="{{ section_name }}" 
+             data-key="{{ field_name }}">{{ display_val if display_val is not none else '-' }}</div>
         
         <!-- Field Flags Warning -->
-        {% if field_data.flags %}
+        {% if is_mapping and field_data.flags %}
           <div class="d-flex flex-column align-items-start">
             {% for flag in field_data.flags %}
               <div class="flag-alert shadow-sm">
@@ -337,10 +346,14 @@
         {% endif %}
       </td>
       <td style="width: 15%;">
-        {{ render_delta(prev_val, field_data.value) }}
+        {{ render_delta(prev_val, display_val) }}
       </td>
       <td class="pe-4" style="width: 15%;">
-        {{ render_confidence(field_data.confidence_score, field_data.status) }}
+        {% if is_mapping %}
+          {{ render_confidence(field_data.confidence_score, field_data.status) }}
+        {% else %}
+          <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">N/A</span>
+        {% endif %}
       </td>
     </tr>
   {% endmacro %}
@@ -435,7 +448,8 @@
                     {% if header %}
                         {% for key, field_data in header.items() %}
                             {% set prev = current_doc.header.get(key) if current_doc and current_doc.header else none %}
-                            {{ field_row(key, field_data, prev) }}
+                            <!-- Passed 'header' as section mapping -->
+                            {{ field_row('header', key, field_data, prev) }}
                         {% endfor %}
                     {% else %}
                         <tr><td colspan="5" class="empty-state">No header data found.</td></tr>
@@ -462,13 +476,13 @@
                 <tbody>
                     {% if models %}
                         {% for model in models %}
-                            <!-- Sub-header dividing multiple models -->
                             <tr class="group-header">
                                 <td colspan="5" class="ps-4">Model Record #{{ loop.index }}</td>
                             </tr>
                             {% for key, field_data in model.items() %}
                                 {% set prev = current_doc.models[loop.index0].get(key) if current_doc and current_doc.models and loop.index0 < current_doc.models|length else none %}
-                                {{ field_row(key, field_data, prev) }}
+                                <!-- Passed 'model' as section mapping -->
+                                {{ field_row('model', key, field_data, prev) }}
                             {% endfor %}
                         {% endfor %}
                     {% else %}
@@ -496,13 +510,13 @@
                 <tbody>
                     {% if rates %}
                         {% for rate in rates %}
-                            <!-- Sub-header dividing multiple rates -->
                             <tr class="group-header">
                                 <td colspan="5" class="ps-4">Rate Record #{{ loop.index }}</td>
                             </tr>
                             {% for key, field_data in rate.items() %}
                                 {% set prev = current_doc.rates[loop.index0].get(key) if current_doc and current_doc.rates and loop.index0 < current_doc.rates|length else none %}
-                                {{ field_row(key, field_data, prev) }}
+                                <!-- Passed 'normal_model' as section mapping -->
+                                {{ field_row('normal_model', key, field_data, prev) }}
                             {% endfor %}
                         {% endfor %}
                     {% else %}
@@ -530,13 +544,13 @@
                 <tbody>
                     {% if commitments %}
                         {% for commitment in commitments %}
-                            <!-- Sub-header dividing multiple commitments -->
                             <tr class="group-header">
                                 <td colspan="5" class="ps-4">Commitment Record #{{ loop.index }}</td>
                             </tr>
                             {% for key, field_data in commitment.items() %}
                                 {% set prev = current_doc.commitments[loop.index0].get(key) if current_doc and current_doc.commitments and loop.index0 < current_doc.commitments|length else none %}
-                                {{ field_row(key, field_data, prev) }}
+                                <!-- Passed 'commitment' as section mapping -->
+                                {{ field_row('commitment', key, field_data, prev) }}
                             {% endfor %}
                         {% endfor %}
                     {% else %}
@@ -555,7 +569,11 @@
         <span class="text-muted small d-none d-md-block">Click any value to edit before accepting. Review all warnings carefully.</span>
         <div class="d-flex gap-3">
           <a href="{{ url_for('update.update_operator', operator_id=1) }}" class="btn btn-outline-secondary fw-semibold px-4 py-2">✕ Reject</a>
-          <a href="{{ url_for('update.preview_submission', doc_id=document.id) }}" class="btn btn-danger-custom fw-semibold px-4 py-2 text-decoration-none">✓ Accept & Send Report</a>
+          
+          <!-- Changed to Button to trigger JS save action -->
+          <button id="btn-accept" class="btn btn-danger-custom fw-semibold px-4 py-2">
+            ✓ Accept & Send Report
+          </button>
         </div>
       </div>
     </div>
@@ -563,8 +581,79 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- Script for Drag-to-Resize Logic -->
   <script>
+    // ---------------------------------------------------------
+    // API SAVE DRAFT LOGIC
+    // ---------------------------------------------------------
+    document.getElementById('btn-accept').addEventListener('click', async function(e) {
+      e.preventDefault();
+      
+      const btn = this;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Saving...';
+      btn.disabled = true;
+
+      // 1. Parse original data from DOM to preserve nesting
+      let payload = {};
+      try {
+        const rawJsonStr = document.getElementById('raw-extracted-data').textContent;
+        payload = JSON.parse(rawJsonStr);
+      } catch(e) {
+        payload = { header: {}, model: {}, normal_model: {}, commitment: {} };
+      }
+
+      // Ensure root sections exist
+      ['header', 'model', 'normal_model', 'commitment'].forEach(sec => {
+          if (!payload[sec]) payload[sec] = {};
+      });
+
+      // 2. Map all UI edits back to the JSON payload
+      document.querySelectorAll('.editable-cell').forEach(cell => {
+          const section = cell.getAttribute('data-section');
+          const key = cell.getAttribute('data-key');
+          let val = cell.innerText.trim();
+          
+          // Revert visual empty state back to proper null
+          if (val === '-') val = null;
+
+          if (section && key) {
+              // Update the target key. Handles both flat dicts and nested object dicts 
+              if (payload[section][key] !== null && typeof payload[section][key] === 'object' && !Array.isArray(payload[section][key])) {
+                  payload[section][key].value = val;
+              } else {
+                  payload[section][key] = val;
+              }
+          }
+      });
+
+      // 3. Send final payload to backend draft endpoint
+      try {
+          const response = await fetch(`/api/update/{{ document.id }}/save-draft`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+          });
+
+          if(response.ok) {
+              // Redirect to next step upon success
+              window.location.href = "{{ url_for('update.preview_submission', doc_id=document.id) }}";
+          } else {
+              alert('Failed to save data. Please check your connection and try again.');
+              btn.innerHTML = '✓ Accept & Send Report';
+              btn.disabled = false;
+          }
+      } catch (error) {
+          console.error("Error saving draft:", error);
+          alert('An error occurred while saving the draft.');
+          btn.innerHTML = '✓ Accept & Send Report';
+          btn.disabled = false;
+      }
+    });
+
+    // ---------------------------------------------------------
+    // DRAG-TO-RESIZE LOGIC
+    // ---------------------------------------------------------
     document.addEventListener("DOMContentLoaded", function () {
       
       // UP/DOWN RESIZER (TOP/BOTTOM) LOGIC

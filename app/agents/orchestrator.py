@@ -13,7 +13,6 @@ from typing import Any, Literal
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
-# Local client and friend's extractor functions
 from app.services.extractors import extract_generic_document, extract_roaming_agreement
 from app.services.llm_client import chat_complete_json
 
@@ -42,6 +41,7 @@ class OrchestratorInput(BaseModel):
     baseline_data: dict | None = None
     file_type: str = "pdf"
     use_telecom_prompt: bool = True
+    pre_extracted_data: dict | None = None
 
 
 class ReviewSummary(BaseModel):
