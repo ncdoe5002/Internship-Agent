@@ -9,7 +9,7 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 # OpenRouter client
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
-    api_key="OPENROUTER_API_KEY",
+    api_key=OPENROUTER_API_KEY,
 )
 
 
