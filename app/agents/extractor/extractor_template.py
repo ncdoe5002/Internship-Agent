@@ -140,15 +140,15 @@ class IOTAgreement(BaseModel):
         default=None,
         description="Header attributes and metadata governing the agreement.",
     )
-    model: Optional[List[AgmtModelsStg]] = Field(
-        default_factory=list,
+    model: Optional[AgmtModelsStg] = Field(
+        default=None,
         description="High-level pricing model structure definitions.",
     )
-    normal_model: Optional[List[AgmtMdlNormalStg]] = Field(
-        default_factory=list,
+    normal_model: Optional[AgmtMdlNormalStg] = Field(
+        default=None,
         description="Detailed service rate rules, charging increments, and currency specifications.",
     )
-    commitment: Optional[List[AgmtCommitment]] = Field(
-        default_factory=list,
+    commitment: Optional[AgmtCommitment] = Field(
+        default=None,
         description="Financial or volume commitment obligations established between parties.",
     )
