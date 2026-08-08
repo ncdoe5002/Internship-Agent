@@ -326,9 +326,9 @@ class Orchestrator:
             )
             raw_extracted = {
                 "header": header.model_dump() if header else {},
-                "model": [model.model_dump()] if model else [],
-                "normal_model": [normal_model.model_dump()] if normal_model else [],
-                "commitment": [commitment.model_dump()] if commitment else [],
+                "model": [m.model_dump() for m in model] if model else [],
+                "normal_model": [nm.model_dump() for nm in normal_model] if normal_model else [],
+                "commitment": [c.model_dump() for c in commitment] if commitment else [],
             }
             adapted_result = self._adapt_staging_schema(raw_extracted)
             return {"extraction_result": adapted_result, "extraction_error": None}

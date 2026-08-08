@@ -1,0 +1,186 @@
+{
+  "pipeline_metadata": {
+    "file_processed": "Orange_IOT_Egypt 2024_sample_tobe_shared.docx",
+    "chunks_processed": 3,
+    "successful_chunks": 3,
+    "verification_status": "REQUIRES_REVIEW",
+    "verified_at": "2026-08-07T17:41:28.750672"
+  },
+  "validation_agent_flags": [
+    {
+      "rule": "ORPHANED_RATE_DESCRIPTOR",
+      "severity": "HIGH",
+      "message": "CHARGE_FIELD 'Incremental rates applied for additional traffic' missing numerical rate value."
+    }
+  ],
+  "extracted_tables": {
+    "AGMT_HEADER_STG": [
+      {
+        "SENDER": "Orange EU Affiliates",
+        "RP": "Etisalat Misr",
+        "START_DATE": "2025-01-01",
+        "END_DATE": "2025-12-31",
+        "CURRENCY_CODE": "EUR",
+        "AGMT_ID": "ETISALAT-ORANGE-2025",
+        "PRENT_AGMT_ID": null,
+        "MASTER_AGMT_ID": null,
+        "SPL_REMARKS": "Not specified in document"
+      },
+      {
+        "SENDER": "Etisalat Misr",
+        "RP": "Orange EU Affiliates",
+        "START_DATE": "2020-01-01",
+        "END_DATE": null,
+        "CURRENCY_CODE": "EUR",
+        "AGMT_ID": "ETISALAT-ORANGE-2025",
+        "PRENT_AGMT_ID": null,
+        "MASTER_AGMT_ID": null,
+        "SPL_REMARKS": null
+      },
+      {
+        "SENDER": "Etisalat Misr",
+        "RP": "Orange Affiliates",
+        "START_DATE": null,
+        "END_DATE": null,
+        "CURRENCY_CODE": "EUR",
+        "AGMT_ID": "ETISALAT-ORANGE-2025",
+        "PRENT_AGMT_ID": null,
+        "MASTER_AGMT_ID": null,
+        "SPL_REMARKS": "FRAF1, AAZOR, REU02, BELMO, LUXVM, ESPRT, ESPJZ, POL03, ROMMR, SVKGT, MDAVX, GLP01, AFGEA, EGYEM, PAKUF"
+      }
+    ],
+    "AGMT_MODELS_STG": [
+      {
+        "MODEL_SEQ": 1,
+        "MODEL_TYPE": "Variable Revenue",
+        "MODEL_NAME": "Proportionate share of EUR 75,000",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "MODEL_SEQ": 2,
+        "MODEL_TYPE": "Incremental Rates",
+        "MODEL_NAME": "Incremental Revenue",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "MODEL_SEQ": 3,
+        "MODEL_TYPE": "Send or Pay",
+        "MODEL_NAME": "Send or Pay Commitment",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "MODEL_SEQ": 4,
+        "MODEL_TYPE": "Send or Pay",
+        "MODEL_NAME": "Etisalat Misr Send or Pay Commitment",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "MODEL_SEQ": 5,
+        "MODEL_TYPE": "Send or Pay",
+        "MODEL_NAME": "Orange EU Affiliates Send or Pay Commitment",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "MODEL_SEQ": 6,
+        "MODEL_TYPE": "Incremental Rates",
+        "MODEL_NAME": "Incremental Rates",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      }
+    ],
+    "AGMT_MDL_NORMAL_STG": [
+      {
+        "REC_TYPE": "MTC",
+        "RATE_CURRENCY": "EUR",
+        "CHARGE_FIELD": "0.00 EUR",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "REC_TYPE": "DATA",
+        "RATE_CURRENCY": "EUR",
+        "CHARGE_FIELD": "0.00 EUR",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "REC_TYPE": "MOC",
+        "RATE_CURRENCY": "EUR",
+        "CHARGE_FIELD": "Incremental rates applied for additional traffic",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "REC_TYPE": "MOC",
+        "RATE_CURRENCY": "EUR",
+        "CHARGE_FIELD": "0.15 EUR per Minute",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "REC_TYPE": "SMS",
+        "RATE_CURRENCY": "EUR",
+        "CHARGE_FIELD": "0.035 EUR per SMS",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "REC_TYPE": "DATA",
+        "RATE_CURRENCY": "EUR",
+        "CHARGE_FIELD": "0.022 EUR per MB",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      }
+    ],
+    "AGMT_COMMITMENT": [
+      {
+        "COMMITMENT_NAME": "Variable Revenue Share",
+        "COMMITMENT_TYPE": "Revenue Share",
+        "DIRECTION": "Inbound",
+        "AMOUNT": 75000.0,
+        "VOLUME_VALUE": 0.0,
+        "VOLUME_UNIT": null,
+        "PARTY_FROM": "Orange EU Affiliates",
+        "PARTY_TO": "Etisalat Misr",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "COMMITMENT_NAME": "Etisalat Misr Send or Pay",
+        "COMMITMENT_TYPE": "Send or Pay",
+        "DIRECTION": "Outbound",
+        "AMOUNT": 90000.0,
+        "VOLUME_VALUE": 0.0,
+        "VOLUME_UNIT": null,
+        "PARTY_FROM": "Etisalat Misr",
+        "PARTY_TO": "Orange EU Affiliates",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "COMMITMENT_NAME": "Orange EU Affiliates Fixed Revenue",
+        "COMMITMENT_TYPE": "Send or Pay",
+        "DIRECTION": "Inbound",
+        "AMOUNT": 375000.0,
+        "VOLUME_VALUE": 0.0,
+        "VOLUME_UNIT": null,
+        "PARTY_FROM": "Orange EU Affiliates",
+        "PARTY_TO": "Etisalat Misr",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "COMMITMENT_NAME": "Etisalat Affiliates Send or Pay",
+        "COMMITMENT_TYPE": "Send or Pay",
+        "DIRECTION": "Bi-lateral",
+        "AMOUNT": 5500000.0,
+        "VOLUME_VALUE": 800000.0,
+        "VOLUME_UNIT": "MIN",
+        "PARTY_FROM": "Etisalat",
+        "PARTY_TO": "Orange Affiliates",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      },
+      {
+        "COMMITMENT_NAME": "Orange EU Affiliates Send or Pay",
+        "COMMITMENT_TYPE": "Send or Pay",
+        "DIRECTION": "Bi-lateral",
+        "AMOUNT": 450000.0,
+        "VOLUME_VALUE": 330000.0,
+        "VOLUME_UNIT": "MIN",
+        "PARTY_FROM": "Orange EU Affiliates",
+        "PARTY_TO": "Etisalat",
+        "AGMT_ID": "ETISALAT-ORANGE-2025"
+      }
+    ]
+  }
+}

@@ -157,7 +157,7 @@ def calculate_field_confidence(field_name: str, value: Any, raw_doc_text: str) -
         or str(value).strip() == ""
         or str(value).strip().lower() == "null"
     ):
-        return None
+        return 0
 
     str_val = str(value).strip()
     if field_upper in NUMERIC_FIELDS:

@@ -419,67 +419,83 @@ def publish_to_production():
 
 
 # -------------------------------------------------------------------
-# DEV UTILITY: SEED DUMMY DATA (kept for local testing)
+# DEV UTILITY: SEED BASELINE PROD DATA FOR "ETISALAT MISR"
 # -------------------------------------------------------------------
-@update_bp.route("/update/seed", methods=["GET"])
-def seed_dummy_data():
+@update_bp.route("/update/seed-baseline", methods=["GET"])
+def seed_baseline_data():
     try:
-        db.session.execute(text('ALTER TABLE "AGMT_MDL_NORMAL_STG" ALTER COLUMN "CHARGE_FIELD" TYPE NUMERIC(18,4);'))
+        mno_name = "Etisalat Misr"
+        
+        # 1. Create or get the MNO[cite: 11]
+        mno = Mno.query.filter_by(name=mno_name).first()
+        if not mno:
+            mno = Mno()
+            mno.name = mno_name
+            mno.country = "Egypt"
+            mno.currency = "EUR"
+            db.session.add(mno)
+            db.session.flush() # Get the mno.id immediately
+
+        # 2. Clear any existing Prod Header to avoid the unique "RP" constraint error[cite: 7]
+        existing_header = ProdAgmtHeader.query.filter_by(mno_id=mno.id).first()
+        if existing_header:
+            db.session.delete(existing_header)
+            db.session.flush()
+
+        # 3. Create the Production Header[cite: 7, 10]
+        header = ProdAgmtHeader()
+        header.mno_id = mno.id
+        header.AGMT_ID = "BASE-ETISALAT-2024"
+        header.SENDER = "Orange EU Affiliates"
+        header.RP = "Etisalat Misr"
+        header.START_DATE = date(2024, 1, 1)
+        header.END_DATE = date(2024, 12, 31)
+        header.CURRENCY_CODE = "EUR"
+        db.session.add(header)
+        db.session.flush()
+
+        # 4. Create the Rate Model[cite: 7, 10]
+        model = ProdAgmtModels()
+        model.header_id = header.id
+        model.MODEL_SEQ = 1
+        model.MODEL_TYPE = "Incremental Rates"
+        model.MODEL_NAME = "Baseline Incremental Rates"
+        model.AGMT_ID = "BASE-ETISALAT-2024"
+        db.session.add(model)
+        db.session.flush()
+
+        # 5. Insert the Rates to trigger your UI logic[cite: 7, 10]
+        rates = []
+
+        sms_rate = ProdAgmtMdlNormal()
+        sms_rate.model_id = model.id
+        sms_rate.REC_TYPE = "SMS"
+        sms_rate.RATE_CURRENCY = "EUR"
+        sms_rate.CHARGE_FIELD = 0.035
+        rates.append(sms_rate)
+
+        moc_rate = ProdAgmtMdlNormal()
+        moc_rate.model_id = model.id
+        moc_rate.REC_TYPE = "MOC"
+        moc_rate.RATE_CURRENCY = "EUR"
+        moc_rate.CHARGE_FIELD = 0.10
+        rates.append(moc_rate)
+
+        data_rate = ProdAgmtMdlNormal()
+        data_rate.model_id = model.id
+        data_rate.REC_TYPE = "DATA"
+        data_rate.RATE_CURRENCY = "EUR"
+        data_rate.CHARGE_FIELD = 0.020
+        rates.append(data_rate)
+        
+        db.session.bulk_save_objects(rates)
         db.session.commit()
-    except Exception:
+
+        return f"Successfully seeded baseline data for {mno_name}! You can now test the UI."
+
+    except Exception as e:
         db.session.rollback()
-
-    AgmtCommitment.query.filter_by(AGMT_ID="SEED-001").delete()
-    AgmtMdlNormalStg.query.filter_by(AGMT_ID="SEED-001").delete()
-    AgmtModelsStg.query.filter_by(AGMT_ID="SEED-001").delete()
-    AgmtHeaderStg.query.filter_by(AGMT_ID="SEED-001").delete()
-    db.session.commit()
-
-    header = AgmtHeaderStg()
-    header.AGMT_ID = "SEED-001"
-    header.SENDER = "Operator A"
-    header.RP = "Operator B"
-    header.AGMT_STATUS = "PENDING"
-    header.START_DATE = date(2026, 1, 1)
-    header.END_DATE = date(2026, 12, 31)
-    header.CURRENCY_CODE = "EUR"
-    header.REMARKS = "Seeded test record."
-    db.session.add(header)
-
-    model = AgmtModelsStg()
-    model.AGMT_ID = "SEED-001"
-    model.MODEL_SEQ = 1
-    model.MODEL_TYPE = "STANDARD"
-    model.MODEL_NAME = "Standard Data & Voice"
-    db.session.add(model)
-
-    for rec_type, charge_field in [
-        ("SMS-MT Rate", 0.0205),
-        ("GPRS Data Rate", 0.0140),
-        ("Voice MOC Rate", 0.0068),
-    ]:
-        rate = AgmtMdlNormalStg()
-        rate.AGMT_ID = "SEED-001"
-        rate.MODEL_SEQ = 1
-        rate.REC_TYPE = rec_type
-        rate.RATE_CURRENCY = "EUR"
-        rate.CHARGE_FIELD = charge_field
-        db.session.add(rate)
-
-    for name, ctype, direction, amount in [
-        ("Inbound Data Vol", "Volume", "Inbound", 500000.00),
-        ("Outbound Spend", "Financial", "Outbound", 15000.00),
-    ]:
-        c = AgmtCommitment()
-        c.AGMT_ID = "SEED-001"
-        c.COMMITMENT_NAME = name
-        c.COMMITMENT_TYPE = ctype
-        c.DIRECTION = direction
-        c.AMOUNT = amount
-        db.session.add(c)
-
-    db.session.commit()
-    return "Seeded SEED-001 records successfully."
+        return f"Error seeding data: {str(e)}"
 
 
 @update_bp.route("/api/update/<int:doc_id>/save-draft", methods=["POST"])

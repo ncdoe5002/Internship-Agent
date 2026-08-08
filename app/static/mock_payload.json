@@ -1,0 +1,56 @@
+{
+  "header": {
+    "agmt_id": "ETISALAT-ORANGE-2025",
+    "sender": "Orange EU Affiliates",
+    "rp": "Etisalat Misr",
+    "start_date": "2025-01-01",
+    "end_date": "2025-12-31",
+    "currency_code": "EUR",
+    "remarks": "Not specified in document"
+  },
+  "model": [
+    {
+      "model_seq": 1,
+      "model_type": "Variable Revenue",
+      "model_name": "Proportionate share of EUR 75,000",
+      "agmt_id": "ETISALAT-ORANGE-2025"
+    },
+    {
+      "model_seq": 2,
+      "model_type": "Incremental Rates",
+      "model_name": "Incremental Revenue",
+      "agmt_id": "ETISALAT-ORANGE-2025"
+    }
+  ],
+  "normal_model": [
+    {
+      "rec_type": "MOC",
+      "rate_currency": "EUR",
+      "charge_field": 0.15,
+      "agmt_id": "ETISALAT-ORANGE-2025"
+    },
+    {
+      "rec_type": "SMS",
+      "rate_currency": "EUR",
+      "charge_field": 0.035,
+      "agmt_id": "ETISALAT-ORANGE-2025"
+    },
+    {
+      "rec_type": "DATA",
+      "rate_currency": "EUR",
+      "charge_field": 0.022,
+      "agmt_id": "ETISALAT-ORANGE-2025"
+    }
+  ],
+  "commitment": [
+    {
+      "commitment_name": "Variable Revenue Share",
+      "commitment_type": "Revenue Share",
+      "direction": "Inbound",
+      "amount": 75000.0,
+      "party_from": "Orange EU Affiliates",
+      "party_to": "Etisalat Misr",
+      "agmt_id": "ETISALAT-ORANGE-2025"
+    }
+  ]
+}
