@@ -10,6 +10,14 @@ from pydantic import BaseModel, Field
 RiskLevel = Literal["LOW", "MEDIUM", "HIGH"]
 
 
+class RiskConfig(BaseModel):
+    """Configuration parameters for risk assessment."""
+    high_variance_threshold: float = 20.0
+    low_confidence_threshold: float = 0.65
+    financial_field_weight: float = 1.5
+    moderate_variance_threshold: float = 10.0
+
+
 class ReviewTableRow(BaseModel):
     category: str
     proposed_rate: float | str | None = None
@@ -53,6 +61,9 @@ class RiskSummary(BaseModel):
 
 
 class RiskAgent:
+    def __init__(self, config: RiskConfig | None = None):
+        self.config = config or RiskConfig()
+
     def assess(self, payload: RiskAgentInput) -> RiskSummary:
         total_rows = len(payload.comparison_rows)
         changed_rows = sum(
@@ -85,15 +96,28 @@ class RiskAgent:
                 old_val, new_val, delta = 0.0, 0.0, 0.0
 
             # Determine Risk Level based on Variance & Cell Confidence
-            if row.status == "VARIANCE" and abs(delta) > 20.0:
+            is_financial_field = any(
+                keyword in row.category.lower() 
+                for keyword in ["amount", "commitment", "revenue", "cost"]
+            )
+            confidence_threshold = (
+                self.config.low_confidence_threshold * self.config.financial_field_weight
+                if is_financial_field
+                else self.config.low_confidence_threshold
+            )
+            
+            if row.status == "VARIANCE" and abs(delta) > self.config.high_variance_threshold:
                 risk_level: RiskLevel = "HIGH"
                 note = f"High rate shift detected ({delta}% variance)."
-            elif row.status in ("VARIANCE", "NEW") or row.confidence_score < 0.65:
+            elif row.status in ("VARIANCE", "NEW") or row.confidence_score < confidence_threshold:
                 risk_level = "MEDIUM"
                 note = (
                     row.ai_note
                     or f"Moderate variance or low confidence cell ({int(row.confidence_score * 100)}%)."
                 )
+            elif row.status == "VARIANCE" and abs(delta) > self.config.moderate_variance_threshold:
+                risk_level = "MEDIUM"
+                note = f"Moderate rate shift detected ({delta}% variance)."
             else:
                 risk_level = "LOW"
                 note = row.ai_note or ""

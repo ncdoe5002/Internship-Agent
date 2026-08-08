@@ -28,7 +28,7 @@ def process_contract_task(self, document_id: int, contract_text: str):
 
         file_path = os.path.join(current_app.root_path, "static", doc.file_key)
 
-        api_key = os.environ.get("OPENROUTER_API_KEY", "")
+        api_key = os.environ.get("GEMINI_API_KEY", "")
         extracted = cast(
             Any, get_contents(filePath=file_path, use_ocr=False, api_key=api_key)
         )
