@@ -411,12 +411,12 @@ class Orchestrator:
                 else:
                     pct = None
 
-                status = "MATCH" if ext_rate == base_rate else "VARIANCE"
+                status = "MATCH" if abs(ext_rate - base_rate) < 1e-4 else "VARIANCE"
                 flag = "LOW"
                 if status == "VARIANCE" and pct is not None:
-                    if abs(pct) > 20:
+                    if abs(pct) > self.risk_agent.config.high_variance_threshold:
                         flag = "HIGH"
-                    elif abs(pct) > 5:
+                    elif abs(pct) > self.risk_agent.config.moderate_variance_threshold:
                         flag = "MEDIUM"
 
                 rows.append(
@@ -487,8 +487,12 @@ class Orchestrator:
             raw_extracted = {
                 "header": header.model_dump() if header else {},
                 "model": [m.model_dump() for m in model] if model else [],
-                "normal_model": [nm.model_dump() for nm in normal_model] if normal_model else [],
-                "commitment": [c.model_dump() for c in commitment] if commitment else [],
+                "normal_model": (
+                    [n.model_dump() for n in normal_model] if normal_model else []
+                ),
+                "commitment": (
+                    [c.model_dump() for c in commitment] if commitment else []
+                ),
             }
             adapted_result = self._adapt_staging_schema(raw_extracted)
             self.cache_extraction(state.input.file_path, adapted_result)
