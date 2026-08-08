@@ -1,5 +1,5 @@
 # docling_extractor.py
-import json
+import json, os
 import time
 from docling.datamodel.accelerator_options import (
     AcceleratorDevice,
@@ -10,7 +10,8 @@ from docling.datamodel.pipeline_options import PdfPipelineOptions, TableStructur
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from openai import OpenAI
 from yaspin import yaspin
-
+from google import genai
+from google.genai import types
 from .extractor_template import IOTAgreement
 
 # =====================================================================
@@ -22,6 +23,7 @@ MOCK_DOCLING = False
 
 # Global Converter Caching (used when MOCK_DOCLING = False)
 _global_converter = None
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def get_converter(use_ocr: bool):
@@ -114,55 +116,112 @@ def read_pdf_text(filePath: str, use_ocr: bool = False) -> str:
     return extracted_md
 
 
-def fill_fields(doc_text: str, API_KEY: str) -> dict:
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=API_KEY,
-    )
+# def fill_fields(doc_text: str, API_KEY: str) -> dict:
+#     client = OpenAI(
+#         base_url="https://openrouter.ai/api/v1",
+#         api_key=API_KEY,
+#     )
 
+#     schema = json.dumps(IOTAgreement.model_json_schema(), indent=2)
+
+#     prompt = f"""
+#             You are extracting structured data from a telecom roaming agreement into a Pydantic schema.
+
+#             Return ONLY valid JSON.
+
+#             The JSON MUST strictly conform to this schema:
+#             {schema}
+
+#             CRITICAL EXTRACTION RULES:
+#             1. 'header': Extract metadata (parties, start_date, end_date, currency_code).
+#                - You MUST extract both start_date and end_date if mentioned or implied by period clauses.
+#                - Extract currency_code (e.g., 'EUR', 'USD'). If missing explicitly, infer from symbols (€ -> EUR, $ -> USD).
+#                - If 'agmt_id' is missing from document text, auto-generate as format: "{{sender}}-{{rp}}-{{start_date}}".
+#             2. 'normal_model': Array of service charging tiers (MOC/SMS/Data rate per min/SMS/MB).
+#                - Extract rate values into 'rate_val' and charge units into 'charge_field'.
+#             3. 'commitment': Array of fixed revenues, send-or-pay amounts, and volume allowances.
+#                - Separate monetary values into 'amount' and traffic caps into 'volume_value' / 'volume_unit'.
+#             4. Do not invent missing values; set absent non-required fields to null.
+
+#             Document Text:
+#             {doc_text}
+#             """
+
+#     t0 = time.time()
+#     response = client.chat.completions.create(
+#         model="openai/gpt-oss-20b:free",
+#         messages=[
+#             {
+#                 "role": "system",
+#                 "content": "You are a precise data extraction assistant. Always output valid raw JSON without markdown formatting.",
+#             },
+#             {"role": "user", "content": prompt},
+#         ],
+#         response_format={"type": "json_object"},
+#         max_tokens=8000,
+#     )
+#     print(f"[OpenRouter] LLM payload generation completed in {time.time() - t0:.2f}s")
+
+#     raw_response = response.choices[0].message.content
+#     if not raw_response:
+#         raise ValueError(f"Empty response from OpenRouter. Full response: {response}")
+
+#     try:
+#         cleaned_response = raw_response.strip()
+#         if cleaned_response.startswith("```"):
+#             cleaned_response = cleaned_response.lstrip("`")
+#             if cleaned_response.startswith("json"):
+#                 cleaned_response = cleaned_response[4:]
+#             cleaned_response = cleaned_response.rstrip("`").strip()
+
+#         return json.loads(cleaned_response)
+
+
+#     except json.JSONDecodeError as e:
+#         print(f"Failed to parse JSON from LLM: {raw_response}")
+#         raise e
+def fill_fields(doc_text: str, API_KEY: str) -> dict:
     schema = json.dumps(IOTAgreement.model_json_schema(), indent=2)
 
     prompt = f"""
-            You are extracting structured data from a telecom roaming agreement into a Pydantic schema.
+        You are extracting structured data from a telecom roaming agreement into a Pydantic schema.
 
-            Return ONLY valid JSON.
+        Return ONLY valid JSON.
 
-            The JSON MUST strictly conform to this schema:
-            {schema}
+        The JSON MUST strictly conform to this schema:
+        {schema}
 
-            CRITICAL EXTRACTION RULES:
-            1. 'header': Extract metadata (parties, start_date, end_date, currency_code).
-               - You MUST extract both start_date and end_date if mentioned or implied by period clauses.
-               - Extract currency_code (e.g., 'EUR', 'USD'). If missing explicitly, infer from symbols (€ -> EUR, $ -> USD).
-               - If 'agmt_id' is missing from document text, auto-generate as format: "{{sender}}-{{rp}}-{{start_date}}".
-            2. 'normal_model': Array of service charging tiers (MOC/SMS/Data rate per min/SMS/MB).
-               - Extract rate values into 'rate_val' and charge units into 'charge_field'.
-            3. 'commitment': Array of fixed revenues, send-or-pay amounts, and volume allowances.
-               - Separate monetary values into 'amount' and traffic caps into 'volume_value' / 'volume_unit'.
-            4. Do not invent missing values; set absent non-required fields to null.
+        CRITICAL EXTRACTION RULES:
+        1. 'header': Extract metadata (parties, start_date, end_date, currency_code).
+           - You MUST extract both start_date and end_date if mentioned or implied by period clauses.
+           - Extract currency_code (e.g., 'EUR', 'USD'). If missing explicitly, infer from symbols (€ -> EUR, $ -> USD).
+           - If 'agmt_id' is missing from document text, auto-generate as format: "{{sender}}-{{rp}}"..
+        2. 'normal_model': Array of service charging tiers (MOC/SMS/Data rate per min/SMS/MB).
+           - Extract rate values into 'rate_val' and charge units into 'charge_field'.
+        3. 'commitment': Array of fixed revenues, send-or-pay amounts, and volume allowances.
+           - Separate monetary values into 'amount' and traffic caps into 'volume_value' / 'volume_unit'.
+        4. Do not invent missing values; set absent non-required fields to null.
 
-            Document Text:
-            {doc_text}
-            """
+        Document Text:
+        {doc_text}
+        """
 
     t0 = time.time()
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-20b:free",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a precise data extraction assistant. Always output valid raw JSON without markdown formatting.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-        response_format={"type": "json_object"},
-        max_tokens=8000,
-    )
-    print(f"[OpenRouter] LLM payload generation completed in {time.time() - t0:.2f}s")
+    from google.genai import types
 
-    raw_response = response.choices[0].message.content
+    response = client.models.generate_content(
+    model="gemini-3.1-flash-lite",
+    contents=[prompt],
+    config=dict(
+        temperature=0.1,
+        response_mime_type="application/json",
+    ),
+)
+    print(f"[Gemini] LLM payload generation completed in {time.time() - t0:.2f}s")
+
+    raw_response = response.text
     if not raw_response:
-        raise ValueError(f"Empty response from OpenRouter. Full response: {response}")
+        raise ValueError(f"Empty response from Gemini. Full response: {response}")
 
     try:
         cleaned_response = raw_response.strip()
@@ -192,7 +251,9 @@ def get_contents(filePath: str, use_ocr: bool, api_key: str):
         spinner.write("Text extraction completed")
 
     with yaspin(
-        text="Generating structured JSON via OpenRouter...", color="cyan"
+        # text="Generating structured JSON via OpenRouter...", color="cyan"
+        text="Generating structured JSON via GEMINI...",
+        color="cyan",
     ) as spinner:
         json_data = fill_fields(docling_dump, API_KEY=api_key)
         spinner.ok("✔")
