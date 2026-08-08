@@ -15,7 +15,7 @@ class RiskConfig(BaseModel):
     high_variance_threshold: float = 20.0
     low_confidence_threshold: float = 0.65
     financial_field_weight: float = 1.5
-    moderate_variance_threshold: float = 10.0
+    moderate_variance_threshold: float = 5.0
 
 
 class ReviewTableRow(BaseModel):
@@ -74,7 +74,25 @@ class RiskAgent:
 
         # --- PLACE THE LOOP HERE ---
         for row in payload.comparison_rows:
-            try:
+            # Handle MISSING rows explicitly - absence is a validation flag, not a -100% rate change
+            if row.status == "MISSING":
+                risk_level: RiskLevel = "MEDIUM"
+                note = "Field missing from extraction - validation flag, not a rate change."
+                risk_items.append(
+                    RiskItem(
+                        category=row.category,
+                        old_rate=float(row.baseline_rate) if row.baseline_rate is not None else 0.0,
+                        new_rate=0.0,
+                        delta_pct=0.0,
+                        risk_level=risk_level,
+                        note=note,
+                    )
+                )
+                continue
+
+            # Use pct_change from orchestrator if available, otherwise recompute
+            if row.pct_change is not None:
+                delta = row.pct_change
                 old_val = (
                     float(row.baseline_rate)
                     if row.baseline_rate is not None
@@ -87,17 +105,36 @@ class RiskAgent:
                     and str(row.proposed_rate).strip() != ""
                     else 0.0
                 )
-                delta = (
-                    round(((new_val - old_val) / old_val) * 100, 2)
-                    if old_val != 0
-                    else 0.0
-                )
-            except (ValueError, TypeError):
-                old_val, new_val, delta = 0.0, 0.0, 0.0
+            else:
+                try:
+                    old_val = (
+                        float(row.baseline_rate)
+                        if row.baseline_rate is not None
+                        and str(row.baseline_rate).strip() != ""
+                        else 0.0
+                    )
+                    new_val = (
+                        float(row.proposed_rate)
+                        if row.proposed_rate is not None
+                        and str(row.proposed_rate).strip() != ""
+                        else 0.0
+                    )
+                    delta = (
+                        round(((new_val - old_val) / old_val) * 100, 2)
+                        if old_val != 0
+                        else 0.0
+                    )
+                except (ValueError, TypeError):
+                    old_val, new_val, delta = 0.0, 0.0, 0.0
 
             # Determine Risk Level based on Variance & Cell Confidence
+            # Logic: Check delta magnitude first, then confidence. This ensures moderate_variance_threshold
+            # actually gates a distinct risk level from the generic "VARIANCE or NEW" case.
+            # - HIGH: VARIANCE with abs(delta) > high_variance_threshold (20%)
+            # - MEDIUM: VARIANCE with abs(delta) > moderate_variance_threshold (5%) OR low confidence
+            # - LOW: Everything else (MATCH, small variance, good confidence)
             is_financial_field = any(
-                keyword in row.category.lower() 
+                keyword in row.category.lower()
                 for keyword in ["amount", "commitment", "revenue", "cost"]
             )
             confidence_threshold = (
@@ -105,19 +142,19 @@ class RiskAgent:
                 if is_financial_field
                 else self.config.low_confidence_threshold
             )
-            
+
             if row.status == "VARIANCE" and abs(delta) > self.config.high_variance_threshold:
                 risk_level: RiskLevel = "HIGH"
                 note = f"High rate shift detected ({delta}% variance)."
-            elif row.status in ("VARIANCE", "NEW") or row.confidence_score < confidence_threshold:
+            elif (
+                row.status == "VARIANCE"
+                and abs(delta) > self.config.moderate_variance_threshold
+            ) or row.confidence_score < confidence_threshold:
                 risk_level = "MEDIUM"
                 note = (
                     row.ai_note
                     or f"Moderate variance or low confidence cell ({int(row.confidence_score * 100)}%)."
                 )
-            elif row.status == "VARIANCE" and abs(delta) > self.config.moderate_variance_threshold:
-                risk_level = "MEDIUM"
-                note = f"Moderate rate shift detected ({delta}% variance)."
             else:
                 risk_level = "LOW"
                 note = row.ai_note or ""
