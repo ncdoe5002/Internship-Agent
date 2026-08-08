@@ -72,6 +72,41 @@ DATE_FIELDS = {
     "AGMT_VERIFIED_DATE",
 }
 
+HEADER_ROLLUP_FIELDS = {
+    "COMMIT_VALUE",
+    "COMMIT_BASE_FIELD",
+}
+
+_WORD_NUMBERS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+    "thirty": 30,
+    "forty": 40,
+    "fifty": 50,
+    "sixty": 60,
+    "seventy": 70,
+    "eighty": 80,
+    "ninety": 90,
+}
+
 
 def normalize_text(s: str) -> str:
     s = str(s).lower().strip()
@@ -168,6 +203,63 @@ def calculate_field_confidence(field_name: str, value: Any, raw_doc_text: str) -
         return text_grounding(str_val, raw_doc_text)
 
 
+def _parse_word_number(phrase: str) -> float | None:
+    """Parses a constrained set of spelled-out numbers like
+    'one hundred seventy thousand' or 'sixty five thousand'.
+    Returns None if the phrase doesn't match the supported pattern."""
+    words = re.findall(r"[a-z]+", phrase.lower())
+    if not words:
+        return None
+
+    total = 0
+    current = 0
+    matched_any = False
+    for w in words:
+        if w in _WORD_NUMBERS:
+            current += _WORD_NUMBERS[w]
+            matched_any = True
+        elif w == "hundred":
+            current = (current or 1) * 100
+            matched_any = True
+        elif w in ("thousand", "thousands"):
+            total += (current or 1) * 1000
+            current = 0
+            matched_any = True
+    total += current
+    return float(total) if matched_any else None
+
+
+def flatten_header_values(extracted_tables: dict) -> dict:
+    """Flattens header values from nested structure."""
+    header = extracted_tables.get("AGMT_HEADER_STG", [])
+    if not isinstance(header, list) or not header:
+        return {}
+    
+    flat = {}
+    for row in header:
+        if not isinstance(row, dict):
+            continue
+        for k, v in row.items():
+            flat[k] = v["value"] if isinstance(v, dict) and "value" in v else v
+    return flat
+
+
+def flatten_commitment_rows(extracted_tables: dict) -> list[dict]:
+    """Flattens commitment rows from nested structure."""
+    rows = extracted_tables.get("AGMT_COMMITMENT", [])
+    if not isinstance(rows, list):
+        return []
+    flat_rows = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        flat = {}
+        for k, v in row.items():
+            flat[k] = v["value"] if isinstance(v, dict) and "value" in v else v
+        flat_rows.append(flat)
+    return flat_rows
+
+
 # --- Agent Models ---
 
 
@@ -261,6 +353,92 @@ class VerificationAgent:
         logger.info("Executing baseline comparison checks...")
         return issues
 
+    def _check_prose_vs_table_conflict(
+        self, extracted_tables: dict, raw_doc_text: str
+    ) -> list[str]:
+        """Detects discrepancies between narrative text and table values for commitment amounts."""
+        issues: list[str] = []
+        
+        # Handle both staging schema and generic tables schema
+        commitment_rows = []
+        if "AGMT_COMMITMENT" in extracted_tables:
+            commitment_data = extracted_tables.get("AGMT_COMMITMENT", [])
+            if isinstance(commitment_data, list):
+                commitment_rows = commitment_data
+        else:
+            commitment_rows = flatten_commitment_rows(extracted_tables)
+        
+        if not commitment_rows:
+            return issues
+
+        # Pull out table-block text specifically
+        table_block_pattern = re.compile(
+            r"(?:--- TABLE START ---|--- PAGE \d+ TABLES ---)(.*?)"
+            r"(?:--- TABLE END ---|--- END TABLES ---)",
+            re.DOTALL,
+        )
+        table_blocks = table_block_pattern.findall(raw_doc_text)
+        if not table_blocks:
+            return issues
+
+        for row in commitment_rows:
+            amount = row.get("AMOUNT")
+            commitment_type = str(row.get("COMMITMENT_TYPE", "")).lower()
+            direction = str(row.get("DIRECTION", "")).lower()
+            party_to = str(row.get("PARTY_TO", ""))
+            target = try_parse_number(amount)
+            if target is None or "send or pay" not in commitment_type:
+                continue
+
+            # Look for a "Send or Pay Commitment" line in any table block whose
+            # numeric value differs from the extracted AMOUNT.
+            for block in table_blocks:
+                for line in block.splitlines():
+                    if (
+                        "send or pay" not in line.lower()
+                        and "commitment" not in line.lower()
+                    ):
+                        continue
+                    nums = re.findall(r"-?\d[\d,]*\.?\d*", line)
+                    for raw_num in nums:
+                        parsed = try_parse_number(raw_num)
+                        if parsed is not None and abs(parsed - target) > 1e-6:
+                            issues.append(
+                                f"Prose/Table Conflict: AGMT_COMMITMENT row "
+                                f"'{row.get('COMMITMENT_NAME')}' (direction={direction}, "
+                                f"party_to={party_to}) extracted AMOUNT={amount} from "
+                                f"narrative text, but a source table row states "
+                                f"'{line.strip()}' -- figures disagree ({target} vs "
+                                f"{parsed}). Flag for manual review; do not silently "
+                                "prefer either source."
+                            )
+        return issues
+
+    def _check_spelled_out_number_conflict(
+        self, extracted_tables: dict, raw_doc_text: str
+    ) -> list[str]:
+        """Detects mismatches between digit figures and parenthetical spelled-out numbers."""
+        issues: list[str] = []
+        pattern = re.compile(r"(?:EUR|€)\s*([\d,]+(?:\.\d+)?)\s*\(([^)]+)\)", re.IGNORECASE)
+        for match in pattern.finditer(raw_doc_text):
+            digit_str, word_str = match.group(1), match.group(2)
+            digit_val = try_parse_number(digit_str)
+            word_val = _parse_word_number(word_str)
+            if (
+                digit_val is not None
+                and word_val is not None
+                and abs(digit_val - word_val) > 1e-6
+            ):
+                issues.append(
+                    f"Source Document Defect: figure 'EUR {digit_str}' is immediately "
+                    f"followed by the parenthetical '({word_str})', which spells out "
+                    f"to {word_val:,.0f}, not {digit_val:,.0f}. The source document "
+                    "itself is internally inconsistent on this amount; this is not "
+                    "an extraction error and cannot be resolved by re-reading the "
+                    "same clause. Flag for the counterparty/legal, not for re-extraction."
+                )
+        return issues
+
     def _check_cross_field_consistency(
         self, tables_payload: dict, raw_doc_text: str
     ) -> list[str]:
@@ -269,13 +447,22 @@ class VerificationAgent:
         the staging schema, since extraction is out of scope here."""
         issues: list[str] = []
         header_row = {}
-        for table in tables_payload.get("tables", []):
-            if "HEADER" in table.get("title", "").upper():
-                headers = table.get("headers", [])
-                rows = table.get("rows", [])
-                if rows:
-                    header_row = dict(zip(headers, rows[0]))
-                break
+        
+        # Handle both staging schema and generic tables schema
+        if "AGMT_HEADER_STG" in tables_payload:
+            # Staging schema format
+            header_data = tables_payload.get("AGMT_HEADER_STG", [])
+            if isinstance(header_data, list) and header_data:
+                header_row = header_data[0] if isinstance(header_data[0], dict) else {}
+        else:
+            # Generic tables schema format
+            for table in tables_payload.get("tables", []):
+                if "HEADER" in table.get("title", "").upper():
+                    headers = table.get("headers", [])
+                    rows = table.get("rows", [])
+                    if rows:
+                        header_row = dict(zip(headers, rows[0]))
+                    break
 
         if not header_row:
             return issues
@@ -312,23 +499,53 @@ class VerificationAgent:
             )
             if best_ratio < fuzzy_threshold:
                 issues.append(
-                    f"Consistency Issue: {party_field} value '{party_val}' has no exact or "
-                    f"close match (best similarity {best_ratio:.2f}) in source document body."
+                    f"Consistency Issue: {party_field} value '{party_val}' in header "
+                    f"has low grounding (ratio={best_ratio:.2f}) in source document."
                 )
 
-        code = header_row.get("CURRENCY_CODE")
-        agmt_currency = header_row.get("CURRENCY_AGMT")
-        if code and agmt_currency:
-            if code != agmt_currency:
+        # Currency field conflict/redundancy check
+        currency_code = header_row.get("CURRENCY_CODE")
+        currency_agmt = header_row.get("CURRENCY_AGMT")
+        if currency_code and currency_agmt:
+            if str(currency_code).upper() != str(currency_agmt).upper():
                 issues.append(
-                    f"Duplicate Field Conflict: CURRENCY_CODE='{code}' differs from "
-                    f"CURRENCY_AGMT='{agmt_currency}'; investigate which is authoritative."
+                    f"Duplicate Field Conflict: CURRENCY_CODE='{currency_code}' differs from "
+                    f"CURRENCY_AGMT='{currency_agmt}'. Review which is correct."
                 )
+
+        # COMMIT_VALUE rollup field handling
+        commit_value = header_row.get("COMMIT_VALUE")
+        if commit_value is None or str(commit_value).strip() in ("", "null"):
+            # Check if commitment rows exist with AMOUNT values
+            commitment_rows = []
+            
+            if "AGMT_COMMITMENT" in tables_payload:
+                # Staging schema format
+                commitment_data = tables_payload.get("AGMT_COMMITMENT", [])
+                if isinstance(commitment_data, list):
+                    commitment_rows = commitment_data
             else:
-                issues.append(
-                    f"Schema Note: CURRENCY_CODE and CURRENCY_AGMT hold the same value "
-                    f"('{code}'); confirm with schema owner whether both fields are needed."
-                )
+                # Generic tables schema format
+                for table in tables_payload.get("tables", []):
+                    if "COMMITMENT" in table.get("title", "").upper():
+                        headers = table.get("headers", [])
+                        rows = table.get("rows", [])
+                        for row in rows:
+                            commitment_rows.append(dict(zip(headers, row)))
+            
+            if commitment_rows:
+                total_commitment = 0.0
+                for row in commitment_rows:
+                    amount = try_parse_number(row.get("AMOUNT"))
+                    if amount is not None:
+                        total_commitment += amount
+                
+                if total_commitment > 0:
+                    issues.append(
+                        f"Mapping Issue: AGMT_HEADER_STG.COMMIT_VALUE is null, but "
+                        f"AGMT_COMMITMENT rows contain total AMOUNT={total_commitment:,.0f}. "
+                        "Consider mapping as rollup field."
+                    )
 
         return issues
 
@@ -458,7 +675,30 @@ class VerificationAgent:
         if payload.baseline_tables:
             checks.append("Baseline comparison verified")
 
-        # 4. Grounding Confidence Checks
+        # 4. Cross-Field Consistency Checks
+        consistency_issues = self._check_cross_field_consistency(
+            payload.extracted_tables, payload.raw_doc_text
+        )
+        issues.extend(consistency_issues)
+        checks.append("Cross-field consistency verified")
+
+        # 5. Prose vs Table Conflict Checks (NEW)
+        prose_table_issues = self._check_prose_vs_table_conflict(
+            payload.extracted_tables, payload.raw_doc_text
+        )
+        issues.extend(prose_table_issues)
+        if prose_table_issues:
+            checks.append("Prose vs table conflict detection performed")
+
+        # 6. Spelled-Out Number Conflict Checks (NEW)
+        spelled_out_issues = self._check_spelled_out_number_conflict(
+            payload.extracted_tables, payload.raw_doc_text
+        )
+        issues.extend(spelled_out_issues)
+        if spelled_out_issues:
+            checks.append("Spelled-out number conflict detection performed")
+
+        # 7. Grounding Confidence Checks
         confidence, grounding_issues, field_details = (
             self._calculate_overall_confidence(
                 payload.extracted_tables, payload.raw_doc_text

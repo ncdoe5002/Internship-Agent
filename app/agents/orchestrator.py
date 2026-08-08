@@ -1,3 +1,4 @@
+# Orchestrator.py
 """
 Orchestrator for coordinating ExtractionAgent, VerificationAgent, and RiskAgent.
 Integrates friend's extractors.py logic seamlessly with LangGraph execution graph.
@@ -7,8 +8,10 @@ from __future__ import annotations
 
 import logging
 import re, os
+import hashlib
 from difflib import SequenceMatcher
 from typing import Any, Literal
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
@@ -94,6 +97,25 @@ class Orchestrator:
         self.verification_agent = VerificationAgent()
         self.risk_agent = RiskAgent()
         self.graph = self._build_graph()
+        self.extraction_cache = {}  # Simple in-memory cache
+
+    def _get_file_hash(self, file_path: str) -> str:
+        """Generate MD5 hash of file for caching."""
+        try:
+            with open(file_path, "rb") as f:
+                return hashlib.md5(f.read()).hexdigest()
+        except Exception:
+            return hashlib.md5(file_path.encode()).hexdigest()
+
+    def get_cached_extraction(self, file_path: str) -> dict | None:
+        """Retrieve cached extraction result if available."""
+        file_hash = self._get_file_hash(file_path)
+        return self.extraction_cache.get(file_hash)
+
+    def cache_extraction(self, file_path: str, result: dict):
+        """Cache extraction result for future use."""
+        file_hash = self._get_file_hash(file_path)
+        self.extraction_cache[file_hash] = result
 
     def _adapt_staging_schema(self, raw_extraction: dict) -> dict:
         """
@@ -127,6 +149,11 @@ class Orchestrator:
                                 for h in headers
                             ]
                         )
+
+                    # Deduplicate AGMT_ID entries for header table
+                    if mapped_title == "AGMT_HEADER_STG":
+                        rows = self._deduplicate_header_rows(headers, rows)
+
                     adapted_tables.append(
                         {"title": mapped_title, "headers": headers, "rows": rows}
                     )
@@ -143,6 +170,132 @@ class Orchestrator:
                 )
 
         return {"tables": adapted_tables}
+
+    def _deduplicate_header_rows(
+        self, headers: list[str], rows: list[list[str]]
+    ) -> list[list[str]]:
+        """Remove duplicate AGMT_ID entries and merge conflicting data intelligently."""
+        if not headers or not rows:
+            return rows
+
+        try:
+            agmt_id_idx = headers.index("AGMT_ID")
+        except ValueError:
+            return rows  # No AGMT_ID column, no deduplication needed
+
+        seen_agmt_ids = {}
+        deduplicated_rows = []
+
+        for row in rows:
+            if len(row) <= agmt_id_idx:
+                continue  # Skip malformed rows
+
+            agmt_id = row[agmt_id_idx]
+            if not agmt_id or agmt_id == "":
+                continue  # Skip rows without AGMT_ID
+
+            if agmt_id not in seen_agmt_ids:
+                seen_agmt_ids[agmt_id] = row
+                deduplicated_rows.append(row)
+            else:
+                # Merge conflicting data intelligently
+                existing_row = seen_agmt_ids[agmt_id]
+                merged_row = self._merge_header_rows(headers, existing_row, row)
+                seen_agmt_ids[agmt_id] = merged_row
+                # Replace the existing row with merged version
+                deduplicated_rows = [
+                    merged_row if r == existing_row else r for r in deduplicated_rows
+                ]
+
+        return deduplicated_rows
+
+    def _merge_header_rows(
+        self, headers: list[str], row1: list[str], row2: list[str]
+    ) -> list[str]:
+        """Merge two header rows intelligently, preferring non-null values."""
+        merged = []
+        for i, header in enumerate(headers):
+            val1 = row1[i] if i < len(row1) else ""
+            val2 = row2[i] if i < len(row2) else ""
+
+            # Prefer non-null/non-empty values
+            if val1 and val1 not in ("", "null", "None"):
+                merged.append(val1)
+            elif val2 and val2 not in ("", "null", "None"):
+                merged.append(val2)
+            else:
+                merged.append(val1 if val1 else val2)
+
+        return merged
+
+    def select_relevant_context(self, doc_text: str, target_fields: list[str]) -> str:
+        """Extract only relevant sections based on target fields for efficient LLM processing."""
+        if not target_fields:
+            return doc_text[:5000]  # Default truncation
+
+        sections = {
+            "header": [
+                "parties",
+                "effective date",
+                "currency",
+                "agreement",
+                "sender",
+                "receiving party",
+                "rp",
+            ],
+            "rates": [
+                "rate",
+                "charge",
+                "per minute",
+                "per sms",
+                "per mb",
+                "price",
+                "cost",
+                "tariff",
+            ],
+            "commitment": [
+                "commitment",
+                "allowance",
+                "volume",
+                "send or pay",
+                "revenue",
+                "amount",
+            ],
+        }
+
+        relevant_keywords = []
+        for field in target_fields:
+            field_lower = str(field).lower()
+            if any(
+                kw in field_lower
+                for kw in ["header", "sender", "rp", "date", "currency", "agmt_id"]
+            ):
+                relevant_keywords.extend(sections["header"])
+            elif any(
+                kw in field_lower for kw in ["rate", "model", "charge", "price", "cost"]
+            ):
+                relevant_keywords.extend(sections["rates"])
+            elif any(
+                kw in field_lower for kw in ["commit", "allowance", "volume", "revenue"]
+            ):
+                relevant_keywords.extend(sections["commitment"])
+
+        # Extract sentences containing relevant keywords
+        sentences = re.split(r"(?<=[.!?])\s+", doc_text)
+        relevant_sentences = []
+
+        for sentence in sentences:
+            sentence_lower = sentence.lower()
+            if any(kw in sentence_lower for kw in relevant_keywords):
+                relevant_sentences.append(sentence)
+
+        # If no relevant sentences found, return first 3000 chars as fallback
+        if not relevant_sentences:
+            return doc_text[:3000]
+
+        # Return up to 50 relevant sentences, limit to 4000 chars
+        selected_text = ". ".join(relevant_sentences[:50])
+        return selected_text[:4000] if len(selected_text) > 4000 else selected_text
 
     # --- Utility Methods for Downstream Risk & Comparison ---
 
@@ -312,13 +465,20 @@ class Orchestrator:
         if state.input is None:
             return {"extraction_result": None, "extraction_error": "No input provided"}
         try:
+            # Check cache first
+            cached_result = self.get_cached_extraction(state.input.file_path)
+            if cached_result:
+                logger.info(f"Using cached extraction for {state.input.file_path}")
+                return {"extraction_result": cached_result, "extraction_error": None}
+
             pre_extracted = state.input.pre_extracted or state.input.pre_extracted_data
             if pre_extracted:
                 adapted_result = self._adapt_staging_schema(pre_extracted)
+                self.cache_extraction(state.input.file_path, adapted_result)
                 return {"extraction_result": adapted_result, "extraction_error": None}
 
             # Fallback: run Docling if pre_extracted not provided
-            api_key = os.environ.get("OPENROUTER_API_KEY", "")
+            api_key = os.environ.get("GEMINI_API_KEY", "")
             header, model, normal_model, commitment = get_contents(
                 filePath=state.input.file_path,
                 use_ocr=True,
@@ -331,6 +491,7 @@ class Orchestrator:
                 "commitment": [c.model_dump() for c in commitment] if commitment else [],
             }
             adapted_result = self._adapt_staging_schema(raw_extracted)
+            self.cache_extraction(state.input.file_path, adapted_result)
             return {"extraction_result": adapted_result, "extraction_error": None}
         except Exception as e:
             logger.error(f"Extraction failed: {str(e)}")
@@ -349,10 +510,16 @@ class Orchestrator:
                     "verification_error": "Skipped due to extraction failure",
                 }
 
+            # Use intelligent context selection for efficient processing
+            relevant_context = self.select_relevant_context(
+                state.input.raw_doc_text,
+                ["header", "rates", "commitment"],  # Target field categories
+            )
+
             payload = VerificationAgentInput(
                 partner_name=state.input.partner_name,
                 extracted_tables=state.extraction_result,
-                raw_doc_text=state.input.raw_doc_text,
+                raw_doc_text=relevant_context,  # Use optimized context
                 baseline_tables=state.input.baseline_data,
             )
             result = self.verification_agent.run(payload)
@@ -360,6 +527,98 @@ class Orchestrator:
         except Exception as e:
             logger.error(f"Verification failed: {str(e)}")
             return {"verification_result": None, "verification_error": str(e)}
+
+    def _run_verification_and_risk_parallel(self, state: OrchestratorState) -> dict:
+        """Run verification and risk assessment in parallel for improved performance."""
+        if state.input is None or state.extraction_result is None:
+            return {
+                "verification_result": None,
+                "verification_error": "Input or extraction missing",
+                "risk_result": None,
+                "risk_error": "Input or extraction missing",
+            }
+
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                # Submit verification task
+                verification_future = executor.submit(
+                    self._run_verification_task, state
+                )
+
+                # Submit risk task (will wait for verification result internally)
+                risk_future = executor.submit(
+                    self._run_risk_task, state, verification_future
+                )
+
+                # Get results
+                verification_result = verification_future.result()
+                risk_result = risk_future.result()
+
+                return {
+                    "verification_result": verification_result["verification_result"],
+                    "verification_error": verification_result["verification_error"],
+                    "risk_result": risk_result["risk_result"],
+                    "risk_error": risk_result["risk_error"],
+                }
+        except Exception as e:
+            logger.error(f"Parallel verification and risk failed: {str(e)}")
+            return {
+                "verification_result": None,
+                "verification_error": str(e),
+                "risk_result": None,
+                "risk_error": str(e),
+            }
+
+    def _run_verification_task(self, state: OrchestratorState) -> dict:
+        """Helper method for parallel verification execution."""
+        try:
+            # Use intelligent context selection for efficient processing
+            relevant_context = self.select_relevant_context(
+                state.input.raw_doc_text,
+                ["header", "rates", "commitment"],  # Target field categories
+            )
+
+            payload = VerificationAgentInput(
+                partner_name=state.input.partner_name,
+                extracted_tables=state.extraction_result,
+                raw_doc_text=relevant_context,  # Use optimized context
+                baseline_tables=state.input.baseline_data,
+            )
+            result = self.verification_agent.run(payload)
+            return {"verification_result": result, "verification_error": None}
+        except Exception as e:
+            logger.error(f"Verification failed: {str(e)}")
+            return {"verification_result": None, "verification_error": str(e)}
+
+    def _run_risk_task(self, state: OrchestratorState, verification_future) -> dict:
+        """Helper method for parallel risk execution."""
+        try:
+            # Wait for verification result
+            verification_result = verification_future.result()
+            if verification_result["verification_error"]:
+                return {
+                    "risk_result": None,
+                    "risk_error": f"Verification failed: {verification_result['verification_error']}",
+                }
+
+            field_details = verification_result["verification_result"].field_details
+            comparison_rows = self._extract_comparison_rows(
+                state.extraction_result,
+                state.input.baseline_data,
+                field_details=field_details,
+            )
+
+            risk_input = RiskAgentInput(
+                partner_name=state.input.partner_name,
+                confidence=verification_result["verification_result"].confidence,
+                comparison_rows=comparison_rows,
+            )
+
+            result = self.risk_agent.assess(risk_input)
+            return {"risk_result": result, "risk_error": None}
+        except Exception as e:
+            logger.error(f"Risk assessment failed: {str(e)}")
+            return {"risk_result": None, "risk_error": str(e)}
 
     def _risk_node(self, state: OrchestratorState) -> dict:
         if state.input is None or state.verification_result is None:
@@ -408,7 +667,7 @@ class Orchestrator:
 
         try:
             result = chat_complete_json(prompt, system_prompt)
-            notes_list = result.get("notes", [])
+            notes_list = result.get("notes", []) if isinstance(result, dict) else result
             notes_by_category = {
                 n.get("category"): n.get("note")
                 for n in notes_list
@@ -546,13 +805,18 @@ class Orchestrator:
         builder.add_node("extraction", self._extraction_node)
         builder.add_node("verification", self._verification_node)
         builder.add_node("risk", self._risk_node)
+        builder.add_node(
+            "parallel_verification_risk", self._run_verification_and_risk_parallel
+        )
         builder.add_node("ai_notes", self._ai_notes_node)
         builder.add_node("combine_results", self._combine_results_node)
 
         builder.set_entry_point("extraction")
-        builder.add_edge("extraction", "verification")
-        builder.add_edge("verification", "risk")
-        builder.add_edge("risk", "ai_notes")
+        # Use parallel processing for verification and risk (comment out sequential version)
+        # builder.add_edge("extraction", "verification")
+        # builder.add_edge("verification", "risk")
+        builder.add_edge("extraction", "parallel_verification_risk")
+        builder.add_edge("parallel_verification_risk", "ai_notes")
         builder.add_edge("ai_notes", "combine_results")
         builder.add_edge("combine_results", END)
 

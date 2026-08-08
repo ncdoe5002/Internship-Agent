@@ -16,7 +16,7 @@ class Document(db.Model):
     current_step = db.Column(db.Integer, nullable=True, default=0)
     confidence_score = db.Column(db.Integer, nullable=True)
     error_message = db.Column(db.Text, nullable=True)
-    agmt_id = db.Column(db.String(50), nullable=True)         # AGMT_ID of staging records for this doc
+    agmt_id = db.Column(db.String(255), nullable=True)         # AGMT_ID of staging records for this doc
 
     uploaded_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
