@@ -6,99 +6,35 @@
   <title>Final Review & Publish</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body {
-      background-color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .top-bar {
-      background-color: #1e1e1e;
-      color: white;
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid #333;
-      flex-shrink: 0;
-      z-index: 50;
-    }
+    body { background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    .top-bar { background-color: #1e1e1e; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #333; flex-shrink: 0; z-index: 50; }
     .top-bar h5 { margin: 0; font-weight: 600; font-size: 1.1rem; }
-
-    .split-container {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-      margin-bottom: 76px;
-    }
-
-    .left-pane {
-      flex: 1;
-      background-color: #f8fafc;
-      padding: 32px;
-      overflow-y: auto;
-      border-right: 1px solid #e2e8f0;
-    }
-    .data-card {
-      background-color: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 32px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    
-    .section-title {
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: #475569;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      margin: 32px 0 16px 0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .section-title::before {
-      content: ''; display: inline-block; width: 4px; height: 14px; background-color: #dc2626; border-radius: 2px;
-    }
+    .split-container { display: flex; flex: 1; overflow: hidden; margin-bottom: 76px; }
+    .left-pane { flex: 1; background-color: #f8fafc; padding: 32px; overflow-y: auto; border-right: 1px solid #e2e8f0; }
+    .data-card { background-color: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .section-title { font-size: 0.8rem; font-weight: 700; color: #475569; letter-spacing: 0.5px; text-transform: uppercase; margin: 32px 0 16px 0; display: flex; align-items: center; gap: 8px; }
+    .section-title::before { content: ''; display: inline-block; width: 4px; height: 14px; background-color: #dc2626; border-radius: 2px; }
     .section-title:first-of-type { margin-top: 24px; }
-
-    .property-box {
-      background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px; height: 100%;
-    }
-
-    .table-custom th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 600; background-color: #f8fafc; }
-    .table-custom td { font-size: 0.9rem; color: #1e293b; vertical-align: middle; }
-
-    .right-pane {
-      flex: 1;
-      background-color: #e2e8f0;
-      display: flex;
-      flex-direction: column;
-    }
-    .pdf-header {
-      background-color: white;
-      padding: 16px 24px;
-      border-bottom: 1px solid #cbd5e1;
-      font-weight: 600;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+    .property-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px; height: 100%; }
+    .table-custom th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 600; background-color: #f8fafc; white-space: nowrap; }
+    .table-custom td { font-size: 0.85rem; color: #1e293b; vertical-align: middle; white-space: nowrap;}
+    .empty-state { text-align: center; color: #94a3b8; font-size: 0.9rem; padding: 24px 0; }
+    .right-pane { flex: 1; background-color: #e2e8f0; display: flex; flex-direction: column; }
+    .pdf-header { background-color: white; padding: 16px 24px; border-bottom: 1px solid #cbd5e1; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
     .pdf-viewer { flex: 1; width: 100%; height: 100%; border: none; }
-
-    .sticky-footer {
-      position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #e2e8f0; padding: 16px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); z-index: 100;
-    }
+    .sticky-footer { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #e2e8f0; padding: 16px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); z-index: 100; }
     .btn-danger-custom { background-color: #dc2626; color: white; border: none; padding: 10px 24px; transition: background-color 0.2s; }
     .btn-danger-custom:hover { background-color: #b91c1c; color: white; }
   </style>
 </head>
 <body>
+
+  <!-- JSON-DRIVEN ARCHITECTURE LOGIC -->
+  {% set json_payload = document.extracted_data or {} %}
+  {% set j_header = json_payload.get('header', {}) %}
+  {% set j_models = json_payload.get('model', []) %}
+  {% set j_rates = json_payload.get('normal_model', []) %}
+  {% set j_comms = json_payload.get('commitment', []) %}
 
   <div class="top-bar">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
@@ -111,18 +47,19 @@
         <h4 class="fw-bold mb-1 text-dark">Approved Database Records</h4>
         <p class="text-muted small mb-0">These records will be moved from STG to Production.</p>
 
+        <!-- 1. HEADER RECORD -->
         <div class="section-title">Header Record</div>
         <div class="row g-3 mb-2">
-            {% if header %}
-                {% for key, value in header.items() %}
-                <div class="col-md-6">
+            {% if j_header %}
+                {% for key, value in j_header.items() %}
+                <div class="col-md-4">
                     <div class="property-box">
-                        <div class="text-muted small fw-bold text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">{{ key }}</div>
+                        <div class="text-muted small fw-bold text-uppercase mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">{{ key | replace('_', ' ') }}</div>
                         <div class="text-dark fw-medium text-truncate" title="{{ value or '-' }}">
-                            {% if key == 'AGMT_ID' %}
-                                <strong>{{ value or '-' }}</strong>
+                            {% if key|upper == 'AGMT_ID' %}
+                                <strong>{{ value if value is not none and value|string|trim != '' else '-' }}</strong>
                             {% else %}
-                                {{ value or '-' }}
+                                {{ value if value is not none and value|string|trim != '' else '-' }}
                             {% endif %}
                         </div>
                     </div>
@@ -133,33 +70,99 @@
             {% endif %}
         </div>
 
+        <!-- 2. RATE MODELS -->
         <div class="section-title">Rate Models</div>
         <div class="table-responsive border rounded mb-2">
           <table class="table table-hover table-custom mb-0">
-            <thead><tr><th class="ps-4">Model Seq</th><th>Model Type</th><th>Model Name</th></tr></thead>
+            <thead>
+                <tr>
+                    <th class="ps-4">Model Seq</th>
+                    <th>Model Type</th>
+                    <th>Model Name</th>
+                </tr>
+            </thead>
             <tbody>
-              {% for model in models %}
-              <tr><td class="ps-4 text-muted">{{ model.MODEL_SEQ }}</td><td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ model.MODEL_TYPE }}</span></td><td class="fw-medium">{{ model.MODEL_NAME }}</td></tr>
-              {% else %}
-              <tr><td colspan="3" class="text-center py-4 text-muted small">No models found.</td></tr>
-              {% endfor %}
+                {% for model in j_models %}
+                {% set m_seq = model.get('model_seq') %}
+                {% set m_type = model.get('model_type') %}
+                {% set m_name = model.get('model_name') %}
+                <tr>
+                    <td class="ps-4 text-muted">{{ m_seq if m_seq is not none and m_seq|string|trim != '' else '-' }}</td>
+                    <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ m_type if m_type is not none and m_type|string|trim != '' else '-' }}</span></td>
+                    <td class="fw-medium text-dark">{{ m_name if m_name is not none and m_name|string|trim != '' else '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="empty-state">No models found.</td></tr>
+                {% endfor %}
             </tbody>
           </table>
         </div>
         
+        <!-- 3. EXTRACTED RATES -->
         <div class="section-title">Extracted Rates</div>
-        <div class="table-responsive border rounded">
+        <div class="table-responsive border rounded mb-2">
           <table class="table table-hover table-custom mb-0">
-            <thead><tr><th class="ps-4">Charge Field</th><th>Currency</th></tr></thead>
+            <thead>
+                <tr>
+                    <th class="ps-4">Record Type</th>
+                    <th>Charge Field</th>
+                    <th>Currency</th>
+                </tr>
+            </thead>
             <tbody>
-              {% for rate in rates %}
-              <tr><td class="ps-4 fw-bold text-dark">{{ rate.CHARGE_FIELD }}</td><td><span class="badge border text-dark">{{ rate.RATE_CURRENCY }}</span></td></tr>
-              {% else %}
-              <tr><td colspan="2" class="text-center py-4 text-muted small">No rates found.</td></tr>
-              {% endfor %}
+                {% for rate in j_rates %}
+                {% set r_rec = rate.get('rec_type') %}
+                {% set r_curr = rate.get('rate_currency') %}
+                
+                {# Safely grab charge_field, fallback to rate_val #}
+                {% set r_charge = rate.get('charge_field') %}
+                {% if r_charge is none %}
+                    {% set r_charge = rate.get('rate_val') %}
+                {% endif %}
+
+                <tr>
+                    <td class="ps-4 text-muted">{{ r_rec if r_rec is not none and r_rec|string|trim != '' else '-' }}</td>
+                    <td class="fw-bold text-dark">{{ r_charge if r_charge is not none and r_charge|string|trim != '' else '-' }}</td>
+                    <td><span class="badge border text-dark">{{ r_curr if r_curr is not none and r_curr|string|trim != '' else '-' }}</span></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="empty-state">No rates found.</td></tr>
+                {% endfor %}
             </tbody>
           </table>
         </div>
+
+        <!-- 4. COMMITMENTS -->
+        <div class="section-title">Commitments</div>
+        <div class="table-responsive border rounded">
+          <table class="table table-hover table-custom mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">Name</th>
+                    <th>Type</th>
+                    <th>Direction</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comm in j_comms %}
+                {% set c_name = comm.get('commitment_name') %}
+                {% set c_type = comm.get('commitment_type') %}
+                {% set c_dir = comm.get('direction') %}
+                {% set c_amt = comm.get('amount') %}
+                <tr>
+                    <td class="ps-4 fw-medium text-dark">{{ c_name if c_name is not none and c_name|string|trim != '' else '-' }}</td>
+                    <td class="text-muted">{{ c_type if c_type is not none and c_type|string|trim != '' else '-' }}</td>
+                    <td class="text-muted">{{ c_dir if c_dir is not none and c_dir|string|trim != '' else '-' }}</td>
+                    <td class="fw-bold text-danger">{{ c_amt if c_amt is not none and c_amt|string|trim != '' else '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="empty-state">No commitment data found.</td></tr>
+                {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
       </div>
     </div>
 
@@ -177,7 +180,7 @@
 
   <div class="sticky-footer">
     <a href="{{ url_for('update.upload_signed_report_form', doc_id=document.id) }}" class="btn btn-light border fw-semibold px-4 py-2 text-dark">Re-upload File</a>
-    <div class="text-muted small d-none d-md-block">By publishing, you confirm the database tables map correctly to the signed document.</div>
+    <div class="text-muted small d-none d-md-block">By publishing, you confirm the JSON structure maps correctly to the signed document.</div>
     <form action="{{ url_for('update.publish_to_production') }}" method="POST" class="m-0">
       <input type="hidden" name="document_id" value="{{ document.id }}">
       <button type="submit" class="btn btn-danger-custom fw-bold rounded-pill d-flex align-items-center shadow-sm">

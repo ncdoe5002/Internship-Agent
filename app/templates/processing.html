@@ -307,7 +307,7 @@
           terminalUI.appendLog(data.message, "info");
         }
 
-        if (data.status === 'READY') {
+        if (data.status === 'READY' || data.status === 'REVIEW') {
           clearInterval(pollInterval);
           terminalUI.completeProcess("Analysis Finished", true);
           setTimeout(() => { window.location.href = `/update/extracted/${docId}`; }, 1200);

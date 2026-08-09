@@ -484,11 +484,21 @@ class Orchestrator:
                 use_ocr=True,
                 api_key=api_key,
             )
+            def _normalize_item(item: Any) -> dict:
+                if hasattr(item, "model_dump"):
+                    return item.model_dump()
+                if isinstance(item, dict):
+                    return item
+                if isinstance(item, tuple) and len(item) == 2:
+                    key, value = item
+                    return {str(key): value}
+                return {"value": item}
+
             raw_extracted = {
                 "header": header.model_dump() if header else {},
-                "model": [m.model_dump() for m in model] if model else [],
-                "normal_model": [nm.model_dump() for nm in normal_model] if normal_model else [],
-                "commitment": [c.model_dump() for c in commitment] if commitment else [],
+                "model": [_normalize_item(m) for m in model] if model else [],
+                "normal_model": [_normalize_item(nm) for nm in normal_model] if normal_model else [],
+                "commitment": [_normalize_item(c) for c in commitment] if commitment else [],
             }
             adapted_result = self._adapt_staging_schema(raw_extracted)
             self.cache_extraction(state.input.file_path, adapted_result)
@@ -572,6 +582,12 @@ class Orchestrator:
     def _run_verification_task(self, state: OrchestratorState) -> dict:
         """Helper method for parallel verification execution."""
         try:
+            if state.input is None or state.extraction_result is None:
+                return {
+                    "verification_result": None,
+                    "verification_error": "Input or extraction missing for verification",
+                }
+
             # Use intelligent context selection for efficient processing
             relevant_context = self.select_relevant_context(
                 state.input.raw_doc_text,
@@ -593,6 +609,12 @@ class Orchestrator:
     def _run_risk_task(self, state: OrchestratorState, verification_future) -> dict:
         """Helper method for parallel risk execution."""
         try:
+            if state.input is None or state.extraction_result is None:
+                return {
+                    "risk_result": None,
+                    "risk_error": "Input or extraction missing for risk evaluation",
+                }
+
             # Wait for verification result
             verification_result = verification_future.result()
             if verification_result["verification_error"]:

@@ -3,189 +3,291 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Database Publish Status</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>Database Publish Status - EDCH</title>
   <style>
+    /* Reset & Base Styles */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background-color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0f172a; /* Slate 900 */
+      display: flex; 
+      justify-content: center; 
       align-items: center;
+      min-height: 100vh; 
+      color: #f8fafc;
+      flex-direction: column;
+    }
+    .container { 
+      width: 100%; 
+      max-width: 750px; 
+      padding: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
     }
 
-    /* Custom Spinner */
-    .spinner-wrapper { position: relative; width: 64px; height: 64px; transition: opacity 0.3s; margin: 0 auto; }
-    .spinner-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 3px solid #fee2e2; }
-    .spinner-progress { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 3px solid transparent; border-top-color: #dc2626; animation: spin 1s linear infinite; }
-    .logo-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 26px; height: 26px; object-fit: contain; }
+    /* Spinner Styles */
+    .spinner-wrapper { position: relative; width: 56px; height: 56px; margin-bottom: 20px; transition: opacity 0.3s; }
+    .spinner-wrapper.hidden { opacity: 0; pointer-events: none; display: none; }
+    .spinner-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid #334155; }
+    .spinner-progress { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: #10b981; animation: spin 1s linear infinite; }
+    
+    .logo-center { 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      width: 24px; 
+      height: 24px; 
+      object-fit: contain;
+    }
+
     @keyframes spin { 100% { transform: rotate(360deg); } }
 
-    /* Card & List */
-    .status-card {
-      border: 1px solid #e2e8f0;
-      border-top: 4px solid #dc2626;
-      border-radius: 12px;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-      background-color: white;
+    /* Typography */
+    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 6px; color: #f1f5f9; text-align: center; }
+    h1.success-text { color: #a6e3a1; }
+    .subtitle { font-family: ui-monospace, monospace; font-size: 0.85rem; color: #94a3b8; margin-bottom: 24px; }
+
+    /* Terminal Window Card */
+    .terminal-card {
+      width: 100%;
+      background-color: #1e1e2e; 
+      border-radius: 10px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      border: 1px solid #313244;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
-    
-    .status-item {
-      display: flex; align-items: center; padding: 20px 24px; border-bottom: 1px solid #f1f5f9; gap: 16px; transition: all 0.3s ease;
-    }
-    .status-item:last-child { border-bottom: none; }
-    
-    .status-item[data-state="pending"] .item-text { color: #94a3b8; }
-    .status-item[data-state="processing"] .item-text { color: #334155; font-weight: 500; }
-    .status-item[data-state="completed"] .item-text { color: #0f172a; font-weight: 500; }
-    .status-item[data-state="error"] .item-text { color: #dc2626; font-weight: 500; }
 
-    .icon-wrapper { width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
-    .status-item[data-state="completed"] .icon-wrapper { background-color: #dcfce7; color: #16a34a; }
-    .status-item[data-state="error"] .icon-wrapper { background-color: #fee2e2; color: #dc2626; }
-    .status-item[data-state="processing"] .icon-wrapper,
-    .status-item[data-state="pending"] .icon-wrapper { background-color: #f1f5f9; }
-    
-    .status-item[data-state="pending"] .dot { width: 6px; height: 6px; border-radius: 50%; background-color: #cbd5e1; }
-    .status-item[data-state="processing"] .dot { width: 8px; height: 8px; border-radius: 50%; background-color: #dc2626; animation: pulse 1.2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.7); } }
-
-    /* Button */
-    .btn-return {
-      background-color: #0f172a; color: white; transition: all 0.2s; display: none;
+    /* Terminal Header Bar */
+    .terminal-header {
+      background-color: #181825;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #313244;
+      user-select: none;
     }
-    .btn-return:hover { background-color: #1e293b; color: white; transform: translateY(-1px); }
+    .window-button { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .btn-close { background-color: #f38ba8; }
+    .btn-minimize { background-color: #f9e2af; }
+    .btn-maximize { background-color: #a6e3a1; }
+    .terminal-title {
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+      font-size: 0.75rem;
+      color: #a6adc8;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Terminal Screen Area */
+    .terminal-body {
+      padding: 16px;
+      height: 320px;
+      overflow-y: auto;
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #cdd6f4;
+      background-color: #11111b;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* Terminal Log Line Styling */
+    .log-line { display: flex; align-items: flex-start; gap: 8px; word-break: break-word; }
+    .log-time { color: #585b70; flex-shrink: 0; font-size: 0.75rem; }
+    .log-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    
+    /* Log Types */
+    .badge-info { background-color: #313244; color: #89b4fa; }
+    .badge-success { background-color: #274d35; color: #a6e3a1; }
+    .badge-warn { background-color: #5c4d23; color: #f9e2af; }
+    
+    .text-info { color: #cdd6f4; }
+    .text-success { color: #a6e3a1; }
+    .text-warn { color: #f9e2af; }
+
+    /* Flashing Prompt Cursor */
+    .terminal-prompt { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: #89b4fa; }
+    .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 15px;
+      background-color: #89b4fa;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* Custom Scrollbar for Terminal */
+    .terminal-body::-webkit-scrollbar { width: 8px; }
+    .terminal-body::-webkit-scrollbar-track { background: #11111b; }
+    .terminal-body::-webkit-scrollbar-thumb { background: #313244; border-radius: 4px; }
+    .terminal-body::-webkit-scrollbar-thumb:hover { background: #45475a; }
+
+    /* Return Button */
+    .return-button {
+      margin-top: 24px;
+      padding: 12px 24px;
+      background-color: #274d35;
+      color: #a6e3a1;
+      border: 1px solid #a6e3a1;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      display: none; /* Hidden until completion */
+      align-items: center;
+      gap: 8px;
+    }
+    .return-button:hover {
+      background-color: #a6e3a1;
+      color: #11111b;
+    }
   </style>
 </head>
 <body>
 
-  <div class="container" style="max-width: 600px;">
+  <div class="container">
+    <div class="spinner-wrapper" id="main-spinner">
+      <div class="spinner-bg"></div>
+      <div class="spinner-progress"></div>
+      <img src="{{ url_for('static', filename='images/Logo-EDCH.png') }}" alt="EDCH Logo" class="logo-center" onerror="this.style.display='none'">
+    </div>
     
-    <div class="text-center mb-4">
-      <div class="spinner-wrapper mb-3" id="main-spinner">
-        <div class="spinner-bg"></div>
-        <div class="spinner-progress"></div>
-        <img src="{{ url_for('static', filename='images/Logo-EDCH.png') }}" alt="Logo" class="logo-center" onerror="this.style.display='none'">
+    <h1 id="main-title">Publishing to Production</h1>
+    <p class="subtitle" id="subtitle-display">Migrating Document ID: {{ document.id }}</p>
+
+    <!-- Terminal UI Component -->
+    <div class="terminal-card">
+      <div class="terminal-header">
+        <span class="window-button btn-close"></span>
+        <span class="window-button btn-minimize"></span>
+        <span class="window-button btn-maximize"></span>
+        <span class="terminal-title">postgres-admin@production-db:~ (Schema: PROD)</span>
       </div>
-      <h3 id="main-title" class="fw-bold text-dark mb-1">Publishing to Production</h3>
-      <p id="subtitle-display" class="text-muted">Migrating Document ID: {{ document.id }}</p>
+      <div class="terminal-body" id="terminal-body">
+        <!-- Live logs will be dynamically injected here -->
+      </div>
     </div>
 
-    <div class="status-card w-100 mb-4">
-      <ul class="list-unstyled m-0" id="status-list"></ul>
-    </div>
-
-    <div class="text-center">
-      <a href="{{ url_for('dashboard.index') }}" class="btn btn-return px-4 py-2 fw-medium rounded-pill shadow-sm" id="return-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-        Return to Dashboard
-      </a>
-    </div>
-
+    <!-- Success Return Button -->
+    <a href="{{ url_for('dashboard.index') }}" class="return-button" id="return-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      Return to Dashboard
+    </a>
   </div>
 
   <script>
-    class DatabasePublishUI {
+    class TerminalLoggerUI {
       constructor(config) {
-        this.listElement = document.getElementById(config.listElementId);
+        this.terminalBody = document.getElementById(config.terminalBodyId);
         this.titleElement = document.getElementById(config.titleElementId);
         this.subtitleElement = document.getElementById(config.subtitleElementId);
         this.spinnerElement = document.getElementById(config.spinnerElementId);
         this.returnBtn = document.getElementById(config.returnBtnId);
         
-        this.icons = {
-          check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
-          error: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
-          dot: `<div class="dot"></div>`
-        };
-
-        this.steps = new Map();
-        config.initialSteps.forEach((step, index) => {
-          this.steps.set(index, { id: step.id, label: step.label, state: 'pending' }); 
-        });
-
-        this.renderAll();
+        this.initTerminal();
       }
 
-      updateStepByIndex(index, newState) {
-        if (!this.steps.has(index)) return;
-        const step = this.steps.get(index);
-        step.state = newState;
+      initTerminal() {
+        this.appendLog("Establishing secure connection to PostgreSQL production cluster...", "info");
+        this.addPromptLine();
+      }
+
+      getFormattedTime() {
+        const now = new Date();
+        return now.toTimeString().split(' ')[0];
+      }
+
+      appendLog(message, level = "info") {
+        // Remove prompt line temporarily to append text above it
+        const existingPrompt = this.terminalBody.querySelector('.terminal-prompt');
+        if (existingPrompt) existingPrompt.remove();
+
+        const line = document.createElement('div');
+        line.className = 'log-line';
         
-        const listItem = document.getElementById(`step-${step.id}`);
-        if (listItem) {
-          listItem.setAttribute('data-state', newState);
-          const iconWrapper = listItem.querySelector('.icon-wrapper');
-          if (newState === 'completed') iconWrapper.innerHTML = this.icons.check;
-          else if (newState === 'error') iconWrapper.innerHTML = this.icons.error;
-          else iconWrapper.innerHTML = this.icons.dot;
-        }
+        const timeSpan = `<span class="log-time">[${this.getFormattedTime()}]</span>`;
+        const badgeSpan = `<span class="log-badge badge-${level}">${level}</span>`;
+        const messageSpan = `<span class="text-${level}">${message}</span>`;
+        
+        line.innerHTML = `${timeSpan} ${badgeSpan} ${messageSpan}`;
+        this.terminalBody.appendChild(line);
+
+        // Re-add prompt cursor line at bottom
+        this.addPromptLine();
+
+        // Auto-scroll to bottom
+        this.terminalBody.scrollTop = this.terminalBody.scrollHeight;
       }
 
-      completeProcess(success = true) {
-        this.spinnerElement.classList.add('d-none');
-        if (success) {
-            this.titleElement.textContent = "Successfully Published!";
-            this.titleElement.classList.replace("text-dark", "text-success");
-            this.subtitleElement.textContent = "All records have been securely moved to production.";
-            this.returnBtn.style.display = 'inline-flex';
-        } else {
-            this.titleElement.textContent = "Publishing Failed";
-            this.titleElement.classList.replace("text-dark", "text-danger");
-            this.subtitleElement.textContent = "Check system logs for details.";
-            this.returnBtn.style.display = 'inline-flex';
-            this.returnBtn.textContent = "Go Back";
-            this.returnBtn.classList.add("bg-danger");
-        }
+      addPromptLine() {
+        const prompt = document.createElement('div');
+        prompt.className = 'terminal-prompt';
+        prompt.innerHTML = `<span>></span><span class="cursor"></span>`;
+        this.terminalBody.appendChild(prompt);
       }
 
-      renderAll() {
-        this.listElement.innerHTML = '';
-        this.steps.forEach((stepData, index) => {
-          const li = document.createElement('li');
-          li.id = `step-${stepData.id}`;
-          li.className = 'status-item';
-          li.setAttribute('data-state', stepData.state);
-          li.innerHTML = `<div class="icon-wrapper">${this.icons.dot}</div><span class="item-text">${stepData.label}</span>`;
-          this.listElement.appendChild(li);
-        });
+      completeProcess(finalTitle, finalSubtitle) {
+        this.titleElement.textContent = finalTitle;
+        this.titleElement.classList.add('success-text');
+        this.subtitleElement.textContent = finalSubtitle;
+        this.spinnerElement.classList.add('hidden');
+        this.returnBtn.style.display = 'inline-flex';
+        
+        this.appendLog("All records have been securely moved to production.", "success");
       }
     }
 
-    const publishUI = new DatabasePublishUI({
-      listElementId: 'status-list',
+    // Initialize Terminal Logger
+    const terminalUI = new TerminalLoggerUI({
+      terminalBodyId: 'terminal-body',
       titleElementId: 'main-title',
       subtitleElementId: 'subtitle-display',
       spinnerElementId: 'main-spinner',
-      returnBtnId: 'return-btn',
-      initialSteps: [
-        { id: 'validate', label: 'Validating signed report constraints' },
-        { id: 'header', label: 'Migrating AgmtHeaderStg & AgmtModelsStg' },
-        { id: 'rates', label: 'Inserting AgmtMdlNormalStg rates' },
-        { id: 'commitments', label: 'Verifying AgmtCommitment entries' },
-        { id: 'finalize', label: 'Committing transaction to production DB' }
-      ]
+      returnBtnId: 'return-btn'
     });
 
-    let currentStep = 0;
-    const totalSteps = 5;
-    
-    publishUI.updateStepByIndex(currentStep, 'processing');
+    // Simulated Database Publishing Steps
+    const publishSteps = [
+      { msg: "Validating signed report constraints and Manager signatures...", level: "warn" },
+      { msg: "Migrating AGMT_HEADER_STG & AGMT_MODELS_STG records...", level: "info" },
+      { msg: "Inserting AGMT_MDL_NORMAL_STG rates into production tables...", level: "info" },
+      { msg: "Verifying AGMT_COMMITMENT entries and volumetric limits...", level: "info" },
+      { msg: "Committing transaction to production DB... ACQUIRING ROW LOCKS...", level: "warn" },
+      { msg: "Transaction committed successfully. System state synchronized.", level: "success" }
+    ];
 
+    let currentStep = 0;
+    
+    // Process steps exactly like the old progress bar, but in the terminal
     const simulateProgress = setInterval(() => {
-      publishUI.updateStepByIndex(currentStep, 'completed');
-      currentStep++;
-      
-      if (currentStep < totalSteps) {
-        publishUI.updateStepByIndex(currentStep, 'processing');
+      if (currentStep < publishSteps.length) {
+        const step = publishSteps[currentStep];
+        terminalUI.appendLog(step.msg, step.level);
+        currentStep++;
       } else {
         clearInterval(simulateProgress);
-        publishUI.completeProcess(true);
+        terminalUI.completeProcess("Successfully Published!", "Database migration complete.");
       }
-    }, 1200);
+    }, 1200); // 1.2 seconds per step
+
   </script>
 </body>
 </html>
