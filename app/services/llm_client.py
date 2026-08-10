@@ -98,8 +98,8 @@ def chat_complete_json(prompt: str, system_prompt: str, max_retries: int = 3) ->
         try:
             response = client.models.generate_content(
                  model="gemini-3.1-flash-lite",
-                 contents=[prompt],
-                 config=dict(
+                 contents=[current_prompt],
+                 config=types.GenerateContentConfig(
                      temperature=0.1,
                      response_mime_type="application/json",
                     ),
@@ -139,12 +139,11 @@ def chat_complete(prompt: str, system_prompt: str) -> str:
     Standard text completion for non-JSON tasks.
     """
     response = client.models.generate_content(
-    model="gemini-3.1-flash-lite",
-    contents=[prompt],
-    config=dict(
-        temperature=0.1,
-        response_mime_type="application/json",
-    ),
-)
+        model="gemini-3.1-flash-lite",
+        contents=[prompt],
+        config=types.GenerateContentConfig(
+            temperature=0.1,
+        ),
+    )
 
     return response.text or ""

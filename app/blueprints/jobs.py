@@ -56,13 +56,14 @@ def process_contract_task(self, document_id: int, contract_text: str):
         }
 
         doc.extracted_data = payload
-        doc.agmt_id = payload.get("header", {}).get("agmt_id")
+        header_data = payload.get("header", {})
+        doc.agmt_id = header_data.get("agmt_id") if isinstance(header_data, dict) else None
 
         # Save baseline data for comparison
         baseline_tables = get_baseline_data(doc.partner_name)
         doc.baseline_data = baseline_tables
 
-        # Run Verification & Risk Pipeline
+        # 4. Run Verification & Risk Pipeline
         orchestrator = Orchestrator()
         pipeline_input = OrchestratorInput(
             file_path=file_path,
@@ -71,11 +72,10 @@ def process_contract_task(self, document_id: int, contract_text: str):
             raw_doc_text=contract_text,
             baseline_data=baseline_tables,
             use_telecom_prompt=True,
-            pre_extracted=payload,
+            pre_extracted_data=payload  
         )
 
         pipeline_result = orchestrator.run(pipeline_input)
-
         doc.current_step = 4
         if (
             pipeline_result.verification.status == "FAILED"
@@ -83,7 +83,31 @@ def process_contract_task(self, document_id: int, contract_text: str):
         ):
             doc.status = "REVIEW"
         else:
-            doc.status = "READY"
+            doc.status = 'READY'
+            
+        # ==========================================
+        # NEW: SAVE RICH DATA & CONFIDENCE SCORES
+        # ==========================================
+        
+        # 1. Convert the nested Pydantic OrchestratorOutput into a pure Python dictionary
+        result_dict = pipeline_result.model_dump()
+        rich_fields = result_dict.get("field_details", {})
+        
+        # 2. Map the Orchestrator's plural keys back to the singular keys the UI expects
+        rich_payload = {
+            "header": rich_fields.get("header", {}),
+            "model": rich_fields.get("models", []),
+            "normal_model": rich_fields.get("rates", []),
+            "commitment": rich_fields.get("commitments", [])
+        }
+        
+        # 3. Overwrite the flat JSON with the rich JSON so the UI receives 'value', 'confidence_score', and 'flags'
+        doc.extracted_data = rich_payload
+        
+        # 4. Save the global confidence score directly to the database column
+        doc.confidence_score = pipeline_result.verification.confidence
+        
+        # ==========================================
 
         doc.current_step = 5
         if pipeline_result.errors:

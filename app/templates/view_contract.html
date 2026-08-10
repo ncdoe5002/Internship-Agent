@@ -13,6 +13,7 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      margin: 0;
     }
 
     .header-nav {
@@ -47,11 +48,34 @@
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       overflow: hidden;
+      margin-bottom: 24px;
     }
     .data-card-header {
       background-color: #ffffff;
-      padding: 20px 24px;
+      padding: 16px 24px;
       border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #475569;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::before {
+      content: ''; display: inline-block; width: 4px; height: 14px; background-color: #dc2626; border-radius: 2px;
+    }
+
+    .property-box {
+      background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px; height: 100%;
     }
     
     .table-custom th {
@@ -67,7 +91,7 @@
       font-size: 0.9rem;
       color: #1e293b;
       vertical-align: middle;
-      padding: 16px;
+      padding: 14px 16px;
     }
 
     .right-panel {
@@ -86,7 +110,7 @@
       <div class="bg-dark text-white rounded p-2 d-flex align-items-center justify-content-center">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
       </div>
-      <h1>Contract Review <span class="text-muted fw-normal fs-6 ms-2">ID: {{ contract_id }}</span></h1>
+      <h1>Contract Details <span class="text-muted fw-normal fs-6 ms-2">ID: {{ contract_id }}</span></h1>
     </div>
     <a href="{{ url_for('dashboard.index') }}" class="btn btn-light border text-dark fw-medium btn-sm px-3 py-2 shadow-sm">
       &larr; Back to Dashboard
@@ -95,46 +119,148 @@
 
   <div class="split-container">
     <div class="left-panel">
+      
+      <!-- 1. HEADER RECORD -->
       <div class="data-card">
         <div class="data-card-header">
-          <h5 class="mb-0 fw-bold text-dark">Extracted Tariff Data</h5>
+          <div class="section-title">Agreement Header (AGMT_HEADER_STG)</div>
+        </div>
+        <div class="p-4">
+          <div class="row g-3">
+            {% set header_data = contract_data.header if contract_data is mapping and contract_data.header else (header if header else {}) %}
+            {% if header_data %}
+                {% for key, raw_val in header_data.items() %}
+                {% set value = raw_val.value if raw_val is mapping else raw_val %}
+                <div class="col-md-6">
+                    <div class="property-box">
+                        <div class="text-muted small fw-bold text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">{{ key }}</div>
+                        <div class="text-dark fw-medium text-truncate" title="{{ value or '-' }}">
+                            {% if key|upper == 'AGMT_ID' %}
+                                <strong>{{ value or '-' }}</strong>
+                            {% else %}
+                                {{ value or '-' }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12 text-center py-4 text-muted small">No header records available.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. RATE MODELS -->
+      <div class="data-card">
+        <div class="data-card-header">
+          <div class="section-title">Rate Models (AGMT_MODELS_STG)</div>
         </div>
         <div class="table-responsive">
           <table class="table table-hover table-custom mb-0">
             <thead>
               <tr>
-                <th class="ps-4">Service</th>
-                <th>Destination</th>
-                <th>Rate</th>
-                <th class="pe-4">Currency</th>
+                <th class="ps-4">Model Seq</th>
+                <th>Model Type</th>
+                <th>Model Name</th>
               </tr>
             </thead>
             <tbody>
-              {% for row in contract_data %}
+              {% set models_data = contract_data.model if contract_data is mapping and contract_data.model else (models if models else []) %}
+              {% for model in models_data %}
+              {% set seq = model.model_seq.value if model.model_seq is mapping else (model.model_seq if model.model_seq is defined else model.MODEL_SEQ) %}
+              {% set type = model.model_type.value if model.model_type is mapping else (model.model_type if model.model_type is defined else model.MODEL_TYPE) %}
+              {% set name = model.model_name.value if model.model_name is mapping else (model.model_name if model.model_name is defined else model.MODEL_NAME) %}
               <tr>
-                <td class="ps-4 fw-medium">{{ row.service }}</td>
-                <td>{{ row.destination }}</td>
-                <td class="fw-bold text-dark">{{ row.rate }}</td>
-                <td class="pe-4"><span class="badge border text-dark">{{ row.currency }}</span></td>
+                <td class="ps-4 text-muted">{{ seq or '-' }}</td>
+                <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ type or '-' }}</span></td>
+                <td class="fw-medium">{{ name or '-' }}</td>
               </tr>
               {% else %}
-              <tr>
-                <td colspan="4" class="text-center py-5 text-muted">
-                  <svg class="mb-2 opacity-50" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><br>
-                  No records found.
-                </td>
-              </tr>
+              <tr><td colspan="3" class="text-center py-4 text-muted small">No pricing models found.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       </div>
+
+      <!-- 3. NORMAL RATES -->
+      <div class="data-card">
+        <div class="data-card-header">
+          <div class="section-title">Normal Rates (AGMT_MDL_NORMAL_STG)</div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover table-custom mb-0">
+            <thead>
+              <tr>
+                <th class="ps-4">Record Type</th>
+                <th>Charge Field</th>
+                <th>Currency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set rates_data = contract_data.normal_model if contract_data is mapping and contract_data.normal_model else (rates if rates else []) %}
+              {% for rate in rates_data %}
+              {% set rec = rate.rec_type.value if rate.rec_type is mapping else (rate.rec_type if rate.rec_type is defined else rate.REC_TYPE) %}
+              {% set charge = rate.charge_field.value if rate.charge_field is mapping else (rate.charge_field if rate.charge_field is defined else rate.CHARGE_FIELD) %}
+              {% set curr = rate.rate_currency.value if rate.rate_currency is mapping else (rate.rate_currency if rate.rate_currency is defined else rate.RATE_CURRENCY) %}
+              <tr>
+                <td class="ps-4 text-muted">{{ rec or '-' }}</td>
+                <td class="fw-bold text-dark">{{ charge or '-' }}</td>
+                <td><span class="badge border text-dark">{{ curr or '-' }}</span></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="3" class="text-center py-4 text-muted small">No rate entries found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 4. COMMITMENTS -->
+      <div class="data-card">
+        <div class="data-card-header">
+          <div class="section-title">Commitments (AGMT_COMMITMENT)</div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover table-custom mb-0">
+            <thead>
+              <tr>
+                <th class="ps-4">Name</th>
+                <th>Type</th>
+                <th>Direction</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set comm_data = contract_data.commitment if contract_data is mapping and contract_data.commitment else (commitments if commitments else []) %}
+              {% for comm in comm_data %}
+              {% set c_name = comm.commitment_name.value if comm.commitment_name is mapping else (comm.commitment_name if comm.commitment_name is defined else comm.COMMITMENT_NAME) %}
+              {% set c_type = comm.commitment_type.value if comm.commitment_type is mapping else (comm.commitment_type if comm.commitment_type is defined else comm.COMMITMENT_TYPE) %}
+              {% set c_dir = comm.direction.value if comm.direction is mapping else (comm.direction if comm.direction is defined else comm.DIRECTION) %}
+              {% set c_amt = comm.amount.value if comm.amount is mapping else (comm.amount if comm.amount is defined else comm.AMOUNT) %}
+              <tr>
+                <td class="ps-4 fw-medium">{{ c_name or '-' }}</td>
+                <td>{{ c_type or '-' }}</td>
+                <td>{{ c_dir or '-' }}</td>
+                <td class="fw-bold text-danger">{{ c_amt or '-' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-center py-4 text-muted small">No commitments found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
 
+    <!-- RIGHT PANEL: PDF DOCUMENT PREVIEW -->
     <div class="right-panel">
-      <iframe src="{{ url_for('update.serve_pdf', doc_id=contract_id) }}" class="pdf-viewer" title="Contract Document PDF"></iframe>
+      <iframe src="{{ url_for('update.serve_pdf', doc_id=pdf_doc_id) }}" class="pdf-viewer" title="Contract Document PDF"></iframe>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

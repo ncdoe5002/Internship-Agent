@@ -207,12 +207,10 @@ def fill_fields(doc_text: str, API_KEY: str) -> dict:
         """
 
     t0 = time.time()
-    from google.genai import types
-
     response = client.models.generate_content(
         model="gemini-3.1-flash-lite",
         contents=[prompt],
-        config=dict(
+        config=types.GenerateContentConfig(
             temperature=0.1,
             response_mime_type="application/json",
         ),

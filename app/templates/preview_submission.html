@@ -6,128 +6,22 @@
   <title>Submit to Database Preview</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body {
-      background-color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 0;
-      padding-bottom: 90px;
-    }
-
-    /* Header */
-    .top-bar {
-      background-color: #1e1e1e;
-      color: white;
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid #333;
-      position: sticky;
-      top: 0;
-      z-index: 50;
-    }
+    body { background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding-bottom: 90px; }
+    .top-bar { background-color: #1e1e1e; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 50; }
     .top-bar h5 { margin: 0; font-weight: 600; font-size: 1.1rem; }
-    
-    /* Layout */
-    .preview-container {
-      max-width: 1200px;
-      margin: 40px auto;
-      padding: 0 24px;
-    }
-
-    /* Cards */
-    .note-section {
-      background-color: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 24px;
-      margin-bottom: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .data-card {
-      background-color: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      overflow: hidden;
-      margin-bottom: 24px;
-    }
-    .data-card-header {
-      background-color: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-      padding: 20px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+    .preview-container { max-width: 1200px; margin: 40px auto; padding: 0 24px; }
+    .data-card { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 24px; }
+    .data-card-header { background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; }
     .data-card-body { padding: 24px; }
-
-    /* Tables & Typography */
-    .section-title {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: #475569;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      margin: 24px 0 16px 0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .section-title::before {
-      content: '';
-      display: inline-block;
-      width: 4px;
-      height: 16px;
-      background-color: #dc2626;
-      border-radius: 2px;
-    }
+    .section-title { font-size: 0.85rem; font-weight: 700; color: #475569; letter-spacing: 0.5px; text-transform: uppercase; margin: 24px 0 16px 0; display: flex; align-items: center; gap: 8px; }
+    .section-title::before { content: ''; display: inline-block; width: 4px; height: 16px; background-color: #dc2626; border-radius: 2px; }
     .section-title:first-child { margin-top: 0; }
-
-    .property-box {
-      background-color: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      padding: 12px 16px;
-      height: 100%;
-    }
-    
-    .table-custom th {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #64748b;
-      font-weight: 600;
-      background-color: #f8fafc;
-    }
-    .table-custom td {
-      font-size: 0.9rem;
-      color: #1e293b;
-      vertical-align: middle;
-    }
-    .empty-state {
-      padding: 32px 0;
-      text-align: center;
-      color: #94a3b8;
-      font-size: 0.9rem;
-    }
-
-    /* Footer */
-    .sticky-footer {
-      position: fixed;
-      bottom: 0; left: 0; width: 100%;
-      background: white;
-      border-top: 1px solid #e2e8f0;
-      padding: 16px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
-      z-index: 100;
-    }
-    .btn-danger-custom {
-      background-color: #dc2626; color: white; border: none;
-    }
+    .property-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px; height: 100%; }
+    .table-custom th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 600; background-color: #f8fafc; white-space: nowrap; }
+    .table-custom td { font-size: 0.85rem; color: #1e293b; vertical-align: middle; white-space: nowrap; }
+    .empty-state { padding: 32px 0; text-align: center; color: #94a3b8; font-size: 0.9rem; }
+    .sticky-footer { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #e2e8f0; padding: 16px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); z-index: 100; }
+    .btn-danger-custom { background-color: #dc2626; color: white; border: none; }
     .btn-danger-custom:hover { background-color: #b91c1c; color: white; }
   </style>
 </head>
@@ -145,11 +39,6 @@
   </div>
 
   <div class="preview-container">
-    <div class="note-section">
-      <label for="managerNote" class="form-label fw-bold text-dark mb-2">Internal Note for Manager <span class="text-muted fw-normal">(Optional)</span></label>
-      <textarea class="form-control" id="managerNote" rows="2" placeholder="Add any specific context about these extracted rates..."></textarea>
-    </div>
-
     <div class="data-card">
       <div class="data-card-header">
         <div>
@@ -163,19 +52,21 @@
       </div>
 
       <div class="data-card-body">
+        
         <!-- 1. HEADER DATA -->
         <div class="section-title">Agreement Header (AGMT_HEADER_STG)</div>
         <div class="row g-3 mb-5">
             {% if header %}
-                {% for key, value in header.items() %}
+                {% for key, raw_val in header.items() %}
+                {% set value = raw_val.value if raw_val is mapping else raw_val %}
                 <div class="col-md-3 col-sm-6">
                     <div class="property-box">
-                        <div class="text-muted small fw-bold text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">{{ key }}</div>
+                        <div class="text-muted small fw-bold text-uppercase mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">{{ key | replace('_', ' ') }}</div>
                         <div class="text-dark fw-medium text-truncate" title="{{ value or '-' }}">
-                            {% if key == 'AGMT_ID' %}
-                                <strong>{{ value or '-' }}</strong>
+                            {% if key|upper == 'AGMT_ID' %}
+                                <strong>{{ value if value is not none and value|string|trim != '' else '-' }}</strong>
                             {% else %}
-                                {{ value or '-' }}
+                                {{ value if value is not none and value|string|trim != '' else '-' }}
                             {% endif %}
                         </div>
                     </div>
@@ -199,10 +90,13 @@
               </thead>
               <tbody>
                   {% for model in models %}
+                  {% set m_seq = model.model_seq.value if model.model_seq is mapping else model.model_seq %}
+                  {% set m_type = model.model_type.value if model.model_type is mapping else model.model_type %}
+                  {% set m_name = model.model_name.value if model.model_name is mapping else model.model_name %}
                   <tr>
-                      <td class="ps-4">{{ model.MODEL_SEQ }}</td>
-                      <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ model.MODEL_TYPE }}</span></td>
-                      <td class="fw-medium">{{ model.MODEL_NAME }}</td>
+                      <td class="ps-4 text-muted">{{ m_seq if m_seq is not none and m_seq|string|trim != '' else '-' }}</td>
+                      <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ m_type if m_type is not none and m_type|string|trim != '' else '-' }}</span></td>
+                      <td class="fw-medium text-dark">{{ m_name if m_name is not none and m_name|string|trim != '' else '-' }}</td>
                   </tr>
                   {% else %}
                   <tr><td colspan="3" class="empty-state">No model data found.</td></tr>
@@ -217,22 +111,29 @@
           <table class="table table-hover table-custom mb-0">
               <thead>
                   <tr>
-                      <th class="ps-4">Model Seq</th>
-                      <th>Record Type</th>
+                      <th class="ps-4">Record Type</th>
                       <th>Charge Field</th>
                       <th>Currency</th>
                   </tr>
               </thead>
               <tbody>
                   {% for rate in rates %}
+                  {% set r_rec = rate.rec_type.value if rate.rec_type is mapping else rate.rec_type %}
+                  
+                  {# Safe extraction of charge_field OR legacy rate_val #}
+                  {% set r_charge = rate.charge_field.value if rate.charge_field is mapping else rate.charge_field %}
+                  {% if r_charge is none %}
+                      {% set r_charge = rate.rate_val.value if rate.rate_val is mapping else rate.rate_val %}
+                  {% endif %}
+
+                  {% set r_curr = rate.rate_currency.value if rate.rate_currency is mapping else rate.rate_currency %}
                   <tr>
-                      <td class="ps-4 text-muted">{{ rate.MODEL_SEQ }}</td>
-                      <td>{{ rate.REC_TYPE }}</td>
-                      <td class="fw-bold text-dark">{{ rate.CHARGE_FIELD }}</td>
-                      <td><span class="badge border text-dark">{{ rate.RATE_CURRENCY }}</span></td>
+                      <td class="ps-4 text-muted">{{ r_rec if r_rec is not none and r_rec|string|trim != '' else '-' }}</td>
+                      <td class="fw-bold text-dark">{{ r_charge if r_charge is not none and r_charge|string|trim != '' else '-' }}</td>
+                      <td><span class="badge border text-dark">{{ r_curr if r_curr is not none and r_curr|string|trim != '' else '-' }}</span></td>
                   </tr>
                   {% else %}
-                  <tr><td colspan="4" class="empty-state">No rate data found.</td></tr>
+                  <tr><td colspan="3" class="empty-state">No rate data found.</td></tr>
                   {% endfor %}
               </tbody>
           </table>
@@ -251,12 +152,16 @@
                   </tr>
               </thead>
               <tbody>
-                  {% for commitment in commitments %}
+                  {% for comm in commitments %}
+                  {% set c_name = comm.commitment_name.value if comm.commitment_name is mapping else comm.commitment_name %}
+                  {% set c_type = comm.commitment_type.value if comm.commitment_type is mapping else comm.commitment_type %}
+                  {% set c_dir = comm.direction.value if comm.direction is mapping else comm.direction %}
+                  {% set c_amt = comm.amount.value if comm.amount is mapping else comm.amount %}
                   <tr>
-                      <td class="ps-4 fw-medium">{{ commitment.COMMITMENT_NAME }}</td>
-                      <td>{{ commitment.COMMITMENT_TYPE }}</td>
-                      <td>{{ commitment.DIRECTION }}</td>
-                      <td class="fw-bold text-danger">{{ commitment.AMOUNT }}</td>
+                      <td class="ps-4 fw-medium text-dark">{{ c_name if c_name is not none and c_name|string|trim != '' else '-' }}</td>
+                      <td class="text-muted">{{ c_type if c_type is not none and c_type|string|trim != '' else '-' }}</td>
+                      <td class="text-muted">{{ c_dir if c_dir is not none and c_dir|string|trim != '' else '-' }}</td>
+                      <td class="fw-bold text-danger">{{ c_amt if c_amt is not none and c_amt|string|trim != '' else '-' }}</td>
                   </tr>
                   {% else %}
                   <tr><td colspan="4" class="empty-state">No commitment data found.</td></tr>
@@ -270,7 +175,7 @@
   </div>
 
   <div class="sticky-footer">
-    <a href="#" class="btn btn-light border fw-semibold px-4 py-2 text-dark">&lt; Back to Edits</a>
+    <a href="#" onclick="history.back()" class="btn btn-light border fw-semibold px-4 py-2 text-dark">&lt; Back to Edits</a>
     <div class="text-muted small d-none d-md-block">This data will be inserted into the PostgreSQL staging tables.</div>
     <form action="{{ url_for('update.submit_to_db_route_name') }}" method="POST" class="m-0">
       <input type="hidden" name="document_id" value="{{ document.id }}">
