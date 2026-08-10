@@ -72,7 +72,7 @@ class AgmtMdlNormalMixin:
     PRA_RATE_TYPE = db.Column(db.String(20))
     DISC_RATE_PERC = db.Column(db.Numeric(9, 4))
     CHARGE_INCLUDE_TAX = db.Column(db.Boolean)
-    CHARGE_FIELD = db.Column(db.Numeric(50))
+    CHARGE_FIELD = db.Column(db.Numeric(18, 4))
     MODEL_SEQ = db.Column(db.Integer) # Kept for business reference
     AGMT_ID = db.Column(db.String(50)) # Kept for business reference
 

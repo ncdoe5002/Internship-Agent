@@ -208,7 +208,7 @@ def write_extraction_to_db(extraction_result: dict, document_id: int) -> str:
             rate.PRA_RATE_TYPE = _safe_str(row_data.get("PRA_RATE_TYPE", ""), 20)
             rate.DISC_RATE_PERC = _parse_decimal(row_data.get("DISC_RATE_PERC", ""))
             rate.CHARGE_INCLUDE_TAX = _parse_bool(row_data.get("CHARGE_INCLUDE_TAX", ""))
-            rate.CHARGE_FIELD = _parse_decimal(row_data.get("CHARGE_FIELD", ""))
+            rate.CHARGE_FIELD = _parse_decimal(row_data.get("charge_field", row_data.get("CHARGE_FIELD", "")))            
             try:
                 rate.MODEL_SEQ = int(row_data.get("MODEL_SEQ") or 1)
             except (ValueError, TypeError):

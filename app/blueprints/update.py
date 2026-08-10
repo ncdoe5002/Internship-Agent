@@ -312,15 +312,25 @@ def publish_to_production():
         flash(f"Operator '{doc.partner_name}' not found. Please add them in the MNO dashboard.", "warning")
         return redirect(url_for("dashboard.index"))
 
+    # Helper to safely extract values, prevent AttributeError, and sanitize empty strings
     def get_val(section_dict, key):
         if not isinstance(section_dict, dict):
             return None
+            
         val = section_dict.get(key)
-        if val is None:
+        if val is None: # Fallback to uppercase keys
             val = section_dict.get(key.upper())
-        if val is None:
+        if val is None: # Safe exit if field doesn't exist
             return None
-        return val.get("value") if isinstance(val, dict) else val
+            
+        # Extract the actual value whether it's nested in a dict or flat
+        extracted = val.get("value") if isinstance(val, dict) else val
+        
+        # THE FIX: If the value is an empty string, convert it to a true SQL NULL
+        if isinstance(extracted, str) and extracted.strip() == "":
+            return None
+            
+        return extracted
 
     header_json = raw_data.get("header", {})
     incoming_rp = get_val(header_json, "rp")
@@ -336,7 +346,10 @@ def publish_to_production():
     clashing_headers.extend(ProdAgmtHeader.query.filter_by(mno_id=mno.id).all())
     
     if incoming_rp:
-        clashing_headers.extend(ProdAgmtHeader.query.filter(ProdAgmtHeader.RP.ilike(incoming_rp)).all())
+        # 1. Exact match (bypasses ilike wildcard issues)
+        clashing_headers.extend(ProdAgmtHeader.query.filter(ProdAgmtHeader.RP == incoming_rp).all())
+        # 2. Trim match (catches old DB records with sneaky trailing spaces)
+        clashing_headers.extend(ProdAgmtHeader.query.filter(db.func.trim(ProdAgmtHeader.RP) == incoming_rp).all())
 
     unique_clashing = {h.id: h for h in clashing_headers}.values()
 
@@ -427,6 +440,7 @@ def publish_to_production():
                     
                     # === DEBUG LOG: RATE INSERTION ===
                     print(f"  👉 RATE FOUND: Type={r_type} | Extracted Charge={r_charge}", flush=True)
+                    print(f"🔥 SQLALCHEMY THINKS CHARGE_FIELD IS: {ProdAgmtMdlNormal.CHARGE_FIELD.type}", flush=True)
 
                     if r_type or (r_charge is not None):
                         p_rate = ProdAgmtMdlNormal(**{
