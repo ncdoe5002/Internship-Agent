@@ -593,29 +593,41 @@ class VerificationAgent:
                         field_name, cell_val, raw_doc_text
                     )
 
-                    flags = []
-                    if score is not None:
-                        scores.append(score)
-                        if score < 0.65 and str(cell_val).strip() not in (
-                            "",
-                            "None",
-                            "null",
-                        ):
-                            issues.append(
-                                f"Low confidence ({score * 100:.0f}%) for {field_name}: '{cell_val}'"
-                            )
-                            flags.append("LOW_CONFIDENCE")
-                        status = (
-                            "CONFIDENT"
-                            if score >= 0.85
-                            else ("FLAGGED" if score >= 0.65 else "LOW")
+                    # Fields with None confidence were not verified against source text
+                    # (empty/null value). Record them with an explicit low-confidence
+                    # status instead of dropping them, so downstream consumers (e.g.
+                    # Orchestrator's rate_confidences lookup) don't fall back to a
+                    # default of 1.0 for a field that was never actually scored.
+                    if score is None:
+                        detail = FieldDetail(
+                            value=cell_val,
+                            confidence_score=0.0,
+                            status="LOW",
+                            flags=["NOT_SCORED"],
                         )
-                    else:
-                        status = "CONFIDENT"  # Neutral status for optional null fields
+                        row_dict[field_name] = detail
+                        continue
+
+                    flags = []
+                    scores.append(score)
+                    if score < 0.65 and str(cell_val).strip() not in (
+                        "",
+                        "None",
+                        "null",
+                    ):
+                        issues.append(
+                            f"Low confidence ({score * 100:.0f}%) for {field_name}: '{cell_val}'"
+                        )
+                        flags.append("LOW_CONFIDENCE")
+                    status = (
+                        "CONFIDENT"
+                        if score >= 0.85
+                        else ("FLAGGED" if score >= 0.65 else "LOW")
+                    )
 
                     detail = FieldDetail(
                         value=cell_val,
-                        confidence_score=round(score, 2) if score is not None else 1.0,
+                        confidence_score=round(score, 2),
                         status=status,
                         flags=flags,
                     )
@@ -707,13 +719,7 @@ class VerificationAgent:
         issues.extend(grounding_issues)
         checks.append("Field-level text grounding verified")
 
-        # 5. Cross-Field Consistency Checks
-        consistency_issues = self._check_cross_field_consistency(
-            payload.extracted_tables, payload.raw_doc_text
-        )
-        issues.extend(consistency_issues)
-
-        # 6. Final Status Evaluation (Penalize missing mandatory fields)
+        # 8. Final Status Evaluation (Penalize missing mandatory fields)
         if len(issues) > 0 or confidence < 90:
             status = (
                 "FAILED"

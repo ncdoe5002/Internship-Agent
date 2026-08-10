@@ -411,12 +411,12 @@ class Orchestrator:
                 else:
                     pct = None
 
-                status = "MATCH" if ext_rate == base_rate else "VARIANCE"
+                status = "MATCH" if ext_rate is not None and base_rate is not None and abs(ext_rate - base_rate) < 1e-4 else "VARIANCE"
                 flag = "LOW"
                 if status == "VARIANCE" and pct is not None:
-                    if abs(pct) > 20:
+                    if abs(pct) > self.risk_agent.config.high_variance_threshold:
                         flag = "HIGH"
-                    elif abs(pct) > 5:
+                    elif abs(pct) > self.risk_agent.config.moderate_variance_threshold:
                         flag = "MEDIUM"
 
                 rows.append(
