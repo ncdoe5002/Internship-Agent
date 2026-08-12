@@ -19,7 +19,7 @@ from .extractor_template import IOTAgreement
 # Set to True  => Skips Docling execution and uses instant sample text.
 # Set to False => Runs real GPU-accelerated Docling extraction.
 # =====================================================================
-MOCK_DOCLING = True
+MOCK_DOCLING = False
 
 # Global Converter Caching (used when MOCK_DOCLING = False)
 _global_converter = None

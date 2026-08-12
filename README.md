@@ -39,12 +39,197 @@ The application is built around a practical operator workflow:
 flowchart TD
             A[Upload document] --> B[Flask creates document record]
             B --> C[Celery worker processes file]
-            C --> D[Extraction Agent]
-            D --> E[Verification Agent]
-            E --> F[Risk Agent]
-            F --> G[Reviewer checks extracted data]
-            G --> H[Signed report uploaded]
-            H --> I[Publish to production]
+            C --> D[Docling PDF Extraction]
+            D --> E[Gemini Structured Extraction]
+            E --> F[Verification Agent]
+            F --> G[Risk Agent]
+            G --> H{Review Decision}
+            H -->|HIGH Risk or FAILED| I[Manual Review Required]
+            H -->|READY| J[Reviewer checks extracted data]
+            I --> J
+            J --> K[Signed report uploaded]
+            K --> L[Publish to production]
+```
+
+## Multi-Agent Architecture
+
+The system uses a sophisticated multi-agent orchestration framework built on LangGraph to coordinate document processing through specialized agents:
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "Flask Web Layer"
+        UI[Dashboard UI]
+        UPLOAD[Upload Handler]
+        API[Status API]
+    end
+
+    subgraph "Background Processing"
+        CELERY[Celery Worker]
+        ORCH[Orchestrator]
+    end
+
+    subgraph "Agent Layer"
+        EXT[Extraction Agent]
+        VER[Verification Agent]
+        RISK[Risk Agent]
+    end
+
+    subgraph "Services Layer"
+        DOCLING[Docling PDF]
+        GEMINI[Gemini LLM]
+        MAPPER[DB Mapper]
+        WRITER[DB Writer]
+    end
+
+    subgraph "Data Layer"
+        POSTGRES[(PostgreSQL)]
+        REDIS[(Redis Queue)]
+    end
+
+    UI --> UPLOAD
+    UPLOAD --> CELERY
+    CELERY --> ORCH
+    ORCH --> EXT
+    ORCH --> VER
+    ORCH --> RISK
+    EXT --> DOCLING
+    EXT --> GEMINI
+    VER --> MAPPER
+    RISK --> MAPPER
+    ORCH --> WRITER
+    WRITER --> POSTGRES
+    CELERY --> REDIS
+    API --> POSTGRES
+    UPLOAD --> POSTGRES
+```
+
+### Orchestrator
+
+The Orchestrator is the central coordination layer built using LangGraph's StateGraph pattern. It manages the entire extraction pipeline and coordinates between specialized agents.
+
+**Key Features:**
+- **LangGraph Execution Graph**: Implements a state machine pattern for agent coordination
+- **Schema Adaptation**: Transforms friend's relational staging tables into generic JSON tables for agent compatibility
+- **Header Deduplication**: Intelligently merges duplicate AGMT_ID entries, preferring non-null values
+- **Caching**: In-memory file hash-based caching to avoid redundant extractions
+- **Context Selection**: Extracts relevant document sections based on target fields for efficient processing
+
+**Data Flow:**
+1. Receives `OrchestratorInput` with file path, partner name, and raw document text
+2. Fetches baseline data via `db_mapper` for comparison
+3. Runs extraction through Docling + Gemini pipeline
+4. Adapts extraction schema to agent-compatible format
+5. Coordinates VerificationAgent and RiskAgent execution
+6. Returns comprehensive `OrchestratorOutput` with verification results, risk assessment, and comparison tables
+
+### Verification Agent
+
+The VerificationAgent validates extracted tariff data and calculates text grounding confidence scores using multiple validation strategies.
+
+**Text Grounding Algorithms:**
+
+- **Numeric Grounding**: Extracts numbers from the document and matches them against extracted values with floating-point precision
+- **Date Grounding**: Parses dates using multiple format patterns (ISO, European, US, text-based) and validates against document content
+- **Text Grounding**: Uses sequence matching to find text similarity between extracted values and document chunks
+
+**Confidence Scoring:**
+- Per-field confidence scores (0.0 to 1.0 scale)
+- System metadata fields automatically receive 1.0 confidence
+- Field status classification: `CONFIDENT`, `FLAGGED`, `LOW`
+- Special handling for numeric, date, and text field types
+
+**Validation Checks:**
+- Currency format validation (supports €, $, £ symbols with numeric patterns)
+- Date format validation with multiple format support
+- Date consistency checks (start date before end date, logical periods)
+- Data type validation for numeric and date fields
+
+**Field Categories:**
+- **System Metadata**: AGMT_ID, BULK_ID, CREATED_DATE, etc. (auto-verified)
+- **Numeric Fields**: AMOUNT, COMMIT_VALUE, RATE, PRICE, etc. (numeric grounding)
+- **Date Fields**: START_DATE, END_DATE, AGMT_EFF_DATE, etc. (date grounding)
+- **Text Fields**: All other fields (text grounding with similarity matching)
+
+### Risk Agent
+
+The RiskAgent assesses risk levels for tariff changes by comparing extracted data against baseline production data and applying configurable risk thresholds.
+
+**Risk Assessment Logic:**
+
+1. **Variance Analysis**: Calculates percentage changes between extracted and baseline rates
+2. **Confidence Integration**: Considers per-field confidence scores from verification
+3. **Financial Field Weighting**: Applies 1.5x multiplier to financial fields (amount, commitment, revenue, cost)
+4. **Threshold-Based Classification**: Uses configurable thresholds for risk level determination
+
+**Risk Levels:**
+- **HIGH**: Variance > 20% (configurable via `high_variance_threshold`)
+- **MEDIUM**: Variance > 5% OR confidence below threshold OR missing fields
+- **LOW**: All other cases
+
+**Configurable Parameters:**
+- `high_variance_threshold`: 20.0% (default)
+- `moderate_variance_threshold`: 5.0% (default)
+- `low_confidence_threshold`: 0.65 (default)
+- `financial_field_weight`: 1.5 (default)
+
+**Recommendation Generation:**
+- "Manager approval required" - confidence < 70% OR HIGH risk present
+- "Review recommended before approval" - confidence < 90% OR any flagged rows
+- "Safe to proceed" - high confidence with no significant risks
+
+**Special Handling:**
+- **MISSING rows**: Treated as validation flags rather than rate changes (0% delta, MEDIUM risk)
+- **NEW rows**: Variance calculated against 0 baseline
+- **Financial fields**: Higher confidence requirements due to business impact
+
+### Agent Coordination
+
+The agents communicate through structured Pydantic models and share state via the Orchestrator:
+
+```mermaid
+sequenceDiagram
+    participant Orch as Orchestrator
+    participant Ext as Extraction
+    participant Ver as Verification
+    participant Risk as Risk Agent
+    participant DB as Database
+
+    Orch->>Ext: Extract structured data
+    Ext->>Orch: Header, Models, Rates, Commitments
+    Orch->>Ver: Validate with baseline comparison
+    Ver->>DB: Fetch production baseline
+    DB-->>Ver: Baseline data
+    Ver->>Orch: Verification result + confidence scores
+    Orch->>Risk: Assess risk levels
+    Risk->>Orch: Risk summary + recommendations
+    Orch->>Orch: Generate final output
+```
+
+**Error Handling:**
+- Graceful degradation when baseline data is unavailable
+- Partial processing continuation on individual agent failures
+- Detailed error reporting with field-level issue tracking
+- State persistence for recovery and debugging
+
+### Data Flow Diagram
+
+```mermaid
+graph LR
+    A[User Upload] --> B[Flask Handler]
+    B --> C[Document Record]
+    C --> D[Celery Task]
+    D --> E[Docling Processing]
+    E --> F[Gemini Extraction]
+    F --> G[Orchestrator]
+    G --> H[Verification Agent]
+    G --> I[Risk Agent]
+    H --> J[Staging Database]
+    I --> J
+    J --> K[Review Interface]
+    K --> L[Publish Decision]
+    L --> M[Production Database]
 ```
 
 ## Tech Stack
@@ -55,31 +240,32 @@ flowchart TD
 | Background jobs | Celery |
 | Queue and cache | Redis |
 | Database | PostgreSQL |
-| AI / orchestration | Google Gemini, LangChain, LangGraph |
-| Local inference | LM Studio via OpenAI-compatible client |
+| AI / orchestration | Google Gemini, LangGraph, Pydantic |
+| Document processing | Docling (GPU-accelerated PDF extraction) |
 | Data validation | Pydantic |
 | File handling | PyMuPDF, python-docx, openpyxl, pandas |
-| Deployment | Docker, Docker Compose, Gunicorn |
+| Deployment | Docker, Docker Compose, Gunicorn, CUDA support |
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker Desktop installed and running.
-- A Google Gemini API key.
-- A populated `.env` file with the runtime settings below.
+- Docker Desktop installed and running
+- NVIDIA GPU with CUDA support (for Docling GPU acceleration)
+- A Google Gemini API key
+- A populated `.env` file with the runtime settings below
 
 ### 1. Configure the environment
 
 Create a `.env` file in the project root and add at least these values:
 
-- `SECRET_KEY`
-- `DATABASE_URL`
-- `REDIS_URL`
-- `GOOGLE_API_KEY`
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `UPLOAD_FOLDER`
+- `SECRET_KEY` - Flask session secret
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis broker and result backend
+- `GEMINI_API_KEY` - Google Gemini API key for extraction
+- `SUPABASE_URL` - Supabase project URL (dashboard integration)
+- `SUPABASE_ANON_KEY` - Supabase anonymous key (dashboard integration)
+- `UPLOAD_FOLDER` - Local upload destination
 
 ### 2. Start the stack
 
@@ -116,27 +302,160 @@ celery -A celery_worker.celery worker --loglevel=info
 
 ```text
 app/
-├── agents/                # Extraction, verification, and risk orchestration
-├── blueprints/            # Auth, dashboard, jobs, and update routes
-├── models/                # SQLAlchemy models for users, documents, agreements, and logs
-├── schemas/               # Pydantic schemas for extracted data
-├── services/              # Gemini, baseline, storage, and file adapters
-├── static/                # CSS, images, and stored PDFs
-├── tasks/                 # Celery jobs
-└── templates/             # Dashboard and review views
-migrations/                # Alembic migration environment and revisions
-uploads/                   # Local upload target
+├── agents/                # Multi-agent orchestration system
+│   ├── orchestrator.py    # LangGraph-based agent coordination
+│   ├── verification_agent.py  # Data validation and confidence scoring
+│   ├── risk_agent.py      # Risk assessment and recommendation
+│   └── extractor/         # Document extraction pipeline
+│       ├── docling_extractor.py  # GPU-accelerated PDF processing
+│       └── extractor_template.py  # Pydantic extraction schemas
+├── blueprints/            # Flask route handlers
+│   ├── auth.py            # Authentication routes
+│   ├── dashboard.py       # Dashboard and MNO management
+│   ├── jobs.py            # Celery task definitions
+│   └── update.py          # Document upload and processing
+├── models/                # SQLAlchemy ORM models
+│   ├── agreement.py       # Staging tables (AGMT_HEADER_STG, etc.)
+│   ├── agreement_prod.py  # Production tables
+│   ├── agreement_archive.py  # Archive tables
+│   ├── document.py        # Document tracking and metadata
+│   ├── mno.py            # Mobile Network Operator registry
+│   ├── user.py           # User authentication
+│   └── audit_log.py      # Change tracking
+├── schemas/               # Pydantic validation schemas
+│   └── extraction.py     # Extraction result models
+├── services/              # Business logic and integrations
+│   ├── llm_client.py      # Gemini API client with JSON handling
+│   ├── db_mapper.py      # Production baseline data fetching
+│   ├── db_writer.py      # Staging data persistence
+│   ├── dashboard_service.py  # MNO management operations
+│   ├── prompts.py        # LLM prompt templates
+│   └── extractors.py     # Legacy extraction utilities
+├── static/                # Static assets
+│   ├── pdfs/            # Uploaded documents for preview
+│   ├── images/          # UI images
+│   └── css/             # Stylesheets
+├── templates/             # Jinja2 templates
+│   ├── dashboard.html   # Main dashboard
+│   ├── update.html      # Upload interface
+│   ├── processing.html  # Processing status
+│   ├── extracted.html   # Data review
+│   └── preview_submission.html  # Final review
+├── config.py             # Flask configuration
+├── extensions.py         # Flask extensions (DB, Celery, etc.)
+└── utils.py              # Utility functions
+migrations/               # Alembic database migrations
+uploads/                   # Temporary upload directory
+celery_worker.py          # Celery worker initialization
+wsgi.py                   # WSGI application entry point
 ```
 
 ## Document Lifecycle
 
-The main document states used by the app are `PENDING`, `PROCESSING`, `READY`, `FAILED`, and `PUBLISHED`.
+The main document states used by the app are `PENDING`, `PROCESSING`, `READY`, `REVIEW`, `FAILED`, and `PUBLISHED`.
+
+**State Transitions:**
+- `PENDING` → `PROCESSING`: Document uploaded, Celery task started
+- `PROCESSING` → `READY`: Extraction and verification successful, risk assessment passed
+- `PROCESSING` → `REVIEW`: Verification failed or HIGH risk detected
+- `PROCESSING` → `FAILED`: Critical error during processing
+- `REVIEW` → `READY`: Manual review completed and approved
+- `READY` → `PUBLISHED`: Signed report uploaded and published to production
+
+**Multi-Agent Pipeline Steps:**
+1. **Extraction** (Step 2): Docling processes PDF, Gemini extracts structured data
+2. **Verification** (Step 3): Validates extracted data, calculates confidence scores
+3. **Risk Assessment** (Step 4): Compares against baseline, assesses risk levels
+4. **Final Decision** (Step 5): Routes to READY or REVIEW based on confidence and risk
+
+## Recent Improvements
+
+### Multi-Agent Orchestration System
+- Implemented LangGraph-based agent coordination for complex document processing
+- Added intelligent schema adaptation to maintain compatibility between different data formats
+- Introduced file hash-based caching to avoid redundant extractions
+- Enhanced error handling with graceful degradation and detailed reporting
+
+### Verification and Risk Assessment
+- **VerificationAgent**: Advanced text grounding with numeric, date, and text field validation
+- **RiskAgent**: Configurable risk thresholds with financial field weighting
+- Confidence scoring system (0-1 scale) with field-level status classification
+- Automatic recommendation generation based on confidence and risk levels
+
+### API Migration
+- Migrated from OpenRouter to Google Gemini API for improved reliability and performance
+- Updated LLM client with robust JSON parsing and retry logic
+- Enhanced prompt engineering for telecom-specific extraction tasks
+
+### Database Enhancements
+- Added `db_mapper.py` for intelligent baseline data fetching from production tables
+- Implemented `db_writer.py` for structured staging data persistence
+- Enhanced AGMT_ID handling with deduplication and intelligent merging
+- Added comprehensive staging/production/archive table structure
+
+### Dynamic Review System
+- Implemented dynamic header field rendering for scalable review templates
+- Added baseline comparison with variance calculation and status flags
+- Enhanced review tables with MATCH, VARIANCE, NEW, and MISSING status indicators
+- Improved conflict detection and resolution tracking
+
+### Performance Improvements
+- GPU-accelerated Docling processing for faster PDF extraction
+- Optimized database queries with proper indexing and relationship management
+- Enhanced Celery task configuration with improved error recovery
+- Added concurrent processing capabilities for multi-document workflows
 
 ## Extraction And Mapping
 
-The latest branch work adds a local model client in [app/services/llm_client.py](app/services/llm_client.py) and a database mapping layer in [app/services/db_mapper.py](app/services/db_mapper.py). Together, these pieces convert extracted JSON into staging records, attach confidence scoring, and keep the document linked to the extracted `AGMT_ID`.
+The extraction pipeline combines Docling's GPU-accelerated PDF processing with Google Gemini's structured extraction capabilities:
 
-The review pages now render agreement headers dynamically so the UI can accommodate additional header fields without a hard-coded form update.
+**Components:**
+- **Docling Extractor** (`app/agents/extractor/docling_extractor.py`): Processes PDFs with CUDA acceleration, extracts text and table structures
+- **LLM Client** (`app/services/llm_client.py`): Gemini API integration with JSON response handling and retry logic
+- **DB Mapper** (`app/services/db_mapper.py`): Fetches production baseline data for comparison and variance analysis
+- **DB Writer** (`app/services/db_writer.py`): Persists extracted data to staging tables with proper type conversion
+
+**Data Flow:**
+1. Document uploaded and saved to `app/static/pdfs/`
+2. Docling processes PDF with GPU acceleration (configurable via `MOCK_DOCLING` for testing)
+3. Gemini extracts structured data into Pydantic models (header, models, rates, commitments)
+4. Orchestrator adapts schema for agent compatibility
+5. Verification validates extracted data against source document
+6. Risk assessment compares against production baseline
+7. Results stored in staging tables with AGMT_ID linking
+
+**Dynamic Review System:**
+The review pages render agreement headers dynamically so the UI can accommodate additional header fields without hard-coded form updates. The system supports:
+- Automatic field detection and rendering
+- Confidence score display per field
+- Status flags (CONFIDENT, FLAGGED, LOW)
+- Variance highlighting against baseline data
+
+## Key Features
+
+### Confidence-Based Validation
+- **Per-field confidence scores** (0.0 to 1.0) based on text grounding analysis
+- **Automatic status classification**: CONFIDENT (>0.8), FLAGGED (0.5-0.8), LOW (<0.5)
+- **Type-specific validation**: Different grounding strategies for numeric, date, and text fields
+- **System metadata handling**: Automatic verification for database-generated fields
+
+### Risk Assessment
+- **Intelligent variance analysis**: Compares extracted rates against production baseline
+- **Configurable risk thresholds**: Customize sensitivity for different business contexts
+- **Financial field awareness**: Higher scrutiny for amount, commitment, and revenue fields
+- **Automated recommendations**: Action suggestions based on confidence and risk levels
+
+### Baseline Comparison
+- **Production data integration**: Fetches current tariffs from production database
+- **Variance calculation**: Computes percentage changes between extracted and baseline
+- **Status categorization**: MATCH, VARIANCE, NEW, or MISSING status for each field
+- **Visual highlighting**: Color-coded indicators for quick risk assessment
+
+### Multi-Agent Pipeline
+- **Orchestrated processing**: LangGraph coordinates specialized agents for each processing stage
+- **Error recovery**: Graceful handling of individual agent failures without stopping the pipeline
+- **State management**: Comprehensive tracking of processing progress and intermediate results
+- **Caching optimization**: Avoids redundant processing through intelligent file hash caching
 
 ## Testing
 
@@ -153,13 +472,23 @@ The repository includes unit, integration, end-to-end, and slow test markers in 
 | `SECRET_KEY` | Flask session secret |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `REDIS_URL` | Redis broker and result backend |
-| `GOOGLE_API_KEY` | Gemini API key |
+| `GEMINI_API_KEY` | Google Gemini API key for document extraction |
 | `SUPABASE_URL` | Supabase project URL used by the dashboard |
 | `SUPABASE_ANON_KEY` | Supabase anonymous key used by the dashboard |
 | `UPLOAD_FOLDER` | Local upload destination |
+
+**Risk Assessment Configuration** (can be customized in `app/agents/risk_agent.py`):
+- `high_variance_threshold`: 20.0% - Triggers HIGH risk level
+- `moderate_variance_threshold`: 5.0% - Triggers MEDIUM risk level
+- `low_confidence_threshold`: 0.65 - Minimum confidence for automatic approval
+- `financial_field_weight`: 1.5 - Multiplier for financial field confidence requirements
 
 ## Notes
 
 - Supported uploads are PDF, DOCX, XLSX, and XLS.
 - Files are stored under `app/static/pdfs/` for browser-based preview and review.
 - The app uses Flask-Migrate, so schema changes should be managed through migrations rather than direct table edits.
+- **GPU Requirements**: Docling PDF processing requires NVIDIA GPU with CUDA support for optimal performance. Set `MOCK_DOCLING=True` in `docling_extractor.py` for CPU-only testing.
+- **API Key Security**: Ensure `GEMINI_API_KEY` is kept secure and never committed to version control.
+- **Database Migrations**: Run `flask db upgrade` after pulling changes that include schema modifications.
+- **Staging vs Production**: The system uses staging tables (`AGMT_HEADER_STG`, etc.) for extracted data before publishing to production tables.
