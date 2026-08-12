@@ -184,23 +184,69 @@ def fill_fields(doc_text: str, API_KEY: str) -> dict:
     schema = json.dumps(IOTAgreement.model_json_schema(), indent=2)
 
     prompt = f"""
-        You are extracting structured data from a telecom roaming agreement into a Pydantic schema.
+        You are a telecom roaming agreement analyst. Extract ALL structured data from this
+        document into a specific JSON format based on the provided Pydantic schema. The document
+        is a bilateral roaming agreement between two telecom operators.
 
-        Return ONLY valid JSON.
-
+        Return ONLY valid JSON. No markdown, no explanation, no code fences.
         The JSON MUST strictly conform to this schema:
         {schema}
 
-        CRITICAL EXTRACTION RULES:
-        1. 'header': Extract metadata (parties, start_date, end_date, currency_code).
-           - You MUST extract both start_date and end_date if mentioned or implied by period clauses.
-           - Extract currency_code (e.g., 'EUR', 'USD'). If missing explicitly, infer from symbols (€ -> EUR, $ -> USD).
-           - If 'agmt_id' is missing from document text, auto-generate as format: "{{sender}}-{{rp}}"..
-        2. 'normal_model': Array of service charging tiers (MOC/SMS/Data rate per min/SMS/MB).
-           - Extract rate values into 'rate_val' and charge units into 'charge_field'.
-        3. 'commitment': Array of fixed revenues, send-or-pay amounts, and volume allowances.
-           - Separate monetary values into 'amount' and traffic caps into 'volume_value' / 'volume_unit'.
-        4. Do not invent missing values; set absent non-required fields to null.
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        GLOBAL EXTRACTION RULES
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        1. STRICT SCHEMA: Do not invent missing values; set absent non-required fields to null.
+        2. CONFLICT RESOLUTION: When the same data point appears differently in prose/narrative text
+        versus a structured table or numbered clause, ALWAYS prefer the table or clause value.
+        Log the conflict in the 'remarks' field.
+        3. DATA NORMALIZATION:
+        - Dates MUST be normalized to YYYY-MM-DD format.
+        - Currency codes MUST be uppercase ISO codes (e.g., 'EUR', 'USD', 'SDR'). If missing
+            explicitly, infer from symbols (€ -> EUR, $ -> USD).
+        - Boolean fields should be true or false.
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        SECTION 1: "header" (Agreement Metadata)
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Extract metadata governing the agreement (parties involved, dates, currency, rules).
+        - sender: Operator proposing the agreement (TADIG code or operator name).
+        - rp: Roaming partner (the other operator).
+        - start_date / end_date: You MUST extract these if mentioned or implied by period clauses.
+        - agmt_id: If the document contains an explicit agreement ID, reference number, or contract
+        number, use that value. If NO explicit ID exists, you MUST auto-generate one using the
+        format: "{{sender}}-{{rp}}-{{start_date}}" (e.g., "Orange-Etisalat-2025-01-01")..
+        - remarks: General notes, governing clauses, or conflict resolution logs.
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        SECTION 2: "model" (Rate Models)
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Pricing model definitions.
+        - model_seq: Sequence number starting from 1.
+        - model_type: "VOICE", "DATA", "SMS", "VoLTE", "CAMEL", etc.
+        - model_name: Descriptive name of the pricing model.
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        SECTION 3: "normal_model" (Service Charging Tiers)
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Array of service charging tiers (MOC/SMS/Data rate per min/SMS/MB).
+        - rec_type: "MOC" (mobile originated), "SMS", "DATA", "MTC", etc.
+        - charge_field: This is the ACTUAL NUMERICAL RATE charged per unit (e.g., 0.15, 0.035, 0.022). 
+        Extract the numerical value directly into this field. Do not include currency symbols.
+        - rate_currency: Currency for these specific rates.
+        - pra_rate_type: Distinguish between different rate structures:
+        - "IOT" = base inter-operator tariff (standard/default rate).
+        - "Incremental" / "IOT_OVERAGE" = rate applied above a volume threshold.
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        SECTION 4: "commitment" (Financial & Volume Commitments)
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Array of fixed revenues, send-or-pay amounts, and volume allowances.
+        - commitment_name: Descriptive label from the document text.
+        - commitment_type: "Send or Pay", "Fixed", "Variable", "Revenue Share", etc.
+        - amount: Financial monetary target value (e.g., 550000.0). Extract monetary values here.
+        - direction: "Inbound", "Outbound", or "Bilateral".
+        - party_from / party_to: Committing operator and receiving operator.
+        - Split compound commitments (e.g., a Send-or-Pay AND a traffic allowance) into separate objects.
 
         Document Text:
         {doc_text}

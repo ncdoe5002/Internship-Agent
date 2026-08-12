@@ -14,7 +14,6 @@
     .resizer { height: 8px; background-color: #111; cursor: ns-resize; width: 100%; z-index: 50; display: flex; justify-content: center; align-items: center; transition: background-color 0.2s ease; }
     .resizer:hover, .resizer:active { background-color: #ef4444; }
     .resizer::after { content: ""; width: 40px; height: 2px; background-color: #6b7280; border-radius: 2px; }
-    .resizer:hover::after, .resizer:active::after { background-color: #fff; }
     .resizer-vertical { width: 8px; background-color: #111; cursor: ew-resize; z-index: 50; display: flex; justify-content: center; align-items: center; transition: background-color 0.2s ease; }
     .resizer-vertical:hover, .resizer-vertical:active { background-color: #ef4444; }
     .resizer-vertical::after { content: ""; height: 40px; width: 2px; background-color: #6b7280; border-radius: 2px; }
@@ -39,12 +38,13 @@
     .data-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
     .data-card { background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 24px; overflow: hidden; }
-    .data-card-header { background-color: #f1f5f9; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; color: #334155; letter-spacing: 0.5px; text-transform: uppercase; }
-    .data-card-header::before { content: ''; display: inline-block; width: 4px; height: 16px; background-color: #dc2626; border-radius: 2px; }
+    .data-card-header { background-color: #f1f5f9; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; color: #334155; letter-spacing: 0.5px; text-transform: uppercase; }
+    .data-card-header .title-wrap { display: flex; align-items: center; gap: 8px; }
+    .data-card-header .title-wrap::before { content: ''; display: inline-block; width: 4px; height: 16px; background-color: #dc2626; border-radius: 2px; }
 
     .table-custom th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; border-bottom-width: 1px; font-weight: 600; background-color: #f8fafc; padding: 14px 16px; }
     .table-custom td { font-size: 0.9rem; color: #1e293b; vertical-align: middle; padding: 16px; }
-    .table-custom tr.group-header td { background-color: #f8fafc; font-weight: 700; color: #475569; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; }
+    .table-custom tr.group-header td { background-color: #e2e8f0; font-weight: 700; color: #334155; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
 
     .editable-cell { padding: 6px 10px; border-radius: 4px; border: 1px solid transparent; transition: all 0.2s ease; min-height: 28px; display: inline-block; width: 100%; background-color: #f8fafc; }
     .editable-cell:hover { background-color: #f1f5f9; border-color: #cbd5e1; cursor: text; }
@@ -58,6 +58,10 @@
     .btn-outline-secondary:hover { background-color: #f8fafc; color: #0f172a; }
     .btn-danger-custom { background-color: #dc2626; color: white; border: none; }
     .btn-danger-custom:hover { background-color: #b91c1c; color: white; }
+    
+    .record-wrapper { border-bottom: 4px solid #f1f5f9; }
+    .btn-delete-record { font-size: 0.75rem; font-weight: bold; color: #dc2626; border: 1px solid #dc2626; padding: 2px 8px; border-radius: 4px; background: transparent; cursor: pointer; transition: all 0.2s; }
+    .btn-delete-record:hover { background: #dc2626; color: white; }
 
     .dragging iframes-disabled iframe { pointer-events: none !important; }
   </style>
@@ -107,7 +111,7 @@
     {% endif %}
   {% endmacro %}
 
-  {% macro field_row(section_name, field_name, field_data, prev_val, row_index=0) %}
+  {% macro field_row(section_name, field_name, field_data, prev_val) %}
     {% set is_mapping = field_data is mapping %}
     {% set display_val = field_data.value if is_mapping and 'value' in field_data else field_data %}
     
@@ -117,9 +121,7 @@
       <td style="width: 35%;">
         <div contenteditable="true" 
              class="editable-cell fw-bold text-dark" 
-             data-section="{{ section_name }}" 
-             data-key="{{ field_name }}"
-             data-index="{{ row_index }}">{{ display_val if display_val is not none else '-' }}</div>
+             data-key="{{ field_name }}">{{ display_val if display_val is not none else '-' }}</div>
         
         {% if is_mapping and field_data.flags %}
           <div class="d-flex flex-column align-items-start">
@@ -132,22 +134,17 @@
           </div>
         {% endif %}
       </td>
-      <td style="width: 15%;">
-        {{ render_delta(prev_val, display_val) }}
-      </td>
+      <td style="width: 15%;">{{ render_delta(prev_val, display_val) }}</td>
       <td class="pe-4" style="width: 15%;">
-        {% if is_mapping %}
-          {{ render_confidence(field_data.confidence_score, field_data.status) }}
-        {% else %}
-          <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">N/A</span>
-        {% endif %}
+        {% if is_mapping %}{{ render_confidence(field_data.confidence_score, field_data.status) }}
+        {% else %}<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">N/A</span>{% endif %}
       </td>
     </tr>
   {% endmacro %}
   
   <div class="split-layout">
-    
     <div class="pane-left" id="pane-left">
+      <!-- (Left Pane logic remains identical, PDF viewer and Baseline tables) -->
       <div class="doc-viewer" id="viewer-top">
         <div class="doc-header proposed">
           <div class="d-flex align-items-center gap-2">
@@ -172,6 +169,7 @@
         
         <div class="flex-grow-1 overflow-auto p-4">
           {% if current_doc %}
+            <!-- Original Baseline tables -->
             <div class="card mb-4 shadow-sm border-0">
               <div class="card-header bg-success bg-opacity-10 text-success fw-bold py-2 border-bottom-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">AGREEMENT HEADER</div>
               <div class="card-body p-0">
@@ -187,7 +185,6 @@
                 </table>
               </div>
             </div>
-
             {% if current_doc.rates and current_doc.rates|length > 0 %}
             <div class="card mb-4 shadow-sm border-0">
               <div class="card-header bg-success bg-opacity-10 text-success fw-bold py-2 border-bottom-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">NORMAL RATES</div>
@@ -203,7 +200,6 @@
               </div>
             </div>
             {% endif %}
-
             {% if current_doc.commitments and current_doc.commitments|length > 0 %}
             <div class="card mb-4 shadow-sm border-0">
               <div class="card-header bg-success bg-opacity-10 text-success fw-bold py-2 border-bottom-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">COMMITMENTS</div>
@@ -232,43 +228,29 @@
     <div class="resizer-vertical" id="resizer-vertical"></div>
     
     <div class="pane-right" id="pane-right">
+      <!-- (Right Pane Header) -->
       <div class="data-header">
         <div class="d-flex align-items-center gap-3">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"></path></svg>
           <h5 class="mb-0 fw-bold text-white">Extracted Data</h5>
-          <span class="text-secondary small fw-semibold">{{ total_fields }} fields</span>
-        </div>
-        
-        <div class="confidence-widget">
-          {% set conf_color = '#10b981' %} 
-          {% set conf_label = 'High accuracy' %}
-          {% if confidence_score < 75 %}
-            {% set conf_color = '#ef4444' %} {% set conf_label = 'Review carefully' %}
-          {% elif confidence_score < 90 %}
-            {% set conf_color = '#f59e0b' %} {% set conf_label = 'Good accuracy' %}
-          {% endif %}
-          
-          <div class="circle-score" style="border-color: {{ conf_color }}; color: {{ conf_color }};">{{ confidence_score }}</div>
-          <div class="d-flex flex-column" style="line-height: 1.2;">
-            <span class="fw-bold text-dark" style="font-size: 0.8rem;">Overall Score</span>
-            <span style="font-size: 0.75rem; color: {{ conf_color }};">{{ conf_label }}</span>
-          </div>
         </div>
       </div>
 
       <div class="data-body">
 
-        <!-- 1. HEADER -->
-        <div class="data-card">
-          <div class="data-card-header">Agreement Header (AGMT_HEADER_STG)</div>
+        <!-- 1. HEADER (Static single record, no delete/add) -->
+        <div class="data-card" data-section="header">
+          <div class="data-card-header">
+            <div class="title-wrap">Agreement Header</div>
+          </div>
           <div class="table-responsive mb-0">
             <table class="table table-hover table-custom mb-0">
                 <thead class="table-light"><tr><th class="ps-4">Field</th><th>Current on File</th><th>Extracted Value</th><th>Delta</th><th class="pe-4">AI Analysis</th></tr></thead>
-                <tbody>
+                <tbody class="record-wrapper">
                     {% if header %}
                         {% for key, field_data in header.items() %}
                             {% set prev = current_doc.header[key.upper()] if current_doc and current_doc.header else none %}
-                            {{ field_row('header', key, field_data, prev, 0) }}
+                            {{ field_row('header', key, field_data, prev) }}
                         {% endfor %}
                     {% else %}
                         <tr><td colspan="5" class="empty-state">No header data found.</td></tr>
@@ -279,73 +261,91 @@
         </div>
 
         <!-- 2. MODELS -->
-        <div class="data-card">
-          <div class="data-card-header">Rate Models (AGMT_MODELS_STG)</div>
+        <div class="data-card" data-section="model">
+          <div class="data-card-header">
+            <div class="title-wrap">Rate Models</div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="addRecord('model')">+ Add Model</button>
+          </div>
           <div class="table-responsive mb-0">
             <table class="table table-hover table-custom mb-0">
                 <thead class="table-light"><tr><th class="ps-4">Field</th><th>Current on File</th><th>Extracted Value</th><th>Delta</th><th class="pe-4">AI Analysis</th></tr></thead>
-                <tbody>
-                    {% if models %}
-                        {% for item in models %}
-                            {% set outer_idx = loop.index0 %}
-                            <tr class="group-header"><td colspan="5" class="ps-4">Model Record #{{ loop.index }}</td></tr>
+                {% if models %}
+                    {% for item in models %}
+                        {% set outer_idx = loop.index0 %}
+                        <tbody class="record-wrapper">
+                            <tr class="group-header">
+                              <td colspan="4" class="ps-4">Model Record</td>
+                              <td class="text-end pe-4"><button class="btn-delete-record" onclick="this.closest('tbody').remove()">Delete</button></td>
+                            </tr>
                             {% for key, field_data in item.items() %}
                                 {% set prev = current_doc.models[outer_idx][key.upper()] if current_doc and current_doc.models and outer_idx < current_doc.models|length else none %}
-                                {{ field_row('model', key, field_data, prev, outer_idx) }}
+                                {{ field_row('model', key, field_data, prev) }}
                             {% endfor %}
-                        {% endfor %}
-                    {% else %}
-                        <tr><td colspan="5" class="empty-state">No model data found.</td></tr>
-                    {% endif %}
-                </tbody>
+                        </tbody>
+                    {% endfor %}
+                {% else %}
+                    <tbody class="empty-state-body"><tr><td colspan="5" class="empty-state">No model data found.</td></tr></tbody>
+                {% endif %}
             </table>
           </div>
         </div>
 
         <!-- 3. RATES -->
-        <div class="data-card">
-          <div class="data-card-header">Normal Rates (AGMT_MDL_NORMAL_STG)</div>
+        <div class="data-card" data-section="normal_model">
+          <div class="data-card-header">
+            <div class="title-wrap">Normal Rates</div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="addRecord('normal_model')">+ Add Rate</button>
+          </div>
           <div class="table-responsive mb-0">
             <table class="table table-hover table-custom mb-0">
                 <thead class="table-light"><tr><th class="ps-4">Field</th><th>Current on File</th><th>Extracted Value</th><th>Delta</th><th class="pe-4">AI Analysis</th></tr></thead>
-                <tbody>
-                    {% if rates %}
-                        {% for item in rates %}
-                            {% set outer_idx = loop.index0 %}
-                            <tr class="group-header"><td colspan="5" class="ps-4">Rate Record #{{ loop.index }}</td></tr>
+                {% if rates %}
+                    {% for item in rates %}
+                        {% set outer_idx = loop.index0 %}
+                        <tbody class="record-wrapper">
+                            <tr class="group-header">
+                              <td colspan="4" class="ps-4">Rate Record</td>
+                              <td class="text-end pe-4"><button class="btn-delete-record" onclick="this.closest('tbody').remove()">Delete</button></td>
+                            </tr>
                             {% for key, field_data in item.items() %}
                                 {% set prev = current_doc.rates[outer_idx][key.upper()] if current_doc and current_doc.rates and outer_idx < current_doc.rates|length else none %}
-                                {{ field_row('normal_model', key, field_data, prev, outer_idx) }}
+                                {{ field_row('normal_model', key, field_data, prev) }}
                             {% endfor %}
-                        {% endfor %}
-                    {% else %}
-                        <tr><td colspan="5" class="empty-state">No rate data found.</td></tr>
-                    {% endif %}
-                </tbody>
+                        </tbody>
+                    {% endfor %}
+                {% else %}
+                    <tbody class="empty-state-body"><tr><td colspan="5" class="empty-state">No rate data found.</td></tr></tbody>
+                {% endif %}
             </table>
           </div>
         </div>
 
         <!-- 4. COMMITMENTS -->
-        <div class="data-card">
-          <div class="data-card-header">Commitments (AGMT_COMMITMENT)</div>
+        <div class="data-card" data-section="commitment">
+          <div class="data-card-header">
+            <div class="title-wrap">Commitments</div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="addRecord('commitment')">+ Add Commitment</button>
+          </div>
           <div class="table-responsive mb-0">
             <table class="table table-hover table-custom mb-0">
                 <thead class="table-light"><tr><th class="ps-4">Field</th><th>Current on File</th><th>Extracted Value</th><th>Delta</th><th class="pe-4">AI Analysis</th></tr></thead>
-                <tbody>
-                    {% if commitments %}
-                        {% for item in commitments %}
-                            {% set outer_idx = loop.index0 %}
-                            <tr class="group-header"><td colspan="5" class="ps-4">Commitment Record #{{ loop.index }}</td></tr>
+                {% if commitments %}
+                    {% for item in commitments %}
+                        {% set outer_idx = loop.index0 %}
+                        <tbody class="record-wrapper">
+                            <tr class="group-header">
+                              <td colspan="4" class="ps-4">Commitment Record</td>
+                              <td class="text-end pe-4"><button class="btn-delete-record" onclick="this.closest('tbody').remove()">Delete</button></td>
+                            </tr>
                             {% for key, field_data in item.items() %}
                                 {% set prev = current_doc.commitments[outer_idx][key.upper()] if current_doc and current_doc.commitments and outer_idx < current_doc.commitments|length else none %}
-                                {{ field_row('commitment', key, field_data, prev, outer_idx) }}
+                                {{ field_row('commitment', key, field_data, prev) }}
                             {% endfor %}
-                        {% endfor %}
-                    {% else %}
-                        <tr><td colspan="5" class="empty-state">No commitment data found.</td></tr>
-                    {% endif %}
-                </tbody>
+                        </tbody>
+                    {% endfor %}
+                {% else %}
+                    <tbody class="empty-state-body"><tr><td colspan="5" class="empty-state">No commitment data found.</td></tr></tbody>
+                {% endif %}
             </table>
           </div>
         </div>
@@ -354,7 +354,7 @@
       
       <div class="sticky-footer">
         <button onclick="history.back()" class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back</button>
-        <span class="text-muted small d-none d-md-block">Click any value to edit before accepting. Review all warnings carefully.</span>
+        <span class="text-muted small d-none d-md-block">You can now add or delete records before publishing.</span>
         <div class="d-flex gap-3">
           <a href="{{ url_for('update.update_operator', operator_id=1) }}" class="btn btn-outline-secondary fw-semibold px-4 py-2">✕ Reject</a>
           <button id="btn-accept" class="btn btn-danger-custom fw-semibold px-4 py-2">✓ Accept & Send Report</button>
@@ -364,8 +364,45 @@
   </div>
 
   <script>
+    // Templates for new records based on your Pydantic schemas
+    const schemaTemplates = {
+        model: ['agmt_id', 'model_seq', 'model_type', 'model_name'],
+        normal_model: ['agmt_id', 'model_seq', 'rec_type', 'zone_code', 'rate_currency', 'pra_rate_type', 'charge_field'],
+        commitment: ['agmt_id', 'commitment_name', 'commitment_type', 'direction', 'amount', 'party_from', 'party_to']
+    };
+
+    function addRecord(sectionName) {
+        const table = document.querySelector(`.data-card[data-section="${sectionName}"] table`);
+        const emptyState = table.querySelector('.empty-state-body');
+        if (emptyState) emptyState.remove(); // Clear empty state if exists
+
+        const fields = schemaTemplates[sectionName];
+        let tbody = document.createElement('tbody');
+        tbody.className = 'record-wrapper';
+        
+        let headerRow = `<tr class="group-header">
+            <td colspan="4" class="ps-4">New ${sectionName} Record</td>
+            <td class="text-end pe-4"><button class="btn-delete-record" onclick="this.closest('tbody').remove()">Delete</button></td>
+        </tr>`;
+        
+        let rows = fields.map(field => `
+            <tr>
+                <td class="fw-semibold text-dark ps-4" style="width: 20%;">${field.replace('_', ' ').toUpperCase()}</td>
+                <td class="text-muted" style="width: 15%;">-</td>
+                <td style="width: 35%;">
+                    <div contenteditable="true" class="editable-cell fw-bold text-dark" data-key="${field}">-</div>
+                </td>
+                <td style="width: 15%;"><span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-1 px-2">New</span></td>
+                <td class="pe-4" style="width: 15%;"><span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Manual</span></td>
+            </tr>
+        `).join('');
+
+        tbody.innerHTML = headerRow + rows;
+        table.appendChild(tbody);
+    }
+
     // ---------------------------------------------------------
-    // API SAVE DRAFT LOGIC - NOW PERFECTLY FLATTENS JSON FOR DB
+    // API SAVE DRAFT LOGIC - DYNAMIC DOM SCRAPING
     // ---------------------------------------------------------
     document.getElementById('btn-accept').addEventListener('click', async function(e) {
       e.preventDefault();
@@ -374,62 +411,31 @@
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Saving...';
       btn.disabled = true;
 
-      // 1. Get original payload to preserve all hydrated schemas
-      let originalPayload = {};
-      try {
-          const rawJsonStr = document.getElementById('raw-extracted-data').textContent;
-          originalPayload = JSON.parse(rawJsonStr);
-      } catch(e) {
-          originalPayload = { header: {}, model: [], normal_model: [], commitment: [] };
-      }
-
-      // 2. Helper to flatten rich AI objects into simple string/number DB values
-      function flattenObject(obj) {
-          let flat = {};
-          for (let key in obj) {
-              let item = obj[key];
-              if (item !== null && typeof item === 'object' && !Array.isArray(item) && 'value' in item) {
-                  flat[key] = item.value;
-              } else {
-                  flat[key] = item;
-              }
-          }
-          return flat;
-      }
-
-      // 3. Create a purely flat payload based on original structure
       let flatPayload = { header: {}, model: [], normal_model: [], commitment: [] };
-      if (originalPayload.header) flatPayload.header = flattenObject(originalPayload.header);
-      ['model', 'normal_model', 'commitment'].forEach(sec => {
-          if (Array.isArray(originalPayload[sec])) {
-              flatPayload[sec] = originalPayload[sec].map(item => flattenObject(item));
-          }
+
+      // 1. Scrape Header (Static single object)
+      document.querySelectorAll('.data-card[data-section="header"] .editable-cell').forEach(cell => {
+          let val = cell.innerText.trim();
+          flatPayload.header[cell.getAttribute('data-key')] = (val === '-' || val === '') ? null : val;
       });
 
-      // 4. Update the flat payload with ONLY the user's manual edits from the DOM
-      document.querySelectorAll('.editable-cell').forEach(cell => {
-          const section = cell.getAttribute('data-section');
-          const key = cell.getAttribute('data-key');
-          const idx = parseInt(cell.getAttribute('data-index') || "0", 10);
-          let val = cell.innerText.trim();
-          
-          if (val === '-') val = null;
-
-          if (section && key) {
-              if (section === 'header') {
-                  flatPayload.header[key] = val;
-              } else {
-                  // Safely inject if missing
-                  while (flatPayload[section].length <= idx) {
-                      flatPayload[section].push({});
-                  }
-                  flatPayload[section][idx][key] = val;
+      // 2. Scrape Array Sections (Model, Rates, Commitments)
+      ['model', 'normal_model', 'commitment'].forEach(section => {
+          const wrappers = document.querySelectorAll(`.data-card[data-section="${section}"] .record-wrapper`);
+          wrappers.forEach(wrapper => {
+              let recordObj = {};
+              wrapper.querySelectorAll('.editable-cell').forEach(cell => {
+                  let val = cell.innerText.trim();
+                  recordObj[cell.getAttribute('data-key')] = (val === '-' || val === '') ? null : val;
+              });
+              // Only push if the object isn't completely empty
+              if (Object.values(recordObj).some(v => v !== null)) {
+                  flatPayload[section].push(recordObj);
               }
-          }
+          });
       });
 
       try {
-          // 5. Send perfectly formatted, flat DB-ready JSON to the backend
           const response = await fetch(`/api/update/{{ document.id }}/save-draft`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -452,78 +458,30 @@
     });
 
     // ---------------------------------------------------------
-    // DRAG-TO-RESIZE LOGIC
+    // DRAG-TO-RESIZE LOGIC (Unchanged)
     // ---------------------------------------------------------
     document.addEventListener("DOMContentLoaded", function () {
+      // Logic for horizontal and vertical resizing remains unchanged...
       const resizer = document.getElementById('resizer');
       const paneLeft = document.getElementById('pane-left');
       const viewerTop = document.getElementById('viewer-top');
       const viewerBottom = document.getElementById('viewer-bottom');
       
-      let y = 0;
-      let topViewerHeight = 0;
-
-      const mouseDownHandler = function (e) {
-        y = e.clientY;
-        topViewerHeight = viewerTop.getBoundingClientRect().height;
-        paneLeft.style.pointerEvents = 'none';
-        document.body.style.cursor = 'ns-resize';
-        document.addEventListener('mousemove', mouseMoveHandler);
-        document.addEventListener('mouseup', mouseUpHandler);
-      };
-
-      const mouseMoveHandler = function (e) {
-        const dy = e.clientY - y;
-        const newTopHeight = ((topViewerHeight + dy) * 100) / paneLeft.getBoundingClientRect().height;
-        if(newTopHeight > 10 && newTopHeight < 90) {
-          viewerTop.style.flex = `0 0 ${newTopHeight}%`;
-          viewerBottom.style.flex = `1 1 0%`; 
-        }
-      };
-
-      const mouseUpHandler = function () {
-        paneLeft.style.pointerEvents = 'auto';
-        document.body.style.cursor = 'default';
-        document.removeEventListener('mousemove', mouseMoveHandler);
-        document.removeEventListener('mouseup', mouseUpHandler);
-      };
-
-      resizer.addEventListener('mousedown', mouseDownHandler);
+      let y = 0; let topViewerHeight = 0;
+      const mouseDownHandler = function(e) { y = e.clientY; topViewerHeight = viewerTop.getBoundingClientRect().height; paneLeft.style.pointerEvents = 'none'; document.body.style.cursor = 'ns-resize'; document.addEventListener('mousemove', mouseMoveHandler); document.addEventListener('mouseup', mouseUpHandler); };
+      const mouseMoveHandler = function(e) { const dy = e.clientY - y; const newTopHeight = ((topViewerHeight + dy) * 100) / paneLeft.getBoundingClientRect().height; if(newTopHeight > 10 && newTopHeight < 90) { viewerTop.style.flex = `0 0 ${newTopHeight}%`; viewerBottom.style.flex = `1 1 0%`; } };
+      const mouseUpHandler = function() { paneLeft.style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; document.removeEventListener('mousemove', mouseMoveHandler); document.removeEventListener('mouseup', mouseUpHandler); };
+      if(resizer) resizer.addEventListener('mousedown', mouseDownHandler);
 
       const resizerVertical = document.getElementById('resizer-vertical');
       const paneRight = document.getElementById('pane-right');
       const splitContainer = document.querySelector('.split-layout');
       
-      let x = 0;
-      let leftPaneWidth = 0;
-
-      const mouseDownHandlerVertical = function (e) {
-        x = e.clientX;
-        leftPaneWidth = paneLeft.getBoundingClientRect().width;
-        paneLeft.style.pointerEvents = 'none';
-        document.body.style.cursor = 'ew-resize';
-        document.addEventListener('mousemove', mouseMoveHandlerVertical);
-        document.addEventListener('mouseup', mouseUpHandlerVertical);
-      };
-
-      const mouseMoveHandlerVertical = function (e) {
-        const dx = e.clientX - x;
-        const containerWidth = splitContainer.getBoundingClientRect().width;
-        const newLeftWidth = ((leftPaneWidth + dx) * 100) / containerWidth;
-        if (newLeftWidth > 20 && newLeftWidth < 80) {
-          paneLeft.style.width = `${newLeftWidth}%`;
-          paneRight.style.width = `${100 - newLeftWidth}%`;
-        }
-      };
-
-      const mouseUpHandlerVertical = function () {
-        paneLeft.style.pointerEvents = 'auto';
-        document.body.style.cursor = 'default';
-        document.removeEventListener('mousemove', mouseMoveHandlerVertical);
-        document.removeEventListener('mouseup', mouseUpHandlerVertical);
-      };
-
-      resizerVertical.addEventListener('mousedown', mouseDownHandlerVertical);
+      let x = 0; let leftPaneWidth = 0;
+      const mouseDownHandlerVertical = function(e) { x = e.clientX; leftPaneWidth = paneLeft.getBoundingClientRect().width; paneLeft.style.pointerEvents = 'none'; document.body.style.cursor = 'ew-resize'; document.addEventListener('mousemove', mouseMoveHandlerVertical); document.addEventListener('mouseup', mouseUpHandlerVertical); };
+      const mouseMoveHandlerVertical = function(e) { const dx = e.clientX - x; const containerWidth = splitContainer.getBoundingClientRect().width; const newLeftWidth = ((leftPaneWidth + dx) * 100) / containerWidth; if (newLeftWidth > 20 && newLeftWidth < 80) { paneLeft.style.width = `${newLeftWidth}%`; paneRight.style.width = `${100 - newLeftWidth}%`; } };
+      const mouseUpHandlerVertical = function() { paneLeft.style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; document.removeEventListener('mousemove', mouseMoveHandlerVertical); document.removeEventListener('mouseup', mouseUpHandlerVertical); };
+      if(resizerVertical) resizerVertical.addEventListener('mousedown', mouseDownHandlerVertical);
     });
   </script>
 </body>
