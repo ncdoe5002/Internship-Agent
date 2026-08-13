@@ -314,6 +314,12 @@ def serve_pdf(doc_id):
         return redirect(url_for("dashboard.index"))
 
     filename = os.path.basename(file_key)
+    
+    # === DOCX TO PDF FIX ===
+    # If the database record is a .docx, intercept it and serve the converted .pdf instead
+    if filename.endswith('.docx'):
+        filename = filename.replace('.docx', '.pdf')
+        
     upload_folder = os.path.join(current_app.root_path, "static", "pdfs")
     return send_from_directory(upload_folder, filename)
 
