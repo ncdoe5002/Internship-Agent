@@ -146,14 +146,18 @@
     <div class="pane-left" id="pane-left">
       <!-- (Left Pane logic remains identical, PDF viewer and Baseline tables) -->
       <div class="doc-viewer" id="viewer-top">
-        <div class="doc-header proposed">
-          <div class="d-flex align-items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            <span>{{ document.filename }}</span>
+          <div class="doc-header proposed">
+            <div class="d-flex align-items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <span>{{ document.filename }}</span>
+            </div>
+            <div class="badge-status badge-proposed">PROPOSED</div>
           </div>
-          <div class="badge-status badge-proposed">PROPOSED</div>
-        </div>
-        <iframe src="{{ url_for('static', filename=document.file_key) }}" width="100%" height="100%" style="border:none;"></iframe>
+          
+          <!-- DYNAMIC DOCX TO PDF DISPLAY LOGIC -->
+          {% set display_file = document.file_key|replace('.docx', '.pdf') if document.file_key.endswith('.docx') else document.file_key %}
+          <iframe src="{{ url_for('static', filename=display_file) }}" width="100%" height="100%" style="border:none;"></iframe>
+          
       </div>
 
       <div class="resizer" id="resizer"></div>

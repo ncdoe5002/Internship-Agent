@@ -10,6 +10,7 @@ from ..models.agreement import AgmtHeaderStg, AgmtModelsStg, AgmtMdlNormalStg, A
 from datetime import date, datetime, timezone
 from sqlalchemy import text
 import json
+import subprocess
 
 update_bp = Blueprint("update", __name__)
 
@@ -31,11 +32,38 @@ def allowed_file(filename: str) -> bool:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     return ext in current_app.config.get("ALLOWED_EXTENSIONS", {"pdf", "docx", "png", "jpg"})
 
-
 def _get_agmt_id_for_doc(doc: Document) -> str | None:
-    """Return the AGMT_ID stored on the document, or None if not yet extracted."""
     return getattr(doc, "agmt_id", None) or None
 
+# === ADD THE CONVERSION FUNCTION HERE ===
+def convert_docx_to_pdf(docx_path):
+    """
+    Converts a .docx file to .pdf using LibreOffice in headless mode.
+    Returns the path to the newly created PDF.
+    """
+    if not docx_path.endswith('.docx'):
+        return docx_path
+        
+    output_dir = os.path.dirname(docx_path)
+    
+    try:
+        subprocess.run([
+            'libreoffice', 
+            '--headless', 
+            '--convert-to', 
+            'pdf', 
+            docx_path, 
+            '--outdir', 
+            output_dir
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        pdf_path = docx_path.replace('.docx', '.pdf')
+        print(f"Successfully created viewable PDF: {pdf_path}")
+        return pdf_path
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to convert DOCX to PDF: {e}")
+        return None
 
 # -------------------------------------------------------------------
 # 1. THE UPLOAD UI (Clicked from the Dashboard)
@@ -69,13 +97,17 @@ def update_operator(operator_id):
     file_path = os.path.join(upload_folder, filename)
     file.save(file_path)
 
-    # 1. Extract text from the saved file
+    # === NEW DOCX TO PDF CONVERSION CALL ===
+    if filename.endswith('.docx'):
+        convert_docx_to_pdf(file_path)
+
+    # 1. Extract text from the saved file (Docling will handle the original .docx)
     document_text = extract_text_from_file(file_path)
 
     # Create the Document record
     doc = Document()
     doc.filename = filename
-    # file_key is relative to static/, e.g. "pdfs/filename.pdf"
+    # file_key is relative to static/, e.g. "pdfs/filename.pdf" or "pdfs/filename.docx"
     doc.file_key = f"pdfs/{filename}"
     doc.status = "PENDING"
     doc.partner_name = operator_name  # carry operator name for baseline lookup

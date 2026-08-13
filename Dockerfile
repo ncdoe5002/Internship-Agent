@@ -5,6 +5,8 @@ WORKDIR /app
     
 # 2. Install OS-level dependencies (Docling still needs these)
 # Note: we use DEBIAN_FRONTEND to prevent interactive prompts
+RUN apt-get update && apt-get install -y libreoffice
+
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential \
     libpq-dev \

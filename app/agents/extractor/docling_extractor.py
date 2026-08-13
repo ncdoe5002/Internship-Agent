@@ -23,8 +23,6 @@ MOCK_DOCLING = False
 
 # Global Converter Caching (used when MOCK_DOCLING = False)
 _global_converter = None
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
 
 def get_converter(use_ocr: bool):
     global _global_converter
@@ -43,7 +41,6 @@ def get_converter(use_ocr: bool):
             }
         )
     return _global_converter
-
 
 # Sample text extracted from Orange_IOT_Egypt 2024_sample_tobe_shared.pdf
 SAMPLE_DOCLING_MARKDOWN = """
@@ -95,7 +92,6 @@ Incremental rates (over allowance):
 - Etisalat Affiliates: EGYEM (Etisalat Misr), AFGEA, PAKUF
 """
 
-
 def read_pdf_text(filePath: str, use_ocr: bool = False) -> str:
     """Reads PDF layout using Docling with execution time tracking."""
     if MOCK_DOCLING:
@@ -115,71 +111,16 @@ def read_pdf_text(filePath: str, use_ocr: bool = False) -> str:
 
     return extracted_md
 
+def clean_and_parse_json(raw_text: str) -> dict:
+    """Helper to strip markdown fences and parse the JSON string."""
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.lstrip("`")
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.rstrip("`").strip()
+    return json.loads(cleaned)
 
-# def fill_fields(doc_text: str, API_KEY: str) -> dict:
-#     client = OpenAI(
-#         base_url="https://openrouter.ai/api/v1",
-#         api_key=API_KEY,
-#     )
-
-#     schema = json.dumps(IOTAgreement.model_json_schema(), indent=2)
-
-#     prompt = f"""
-#             You are extracting structured data from a telecom roaming agreement into a Pydantic schema.
-
-#             Return ONLY valid JSON.
-
-#             The JSON MUST strictly conform to this schema:
-#             {schema}
-
-#             CRITICAL EXTRACTION RULES:
-#             1. 'header': Extract metadata (parties, start_date, end_date, currency_code).
-#                - You MUST extract both start_date and end_date if mentioned or implied by period clauses.
-#                - Extract currency_code (e.g., 'EUR', 'USD'). If missing explicitly, infer from symbols (€ -> EUR, $ -> USD).
-#                - If 'agmt_id' is missing from document text, auto-generate as format: "{{sender}}-{{rp}}-{{start_date}}".
-#             2. 'normal_model': Array of service charging tiers (MOC/SMS/Data rate per min/SMS/MB).
-#                - Extract rate values into 'rate_val' and charge units into 'charge_field'.
-#             3. 'commitment': Array of fixed revenues, send-or-pay amounts, and volume allowances.
-#                - Separate monetary values into 'amount' and traffic caps into 'volume_value' / 'volume_unit'.
-#             4. Do not invent missing values; set absent non-required fields to null.
-
-#             Document Text:
-#             {doc_text}
-#             """
-
-#     t0 = time.time()
-#     response = client.chat.completions.create(
-#         model="openai/gpt-oss-20b:free",
-#         messages=[
-#             {
-#                 "role": "system",
-#                 "content": "You are a precise data extraction assistant. Always output valid raw JSON without markdown formatting.",
-#             },
-#             {"role": "user", "content": prompt},
-#         ],
-#         response_format={"type": "json_object"},
-#         max_tokens=8000,
-#     )
-#     print(f"[OpenRouter] LLM payload generation completed in {time.time() - t0:.2f}s")
-
-#     raw_response = response.choices[0].message.content
-#     if not raw_response:
-#         raise ValueError(f"Empty response from OpenRouter. Full response: {response}")
-
-#     try:
-#         cleaned_response = raw_response.strip()
-#         if cleaned_response.startswith("```"):
-#             cleaned_response = cleaned_response.lstrip("`")
-#             if cleaned_response.startswith("json"):
-#                 cleaned_response = cleaned_response[4:]
-#             cleaned_response = cleaned_response.rstrip("`").strip()
-
-#         return json.loads(cleaned_response)
-
-
-#     except json.JSONDecodeError as e:
-#         print(f"Failed to parse JSON from LLM: {raw_response}")
-#         raise e
 def fill_fields(doc_text: str, API_KEY: str) -> dict:
     schema = json.dumps(IOTAgreement.model_json_schema(), indent=2)
 
@@ -214,7 +155,7 @@ def fill_fields(doc_text: str, API_KEY: str) -> dict:
         - start_date / end_date: You MUST extract these if mentioned or implied by period clauses.
         - agmt_id: If the document contains an explicit agreement ID, reference number, or contract
         number, use that value. If NO explicit ID exists, you MUST auto-generate one using the
-        format: "{{sender}}-{{rp}}-{{start_date}}" (e.g., "Orange-Etisalat-2025-01-01")..
+        format: "{{sender}}-{{rp}}-{{start_date}}" (e.g., "Orange-Etisalat-2025-01-01").
         - remarks: General notes, governing clauses, or conflict resolution logs.
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -252,35 +193,83 @@ def fill_fields(doc_text: str, API_KEY: str) -> dict:
         {doc_text}
         """
 
-    t0 = time.time()
-    response = client.models.generate_content(
-        model="gemini-3.1-flash-lite",
-        contents=[prompt],
-        config=types.GenerateContentConfig(
-            temperature=0.1,
-            response_mime_type="application/json",
-        ),
+    # ---------------------------------------------------------
+    # ATTEMPT 1: LM STUDIO (LOCAL LLM) WITH RETRIES
+    # ---------------------------------------------------------
+    print("\n[LM Studio] Attempting extraction via local model...")
+    
+    # Uses host.docker.internal to punch through the Docker container to your host machine
+    lm_client = OpenAI(
+        base_url=os.getenv("LM_STUDIO_URL", "http://host.docker.internal:1234/v1"),
+        api_key="lm-studio" # API Key is ignored by LM Studio but required by the OpenAI client
     )
-    print(f"[Gemini] LLM payload generation completed in {time.time() - t0:.2f}s")
 
-    raw_response = response.text
-    if not raw_response:
-        raise ValueError(f"Empty response from Gemini. Full response: {response}")
+    # Define the temperatures to cycle through on each attempt
+    temperatures = [0.1, 0.4, 0.7]
+    lm_success = False
 
+    for attempt, temp in enumerate(temperatures, start=1):
+        try:
+            print(f"  -> Attempt {attempt}/3 (Temperature: {temp})...")
+            lm_t0 = time.time()
+            
+            response = lm_client.chat.completions.create(
+                model="local-model", # LM Studio automatically uses whatever is loaded
+                messages=[
+                    {"role": "system", "content": "You are a precise data extraction assistant. Output ONLY valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=temp,
+                max_tokens=16384,    # Increased token limit for large outputs
+                timeout=600.0        # Increased timeout to 10 minutes (600 seconds)
+            )
+            
+            raw_response = response.choices[0].message.content
+            if not raw_response:
+                raise ValueError("Empty response from LM Studio")
+                
+            parsed_data = clean_and_parse_json(raw_response)
+            print(f"[LM Studio] Success! Extraction completed in {time.time() - lm_t0:.2f}s")
+            
+            lm_success = True
+            return parsed_data # Exit the function entirely on success
+
+        except Exception as e:
+            print(f"  -> Attempt {attempt} failed: {str(e)}")
+            # The loop will automatically continue to the next temperature
+
+    # If the loop finishes and lm_success is still False, it falls through to Gemini
+    if not lm_success:
+        print("[Gemini] All LM Studio attempts failed. Initiating fallback extraction...")
+
+    # ---------------------------------------------------------
+    # ATTEMPT 2: GEMINI (FALLBACK)
+    # ---------------------------------------------------------
     try:
-        cleaned_response = raw_response.strip()
-        if cleaned_response.startswith("```"):
-            cleaned_response = cleaned_response.lstrip("`")
-            if cleaned_response.startswith("json"):
-                cleaned_response = cleaned_response[4:]
-            cleaned_response = cleaned_response.rstrip("`").strip()
+        gem_t0 = time.time()
+        gemini_client = genai.Client(api_key=API_KEY)
+        
+        response = gemini_client.models.generate_content(
+            model="gemini-3.1-flash-lite",
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.1,
+                response_mime_type="application/json",
+            ),
+        )
+        
+        raw_response = response.text
+        if not raw_response:
+            raise ValueError(f"Empty response from Gemini. Full response: {response}")
 
-        return json.loads(cleaned_response)
+        parsed_data = clean_and_parse_json(raw_response)
+        print(f"[Gemini] Success! Fallback extraction completed in {time.time() - gem_t0:.2f}s")
+        return parsed_data
 
     except json.JSONDecodeError as e:
-        print(f"Failed to parse JSON from LLM: {raw_response}")
+        print(f"Failed to parse JSON from Fallback LLM: {raw_response}")
         raise e
-
 
 def get_contents(filePath: str, use_ocr: bool, api_key: str):
     status_msg = (
@@ -295,8 +284,7 @@ def get_contents(filePath: str, use_ocr: bool, api_key: str):
         spinner.write("Text extraction completed")
 
     with yaspin(
-        # text="Generating structured JSON via OpenRouter...", color="cyan"
-        text="Generating structured JSON via GEMINI...",
+        text="Generating structured JSON via LLM...",
         color="cyan",
     ) as spinner:
         json_data = fill_fields(docling_dump, API_KEY=api_key)
