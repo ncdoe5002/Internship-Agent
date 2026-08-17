@@ -158,7 +158,7 @@
       <line x1="16" y1="17" x2="8" y2="17"></line>
       <polyline points="10 9 9 9 8 9"></polyline>
     </svg>
-    <h5>Submit Database Records <span class="text-muted ms-2 fw-normal">— Manager Review Queue</span></h5>
+    <h5>Submit Database Records <span class="text-muted ms-2">— Manager Review Queue</span></h5>
   </div>
 
   <!-- ==========================================
@@ -170,12 +170,11 @@
       <!-- Card Header: Summary Metadata -->
       <div class="data-card-header">
         <div>
-          <h5 class="mb-1 fw-bold text-dark">Extraction Summary</h5>
-          <div class="text-muted small">Generated on {{ date_today }} · Source: <strong>{{ document.filename }}</strong></div>
+          <h4 class="mb-1 fw-bold text-dark">Extraction Summary</h4>
+          <div class="text-muted small">Generated on {{ date_today }} · Source: {{ document.filename }}</div>
         </div>
-        <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 fs-6 rounded-pill">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          Ready for DB
+        <div class="badge bg-light border text-dark px-3 py-2 fs-6">
+          <span class="text-success fw-bold me-2">✓ Verified</span> Ready for DB
         </div>
       </div>
 
@@ -309,7 +308,6 @@
           </table>
         </div>
 
-      </div>
     </div>
   </div>
 
@@ -325,8 +323,10 @@
     <!-- Submit Form Payload -->
     <form action="{{ url_for('update.submit_to_db_route_name') }}" method="POST" class="m-0">
       <input type="hidden" name="document_id" value="{{ document.id }}">
-      <button type="submit" class="btn btn-danger-custom fw-semibold px-4 py-2 d-flex align-items-center shadow-sm">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+      <button type="submit" class="btn btn-danger-custom fw-semibold px-4 py-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
         Save to Database
       </button>
     </form>

@@ -1,5 +1,13 @@
 """
-Verification Agent - Validates extracted tariff data and calculates text grounding confidence.
+Verification Agent - Validates extracted tariff data.
+
+This agent performs validation checks on extracted tariff data to ensure
+data quality and completeness. It compares extracted data against baseline
+tables (if available) and returns a verification status with confidence scores.
+
+Usage:
+    agent = VerificationAgent()
+    result = agent.run(payload)
 """
 
 from __future__ import annotations
@@ -234,7 +242,7 @@ def flatten_header_values(extracted_tables: dict) -> dict:
     header = extracted_tables.get("AGMT_HEADER_STG", [])
     if not isinstance(header, list) or not header:
         return {}
-    
+
     flat = {}
     for row in header:
         if not isinstance(row, dict):
@@ -304,48 +312,58 @@ class VerificationAgent:
     def _validate_table_structure(self, tables_payload: dict) -> list[str]:
         """Performs structural integrity checks on extracted tables."""
         issues = []
-        tables = tables_payload.get("tables", [])
-
-        for t_idx, table in enumerate(tables):
-            title = table.get("title", f"Table #{t_idx + 1}")
+        currency_pattern = re.compile(r"^[\$€£¥]?\s*[\d,]+\.?\d*\s*[\$€£¥]?$")
+        rate_keywords = (
+            "rate",
+            "price",
+            "cost",
+            "tariff",
+            "amount",
+            "fee",
+            "charge",
+        )  # to check if any of these keywords match for the cost value
+        for table in tables.get("tables", []):
             headers = table.get("headers", [])
+            if isinstance(headers, list):
+                rate_indices = [
+                    idx
+                    for idx, header in enumerate(headers)
+                    if isinstance(header, str)
+                    and any(keyword in header.lower() for keyword in rate_keywords)
+                ]
+            else:
+                rate_indices = []
+
+            if not rate_indices and isinstance(headers, list) and len(headers) >= 2:
+                rate_indices = [1]
+
             rows = table.get("rows", [])
-
-            if not headers:
-                issues.append(f"Structural Issue: '{title}' missing column headers.")
-                continue
-
-            num_cols = len(headers)
-            for r_idx, row in enumerate(rows):
-                if len(row) != num_cols:
-                    issues.append(
-                        f"Structural Issue: Row {r_idx + 1} in '{title}' has {len(row)} columns, expected {num_cols}."
-                    )
-
-                for c_idx, cell in enumerate(row):
-                    if c_idx >= num_cols:
-                        break
-                    header_name = headers[c_idx].upper()
-
-                    if (
-                        header_name in NUMERIC_FIELDS
-                        and not self._check_currency_format(cell)
-                    ):
+            for row_idx, row in enumerate(rows):
+                if not isinstance(row, list):
+                    continue
+                for col_idx in rate_indices:
+                    if col_idx >= len(row):
+                        continue
+                    cell = row[col_idx]
+                    if cell is None or str(cell).strip() == "":
+                        continue
+                    if not currency_pattern.match(str(cell).strip()):
                         issues.append(
-                            f"Format Issue: Invalid numeric value '{cell}' for column '{headers[c_idx]}' in row {r_idx + 1}."
+                            f"Table '{table.get('title', 'Untitled')}', row {row_idx}, "
+                            f"column {col_idx}: Invalid currency format '{cell}'"
                         )
+        return len(issues) == 0, issues
 
-                    if header_name in DATE_FIELDS and not self._check_date_format(cell):
-                        issues.append(
-                            f"Format Issue: Invalid date format '{cell}' for column '{headers[c_idx]}' in row {r_idx + 1}."
-                        )
+    def _check_effective_date(self, tables: dict) -> tuple[bool, list[str]]:
+        """
+           Checks for all the date formats
 
-        return issues
+        Args:
+            tables (dict): checks for date in the tables
 
-    def _check_baseline_variances(
-        self, extracted_tables: dict, baseline_tables: dict | None
-    ) -> list[str]:
-        """Compares extracted data against baseline tables if present."""
+        Returns:
+            tuple[bool, list[str]]: Returns a boolean if date are matching and present and issues like
+        """
         issues = []
         if not baseline_tables:
             return issues
@@ -358,7 +376,7 @@ class VerificationAgent:
     ) -> list[str]:
         """Detects discrepancies between narrative text and table values for commitment amounts."""
         issues: list[str] = []
-        
+
         # Handle both staging schema and generic tables schema
         commitment_rows = []
         if "AGMT_COMMITMENT" in extracted_tables:
@@ -367,7 +385,7 @@ class VerificationAgent:
                 commitment_rows = commitment_data
         else:
             commitment_rows = flatten_commitment_rows(extracted_tables)
-        
+
         if not commitment_rows:
             return issues
 
@@ -419,7 +437,9 @@ class VerificationAgent:
     ) -> list[str]:
         """Detects mismatches between digit figures and parenthetical spelled-out numbers."""
         issues: list[str] = []
-        pattern = re.compile(r"(?:EUR|€)\s*([\d,]+(?:\.\d+)?)\s*\(([^)]+)\)", re.IGNORECASE)
+        pattern = re.compile(
+            r"(?:EUR|€)\s*([\d,]+(?:\.\d+)?)\s*\(([^)]+)\)", re.IGNORECASE
+        )
         for match in pattern.finditer(raw_doc_text):
             digit_str, word_str = match.group(1), match.group(2)
             digit_val = try_parse_number(digit_str)
@@ -447,7 +467,7 @@ class VerificationAgent:
         the staging schema, since extraction is out of scope here."""
         issues: list[str] = []
         header_row = {}
-        
+
         # Handle both staging schema and generic tables schema
         if "AGMT_HEADER_STG" in tables_payload:
             # Staging schema format
@@ -518,7 +538,7 @@ class VerificationAgent:
         if commit_value is None or str(commit_value).strip() in ("", "null"):
             # Check if commitment rows exist with AMOUNT values
             commitment_rows = []
-            
+
             if "AGMT_COMMITMENT" in tables_payload:
                 # Staging schema format
                 commitment_data = tables_payload.get("AGMT_COMMITMENT", [])
@@ -532,14 +552,14 @@ class VerificationAgent:
                         rows = table.get("rows", [])
                         for row in rows:
                             commitment_rows.append(dict(zip(headers, row)))
-            
+
             if commitment_rows:
                 total_commitment = 0.0
                 for row in commitment_rows:
                     amount = try_parse_number(row.get("AMOUNT"))
                     if amount is not None:
                         total_commitment += amount
-                
+
                 if total_commitment > 0:
                     issues.append(
                         f"Mapping Issue: AGMT_HEADER_STG.COMMIT_VALUE is null, but "
@@ -647,10 +667,13 @@ class VerificationAgent:
         return avg_score, issues, field_details
 
     def run(self, payload: VerificationAgentInput) -> VerificationResult:
-        tables_exist = bool(payload.extracted_tables.get("tables"))
+        checks = []
         issues = []
-        checks = ["Tables extracted"]
+        check_results = {}
 
+        tables_exist = bool(payload.extracted_tables.get("tables"))
+        check_results["tables_extracted"] = tables_exist
+        checks.append("Tables extracted")
         if not tables_exist:
             issues.append("No tables were extracted from the document")
             return VerificationResult(

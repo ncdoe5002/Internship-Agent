@@ -1,31 +1,14 @@
 import os
 
 from flask import Flask
-from .extensions import celery_app
+
 from .extensions import db, login_manager, migrate
+
 
 def create_app():
     app = Flask(__name__)
 
     app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-local-key")
-
-    # --- GUARANTEED CELERY CONFIGURATION ---
-    # This ensures Gunicorn and the Celery worker both read the Redis URL
-    celery_app.conf.update(
-        broker_url=app.config.get("CELERY_BROKER_URL", "redis://redis:6379/0"),
-        result_backend=app.config.get("CELERY_RESULT_BACKEND", "redis://redis:6379/0"),
-        task_serializer="json",
-        result_serializer="json",
-        accept_content=["json"],
-    )
-
-    class ContextTask(celery_app.Task):
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return self.run(*args, **kwargs)
-
-    celery_app.Task = ContextTask
-    # ---------------------------------------
 
     # ── Configuration ────────────────────────────────────────────
     app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -49,11 +32,13 @@ def create_app():
 
     # ── Register blueprints ───────────────────────────────────────
     from .blueprints.auth import auth_bp
+    from .blueprints.jobs import jobs_bp
     from .blueprints.update import update_bp
     from .blueprints.dashboard import dashboard_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(update_bp)
+    app.register_blueprint(jobs_bp)
 
     return app
