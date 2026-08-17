@@ -1,12 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- ==========================================
+       DOCUMENT METADATA & TITLE
+       ========================================== -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Processing Terminal - EDCH</title>
+  
+  <!-- ==========================================
+       CUSTOM INTERNAL STYLES
+       ========================================== -->
   <style>
-    /* Reset & Base Styles */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* -------------------------------------------
+       1. Base & Reset
+       ------------------------------------------- */
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #6c6e6f; 
@@ -17,6 +31,8 @@
       color: #f8fafc;
       flex-direction: column;
     }
+
+    /* Main Content Wrapper */
     .container { 
       width: 100%; 
       max-width: 750px; 
@@ -26,12 +42,40 @@
       align-items: center; 
     }
 
-    /* Spinner Styles */
-    .spinner-wrapper { position: relative; width: 56px; height: 56px; margin-bottom: 20px; transition: opacity 0.3s; }
-    .spinner-wrapper.hidden { opacity: 0; pointer-events: none; }
-    .spinner-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid #334155; }
-    .spinner-progress { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: #ef4444; animation: spin 1s linear infinite; }
-    
+    /* -------------------------------------------
+       2. Loading Spinner Animations
+       ------------------------------------------- */
+    .spinner-wrapper { 
+      position: relative; 
+      width: 56px; 
+      height: 56px; 
+      margin-bottom: 20px; 
+      transition: opacity 0.3s; 
+    }
+    .spinner-wrapper.hidden { 
+      opacity: 0; 
+      pointer-events: none; 
+    }
+    .spinner-bg { 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      border-radius: 50%; 
+      border: 2px solid #334155; 
+    }
+    .spinner-progress { 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      border-radius: 50%; 
+      border: 2px solid transparent; 
+      border-top-color: #ef4444; 
+      animation: spin 1s linear infinite; 
+    }
     .logo-center { 
       position: absolute; 
       top: 50%; 
@@ -42,16 +86,34 @@
       object-fit: contain;
     }
 
-    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes spin { 
+      100% { transform: rotate(360deg); } 
+    }
 
-    /* Typography */
-    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 6px; color: #f1f5f9; text-align: center; }
-    .filename { font-family: ui-monospace, monospace; font-size: 0.85rem; color: #94a3b8; margin-bottom: 24px; }
+    /* -------------------------------------------
+       3. Typography
+       ------------------------------------------- */
+    h1 { 
+      font-size: 1.4rem; 
+      font-weight: 600; 
+      margin-bottom: 6px; 
+      color: #f1f5f9; 
+      text-align: center; 
+    }
+    .filename { 
+      font-family: ui-monospace, monospace; 
+      font-size: 0.85rem; 
+      color: #94a3b8; 
+      margin-bottom: 24px; 
+    }
 
-    /* Terminal Window Card */
+    /* -------------------------------------------
+       4. Terminal UI Mockup
+       ------------------------------------------- */
+    /* Main Terminal Card (Catppuccin / VSCode Dark theme) */
     .terminal-card {
       width: 100%;
-      background-color: #1e1e2e; /* Catppuccin / VSCode Dark theme */
+      background-color: #1e1e2e; 
       border-radius: 10px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
       border: 1px solid #313244;
@@ -60,7 +122,7 @@
       flex-direction: column;
     }
 
-    /* Terminal Header Bar */
+    /* macOS-style Header Bar */
     .terminal-header {
       background-color: #181825;
       padding: 10px 16px;
@@ -70,7 +132,12 @@
       border-bottom: 1px solid #313244;
       user-select: none;
     }
-    .window-button { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .window-button { 
+      width: 12px; 
+      height: 12px; 
+      border-radius: 50%; 
+      display: inline-block; 
+    }
     .btn-close { background-color: #f38ba8; }
     .btn-minimize { background-color: #f9e2af; }
     .btn-maximize { background-color: #a6e3a1; }
@@ -82,7 +149,7 @@
       margin-right: auto;
     }
 
-    /* Terminal Screen Area */
+    /* Terminal Output Area */
     .terminal-body {
       padding: 16px;
       height: 320px;
@@ -97,9 +164,18 @@
       gap: 6px;
     }
 
-    /* Terminal Log Line Styling */
-    .log-line { display: flex; align-items: flex-start; gap: 8px; word-break: break-word; }
-    .log-time { color: #585b70; flex-shrink: 0; font-size: 0.75rem; }
+    /* Log Entry Elements */
+    .log-line { 
+      display: flex; 
+      align-items: flex-start; 
+      gap: 8px; 
+      word-break: break-word; 
+    }
+    .log-time { 
+      color: #585b70; 
+      flex-shrink: 0; 
+      font-size: 0.75rem; 
+    }
     .log-badge {
       font-size: 0.7rem;
       font-weight: 700;
@@ -109,7 +185,7 @@
       flex-shrink: 0;
     }
     
-    /* Log Types */
+    /* Log Severity Modifiers */
     .badge-info { background-color: #313244; color: #89b4fa; }
     .badge-success { background-color: #274d35; color: #a6e3a1; }
     .badge-error { background-color: #5c232c; color: #f38ba8; }
@@ -120,8 +196,14 @@
     .text-error { color: #f38ba8; }
     .text-warn { color: #f9e2af; }
 
-    /* Flashing Prompt Cursor */
-    .terminal-prompt { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: #89b4fa; }
+    /* Blinking Cursor Indicator */
+    .terminal-prompt { 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+      margin-top: 4px; 
+      color: #89b4fa; 
+    }
     .cursor {
       display: inline-block;
       width: 8px;
@@ -129,15 +211,22 @@
       background-color: #89b4fa;
       animation: blink 1s infinite;
     }
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    @keyframes blink { 
+      0%, 100% { opacity: 1; } 
+      50% { opacity: 0; } 
+    }
 
-    /* Custom Scrollbar for Terminal */
+    /* -------------------------------------------
+       5. Custom Scrollbar (Webkit)
+       ------------------------------------------- */
     .terminal-body::-webkit-scrollbar { width: 8px; }
     .terminal-body::-webkit-scrollbar-track { background: #11111b; }
     .terminal-body::-webkit-scrollbar-thumb { background: #313244; border-radius: 4px; }
     .terminal-body::-webkit-scrollbar-thumb:hover { background: #45475a; }
 
-    /* Skip Button */
+    /* -------------------------------------------
+       6. Action Buttons
+       ------------------------------------------- */
     .skip-button {
       margin-top: 24px;
       padding: 10px 20px;
@@ -162,20 +251,29 @@
 </head>
 <body>
 
-  <!-- Hidden data element to pass the doc ID cleanly to JS -->
+  <!-- ==========================================
+       APPLICATION CONTEXT
+       Hidden data element to pass the doc ID cleanly to JS 
+       ========================================== -->
   <meta id="doc-data" data-doc-id="{{ document.id }}">
 
+  <!-- ==========================================
+       MAIN LAYOUT CONTAINER
+       ========================================== -->
   <div class="container">
+    
+    <!-- Loading Status Indicator -->
     <div class="spinner-wrapper" id="main-spinner">
       <div class="spinner-bg"></div>
       <div class="spinner-progress"></div>
       <img src="{{ url_for('static', filename='images/Logo-EDCH.png') }}" alt="EDCH Logo" class="logo-center">
     </div>
     
+    <!-- Title & Metadata -->
     <h1 id="main-title">Worker Execution Pipeline</h1>
     <p class="filename" id="file-name-display"></p>
 
-    <!-- Terminal UI Component -->
+    <!-- Terminal Console View -->
     <div class="terminal-card">
       <div class="terminal-header">
         <span class="window-button btn-close"></span>
@@ -184,11 +282,11 @@
         <span class="terminal-title">celery-worker@edch-engine:~ (GPU: RTX 4050)</span>
       </div>
       <div class="terminal-body" id="terminal-body">
-        <!-- Live logs will be dynamically injected here -->
+        <!-- Live logs will be dynamically injected here by JS -->
       </div>
     </div>
 
-    <!-- Skip Button -->
+    <!-- User Action: Skip Rendering -->
     <a href="/update/extracted/{{ document.id }}" class="skip-button">
       Skip to Extracted Data
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -198,14 +296,26 @@
     </a>
   </div>
 
+  <!-- ==========================================
+       APPLICATION LOGIC
+       ========================================== -->
   <script>
+    /**
+     * Manages the visual state and DOM updates for the simulated Terminal UI.
+     */
     class TerminalLoggerUI {
+      /**
+       * Initialize the UI manager with required DOM element IDs.
+       * @param {Object} config - Configuration object mapping to DOM IDs and static data.
+       */
       constructor(config) {
+        // Cache DOM nodes for performance
         this.terminalBody = document.getElementById(config.terminalBodyId);
         this.titleElement = document.getElementById(config.titleElementId);
         this.spinnerElement = document.getElementById(config.spinnerElementId);
         this.fileNameElement = document.getElementById(config.fileNameElementId);
         
+        // State variables
         this.fileNameElement.textContent = config.fileName || 'document.pdf';
         this.seenStepIndex = -1;
 
@@ -218,42 +328,61 @@
           4: "Persisting validated agreement data to PostgreSQL database..."
         };
 
+        // Boot up initial terminal state
         this.initTerminal();
       }
 
+      /**
+       * Bootstrap the terminal with initial connection strings and prompt cursor.
+       */
       initTerminal() {
         this.appendLog("Celery worker process initialized. Listening for tasks...", "info");
         this.appendLog(`Target file acquired: ${this.fileNameElement.textContent}`, "info");
         this.addPromptLine();
       }
 
+      /**
+       * Returns current local time formatted as HH:MM:SS.
+       * @returns {string} Formatted timestamp.
+       */
       getFormattedTime() {
         const now = new Date();
         return now.toTimeString().split(' ')[0];
       }
 
+      /**
+       * Injects a new formatted log line into the terminal window.
+       * @param {string} message - The output message text.
+       * @param {string} level - Severity level (info, warn, error, success). Dictates styling.
+       */
       appendLog(message, level = "info") {
-        // Remove prompt line temporarily to append text above it
+        // Temporarily remove the blinking prompt to append new logs above it
         const existingPrompt = this.terminalBody.querySelector('.terminal-prompt');
         if (existingPrompt) existingPrompt.remove();
 
+        // Construct log row container
         const line = document.createElement('div');
         line.className = 'log-line';
         
+        // Build sub-components using template literals
         const timeSpan = `<span class="log-time">[${this.getFormattedTime()}]</span>`;
         const badgeSpan = `<span class="log-badge badge-${level}">${level}</span>`;
         const messageSpan = `<span class="text-${level}">${message}</span>`;
         
+        // Assemble and append to DOM
         line.innerHTML = `${timeSpan} ${badgeSpan} ${messageSpan}`;
         this.terminalBody.appendChild(line);
 
-        // Re-add prompt cursor line at bottom
+        // Re-append the active cursor prompt to the bottom
         this.addPromptLine();
 
-        // Auto-scroll to bottom
+        // Ensure the terminal automatically scrolls to the newest entry
         this.terminalBody.scrollTop = this.terminalBody.scrollHeight;
       }
 
+      /**
+       * Appends the interactive shell prompt with blinking cursor animation.
+       */
       addPromptLine() {
         const prompt = document.createElement('div');
         prompt.className = 'terminal-prompt';
@@ -261,6 +390,11 @@
         this.terminalBody.appendChild(prompt);
       }
 
+      /**
+       * Safely logs a step transition, ensuring the same step is not logged twice.
+       * @param {number} stepIndex - The current execution step provided by the backend.
+       * @param {string|null} customMessage - Optional message string to override the default map.
+       */
       processStepUpdate(stepIndex, customMessage = null) {
         if (stepIndex > this.seenStepIndex) {
           this.seenStepIndex = stepIndex;
@@ -269,6 +403,11 @@
         }
       }
 
+      /**
+       * Transitions the UI from 'Processing' state to 'Completed' state.
+       * @param {string} finalTitle - Text to display in the main H1.
+       * @param {boolean} isSuccess - Determines whether to show a success or error configuration.
+       */
       completeProcess(finalTitle = "Processing Complete", isSuccess = true) {
         this.titleElement.textContent = finalTitle;
         this.spinnerElement.classList.add('hidden');
@@ -281,11 +420,15 @@
       }
     }
 
-    // Grab doc_id from meta tag
+    // ==========================================
+    // INITIALIZATION & DATA BINDING
+    // ==========================================
+
+    // Extract Context Data
     const docDataElement = document.getElementById('doc-data');
     const docId = parseInt(docDataElement.dataset.docId, 10);
 
-    // Initialize Terminal Logger
+    // Instantiate Logger UI
     const terminalUI = new TerminalLoggerUI({
       terminalBodyId: 'terminal-body',
       titleElementId: 'main-title',
@@ -294,24 +437,35 @@
       fileName: '{{ document.filename }}'
     });
 
-    // Start Polling Loop
+    // ==========================================
+    // POLLING ENGINE (Background Task Monitor)
+    // ==========================================
+    
+    /**
+     * Periodically queries the backend status endpoint to monitor Celery task progress.
+     */
     const pollInterval = setInterval(async () => {
       try {
         const response = await fetch(`/api/update/${docId}/status`);
         const data = await response.json();
         
-        // Log custom message if API provides one, or fall back to step index
+        // Route payload data to the UI terminal
         if (data.current_step !== undefined) {
           terminalUI.processStepUpdate(data.current_step, data.message || null);
         } else if (data.message) {
           terminalUI.appendLog(data.message, "info");
         }
 
+        // Handle Pipeline Completion States
         if (data.status === 'READY' || data.status === 'REVIEW') {
+          // Success State
           clearInterval(pollInterval);
           terminalUI.completeProcess("Analysis Finished", true);
+          // Allow user brief moment to read success message before redirect
           setTimeout(() => { window.location.href = `/update/extracted/${docId}`; }, 1200);
+          
         } else if (data.status === 'FAILED' || data.status === 'ERROR') {
+          // Error State
           clearInterval(pollInterval);
           if (data.error) {
             terminalUI.appendLog(`Error details: ${data.error}`, "error");
@@ -319,9 +473,10 @@
           terminalUI.completeProcess("Worker Failed", false);
         }
       } catch (error) {
+        // Network/Fetch errors
         terminalUI.appendLog(`Network warning: ${error.message}`, "warn");
       }
-    }, 2000);
+    }, 2000); // Poll every 2 seconds
   </script>
 </body>
 </html>

@@ -1,12 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- ==========================================
+       DOCUMENT METADATA
+       ========================================== -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Database Publish Status - EDCH</title>
+
+  <!-- ==========================================
+       STYLESHEETS
+       ========================================== -->
   <style>
-    /* Reset & Base Styles */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* -------------------------------------------
+       1. Base & Reset
+       ------------------------------------------- */
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #626363; /* Slate 900 */
@@ -17,6 +31,10 @@
       color: #f8fafc;
       flex-direction: column;
     }
+
+    /* -------------------------------------------
+       2. Layout Containers
+       ------------------------------------------- */
     .container { 
       width: 100%; 
       max-width: 750px; 
@@ -26,12 +44,41 @@
       align-items: center; 
     }
 
-    /* Spinner Styles */
-    .spinner-wrapper { position: relative; width: 56px; height: 56px; margin-bottom: 20px; transition: opacity 0.3s; }
-    .spinner-wrapper.hidden { opacity: 0; pointer-events: none; display: none; }
-    .spinner-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid #334155; }
-    .spinner-progress { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: #10b981; animation: spin 1s linear infinite; }
-    
+    /* -------------------------------------------
+       3. Components: Loading Spinner
+       ------------------------------------------- */
+    .spinner-wrapper { 
+      position: relative; 
+      width: 56px; 
+      height: 56px; 
+      margin-bottom: 20px; 
+      transition: opacity 0.3s; 
+    }
+    .spinner-wrapper.hidden { 
+      opacity: 0; 
+      pointer-events: none; 
+      display: none; 
+    }
+    .spinner-bg { 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      border-radius: 50%; 
+      border: 2px solid #334155; 
+    }
+    .spinner-progress { 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      border-radius: 50%; 
+      border: 2px solid transparent; 
+      border-top-color: #10b981; 
+      animation: spin 1s linear infinite; 
+    }
     .logo-center { 
       position: absolute; 
       top: 50%; 
@@ -42,14 +89,33 @@
       object-fit: contain;
     }
 
-    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes spin { 
+      100% { transform: rotate(360deg); } 
+    }
 
-    /* Typography */
-    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 6px; color: #f1f5f9; text-align: center; }
+    /* -------------------------------------------
+       4. Typography
+       ------------------------------------------- */
+    h1 { 
+      font-size: 1.4rem; 
+      font-weight: 600; 
+      margin-bottom: 6px; 
+      color: #f1f5f9; 
+      text-align: center; 
+    }
     h1.success-text { color: #a6e3a1; }
-    .subtitle { font-family: ui-monospace, monospace; font-size: 0.85rem; color: #94a3b8; margin-bottom: 24px; }
+    
+    .subtitle { 
+      font-family: ui-monospace, monospace; 
+      font-size: 0.85rem; 
+      color: #94a3b8; 
+      margin-bottom: 24px; 
+    }
 
-    /* Terminal Window Card */
+    /* -------------------------------------------
+       5. Components: Terminal UI Mockup
+       ------------------------------------------- */
+    /* Main Terminal Container */
     .terminal-card {
       width: 100%;
       background-color: #1e1e2e; 
@@ -61,7 +127,7 @@
       flex-direction: column;
     }
 
-    /* Terminal Header Bar */
+    /* macOS-style Header Bar */
     .terminal-header {
       background-color: #181825;
       padding: 10px 16px;
@@ -71,10 +137,16 @@
       border-bottom: 1px solid #313244;
       user-select: none;
     }
-    .window-button { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .window-button { 
+      width: 12px; 
+      height: 12px; 
+      border-radius: 50%; 
+      display: inline-block; 
+    }
     .btn-close { background-color: #f38ba8; }
     .btn-minimize { background-color: #f9e2af; }
     .btn-maximize { background-color: #a6e3a1; }
+    
     .terminal-title {
       font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
       font-size: 0.75rem;
@@ -83,7 +155,7 @@
       margin-right: auto;
     }
 
-    /* Terminal Screen Area */
+    /* Terminal Console Area */
     .terminal-body {
       padding: 16px;
       height: 320px;
@@ -98,9 +170,18 @@
       gap: 6px;
     }
 
-    /* Terminal Log Line Styling */
-    .log-line { display: flex; align-items: flex-start; gap: 8px; word-break: break-word; }
-    .log-time { color: #585b70; flex-shrink: 0; font-size: 0.75rem; }
+    /* Log Entry Elements */
+    .log-line { 
+      display: flex; 
+      align-items: flex-start; 
+      gap: 8px; 
+      word-break: break-word; 
+    }
+    .log-time { 
+      color: #585b70; 
+      flex-shrink: 0; 
+      font-size: 0.75rem; 
+    }
     .log-badge {
       font-size: 0.7rem;
       font-weight: 700;
@@ -110,7 +191,7 @@
       flex-shrink: 0;
     }
     
-    /* Log Types */
+    /* Log Severity Modifiers */
     .badge-info { background-color: #313244; color: #89b4fa; }
     .badge-success { background-color: #274d35; color: #a6e3a1; }
     .badge-warn { background-color: #5c4d23; color: #f9e2af; }
@@ -119,8 +200,14 @@
     .text-success { color: #a6e3a1; }
     .text-warn { color: #f9e2af; }
 
-    /* Flashing Prompt Cursor */
-    .terminal-prompt { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: #89b4fa; }
+    /* Blinking Cursor Indicator */
+    .terminal-prompt { 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+      margin-top: 4px; 
+      color: #89b4fa; 
+    }
     .cursor {
       display: inline-block;
       width: 8px;
@@ -128,15 +215,22 @@
       background-color: #89b4fa;
       animation: blink 1s infinite;
     }
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    @keyframes blink { 
+      0%, 100% { opacity: 1; } 
+      50% { opacity: 0; } 
+    }
 
-    /* Custom Scrollbar for Terminal */
+    /* -------------------------------------------
+       6. Custom Scrollbar (Webkit)
+       ------------------------------------------- */
     .terminal-body::-webkit-scrollbar { width: 8px; }
     .terminal-body::-webkit-scrollbar-track { background: #11111b; }
     .terminal-body::-webkit-scrollbar-thumb { background: #313244; border-radius: 4px; }
     .terminal-body::-webkit-scrollbar-thumb:hover { background: #45475a; }
 
-    /* Return Button */
+    /* -------------------------------------------
+       7. Components: Call to Action Button
+       ------------------------------------------- */
     .return-button {
       margin-top: 24px;
       padding: 12px 24px;
@@ -148,7 +242,7 @@
       font-weight: 600;
       text-decoration: none;
       transition: all 0.2s ease;
-      display: none; /* Hidden until completion */
+      display: none; /* Hidden during processing */
       align-items: center;
       gap: 8px;
     }
@@ -160,7 +254,12 @@
 </head>
 <body>
 
+  <!-- ==========================================
+       MAIN APPLICATION CONTAINER
+       ========================================== -->
   <div class="container">
+    
+    <!-- Header & Loading Indicator -->
     <div class="spinner-wrapper" id="main-spinner">
       <div class="spinner-bg"></div>
       <div class="spinner-progress"></div>
@@ -170,20 +269,24 @@
     <h1 id="main-title">Publishing to Production</h1>
     <p class="subtitle" id="subtitle-display">Migrating Document ID: {{ document.id }}</p>
 
-    <!-- Terminal UI Component -->
+    <!-- Terminal Output View -->
     <div class="terminal-card">
+      
+      <!-- Terminal Controls Mockup -->
       <div class="terminal-header">
         <span class="window-button btn-close"></span>
         <span class="window-button btn-minimize"></span>
         <span class="window-button btn-maximize"></span>
         <span class="terminal-title">postgres-admin@production-db:~ (Schema: PROD)</span>
       </div>
+      
+      <!-- Live Log Output Area -->
       <div class="terminal-body" id="terminal-body">
-        <!-- Live logs will be dynamically injected here -->
+        <!-- Live logs will be dynamically injected here via JavaScript -->
       </div>
     </div>
 
-    <!-- Success Return Button -->
+    <!-- Final Success Action -->
     <a href="{{ url_for('dashboard.index') }}" class="return-button" id="return-btn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -193,50 +296,80 @@
     </a>
   </div>
 
+  <!-- ==========================================
+       APPLICATION LOGIC & SCRIPTS
+       ========================================== -->
   <script>
+    /**
+     * Manages the visual state and DOM updates for the simulated Terminal UI.
+     */
     class TerminalLoggerUI {
+      /**
+       * Initialize the UI manager with required DOM element IDs.
+       * @param {Object} config - Configuration object mapping to DOM IDs.
+       */
       constructor(config) {
+        // Cache DOM nodes for performance
         this.terminalBody = document.getElementById(config.terminalBodyId);
         this.titleElement = document.getElementById(config.titleElementId);
         this.subtitleElement = document.getElementById(config.subtitleElementId);
         this.spinnerElement = document.getElementById(config.spinnerElementId);
         this.returnBtn = document.getElementById(config.returnBtnId);
         
+        // Boot up initial terminal state
         this.initTerminal();
       }
 
+      /**
+       * Bootstrap the terminal with connection strings and prompt cursor.
+       */
       initTerminal() {
         this.appendLog("Establishing secure connection to PostgreSQL production cluster...", "info");
         this.addPromptLine();
       }
 
+      /**
+       * Returns current local time formatted as HH:MM:SS.
+       * @returns {string} Formatted timestamp.
+       */
       getFormattedTime() {
         const now = new Date();
         return now.toTimeString().split(' ')[0];
       }
 
+      /**
+       * Injects a new formatted log line into the terminal window.
+       * @param {string} message - The output message text.
+       * @param {string} level - Severity level (info, warn, success). Dictates styling.
+       */
       appendLog(message, level = "info") {
-        // Remove prompt line temporarily to append text above it
+        // Temporarily remove the blinking prompt to append new logs above it
         const existingPrompt = this.terminalBody.querySelector('.terminal-prompt');
         if (existingPrompt) existingPrompt.remove();
 
+        // Construct log row container
         const line = document.createElement('div');
         line.className = 'log-line';
         
+        // Build sub-components using template literals
         const timeSpan = `<span class="log-time">[${this.getFormattedTime()}]</span>`;
         const badgeSpan = `<span class="log-badge badge-${level}">${level}</span>`;
         const messageSpan = `<span class="text-${level}">${message}</span>`;
         
+        // Assemble and append to DOM
         line.innerHTML = `${timeSpan} ${badgeSpan} ${messageSpan}`;
         this.terminalBody.appendChild(line);
 
-        // Re-add prompt cursor line at bottom
+        // Re-append the active cursor prompt to the bottom
         this.addPromptLine();
 
-        // Auto-scroll to bottom
+        // Ensure the terminal automatically scrolls to the newest entry
         this.terminalBody.scrollTop = this.terminalBody.scrollHeight;
       }
 
+      /**
+       * Appends the interactive shell prompt with blinking cursor animation.
+       */
       addPromptLine() {
         const prompt = document.createElement('div');
         prompt.className = 'terminal-prompt';
@@ -244,18 +377,31 @@
         this.terminalBody.appendChild(prompt);
       }
 
+      /**
+       * Transitions the UI from 'Processing' state to 'Completed' state.
+       * @param {string} finalTitle - Text to display in the main H1.
+       * @param {string} finalSubtitle - Text to display below the H1.
+       */
       completeProcess(finalTitle, finalSubtitle) {
+        // Update header typography
         this.titleElement.textContent = finalTitle;
         this.titleElement.classList.add('success-text');
         this.subtitleElement.textContent = finalSubtitle;
+        
+        // Toggle component visibility
         this.spinnerElement.classList.add('hidden');
         this.returnBtn.style.display = 'inline-flex';
         
+        // Append final confirmation to terminal
         this.appendLog("All records have been securely moved to production.", "success");
       }
     }
 
-    // Initialize Terminal Logger
+    // ==========================================
+    // EXECUTION & INITIALIZATION
+    // ==========================================
+
+    // Instantiate Logger UI
     const terminalUI = new TerminalLoggerUI({
       terminalBodyId: 'terminal-body',
       titleElementId: 'main-title',
@@ -264,7 +410,7 @@
       returnBtnId: 'return-btn'
     });
 
-    // Simulated Database Publishing Steps
+    // Mock data payload representing background database operations
     const publishSteps = [
       { msg: "Validating signed report constraints and Manager signatures...", level: "warn" },
       { msg: "Migrating AGMT_HEADER_STG & AGMT_MODELS_STG records...", level: "info" },
@@ -276,17 +422,22 @@
 
     let currentStep = 0;
     
-    // Process steps exactly like the old progress bar, but in the terminal
+    /**
+     * Simulation Engine
+     * Executes the simulated steps sequentially on a fixed timer.
+     */
     const simulateProgress = setInterval(() => {
       if (currentStep < publishSteps.length) {
+        // Render next step in queue
         const step = publishSteps[currentStep];
         terminalUI.appendLog(step.msg, step.level);
         currentStep++;
       } else {
+        // Sequence completed: Kill timer and transition UI
         clearInterval(simulateProgress);
         terminalUI.completeProcess("Successfully Published!", "Database migration complete.");
       }
-    }, 1200); // 1.2 seconds per step
+    }, 1200); // Progress advances every 1.2 seconds
 
   </script>
 </body>

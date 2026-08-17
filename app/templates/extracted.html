@@ -1,16 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- ==========================================
+       DOCUMENT METADATA & TITLE
+       ========================================== -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Extracted Data Review</title>
+
+  <!-- ==========================================
+       EXTERNAL STYLESHEETS
+       ========================================== -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- ==========================================
+       CUSTOM INTERNAL STYLES
+       ========================================== -->
   <style>
+    /* Global Reset & Base */
     body { margin: 0; height: 100vh; overflow: hidden; background-color: #1e1e1e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    
+    /* Split Layout Structure */
     .split-layout { display: flex; height: 100vh; width: 100vw; }
     .pane-left { width: 50%; height: 100%; display: flex; flex-direction: column; border-right: 2px solid #000; position: relative; }
+    .pane-right { width: 50%; height: 100%; background-color: #f8fafc; display: flex; flex-direction: column; position: relative; }
     .doc-viewer { flex: 1; display: flex; flex-direction: column; background-color: #d1d5db; overflow: hidden; position: relative; }
 
+    /* Drag-to-Resize Elements */
     .resizer { height: 8px; background-color: #111; cursor: ns-resize; width: 100%; z-index: 50; display: flex; justify-content: center; align-items: center; transition: background-color 0.2s ease; }
     .resizer:hover, .resizer:active { background-color: #ef4444; }
     .resizer::after { content: ""; width: 40px; height: 2px; background-color: #6b7280; border-radius: 2px; }
@@ -18,60 +34,76 @@
     .resizer-vertical:hover, .resizer-vertical:active { background-color: #ef4444; }
     .resizer-vertical::after { content: ""; height: 40px; width: 2px; background-color: #6b7280; border-radius: 2px; }
 
+    /* Headers & Status Badges */
     .doc-header { padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; font-weight: 600; color: #fff; z-index: 10; }
     .doc-header.proposed { background-color: #211818; }
     .doc-header.on-file { background-color: #1a2421; }
-
     .badge-status { padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px; }
     .badge-proposed { background-color: #4a1f1f; color: #fca5a5; }
     .badge-onfile { background-color: #1f3a2e; color: #6ee7b7; }
 
-    .pane-right { width: 50%; height: 100%; background-color: #f8fafc; display: flex; flex-direction: column; position: relative; }
+    /* Right Pane Data Header & Confidence Widget */
     .data-header { background-color: #1e1e1e; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; z-index: 10; }
     .confidence-widget { background: white; color: #111; border-radius: 8px; padding: 6px 14px; display: flex; align-items: center; gap: 12px; }
     .circle-score { width: 32px; height: 32px; border-radius: 50%; border: 3px solid #10b981; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: #10b981; }
 
+    /* Scrollable Data Body */
     .data-body { flex: 1; overflow-y: auto; padding: 24px; padding-bottom: 100px; }
     .data-body::-webkit-scrollbar { width: 8px; }
     .data-body::-webkit-scrollbar-track { background: #f8fafc; }
     .data-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .data-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+    /* Data Cards & Typography */
     .data-card { background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 24px; overflow: hidden; }
     .data-card-header { background-color: #f1f5f9; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; color: #334155; letter-spacing: 0.5px; text-transform: uppercase; }
     .data-card-header .title-wrap { display: flex; align-items: center; gap: 8px; }
     .data-card-header .title-wrap::before { content: ''; display: inline-block; width: 4px; height: 16px; background-color: #dc2626; border-radius: 2px; }
 
+    /* Custom Tables */
     .table-custom th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; border-bottom-width: 1px; font-weight: 600; background-color: #f8fafc; padding: 14px 16px; }
     .table-custom td { font-size: 0.9rem; color: #1e293b; vertical-align: middle; padding: 16px; }
     .table-custom tr.group-header td { background-color: #e2e8f0; font-weight: 700; color: #334155; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
 
+    /* Interactive / Editable Cells */
     .editable-cell { padding: 6px 10px; border-radius: 4px; border: 1px solid transparent; transition: all 0.2s ease; min-height: 28px; display: inline-block; width: 100%; background-color: #f8fafc; }
     .editable-cell:hover { background-color: #f1f5f9; border-color: #cbd5e1; cursor: text; }
     .editable-cell:focus { background-color: #ffffff; border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
 
+    /* Alerts & Empty States */
     .flag-alert { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #dc2626; background-color: #fef2f2; border: 1px solid #fecaca; padding: 4px 8px; border-radius: 4px; margin-top: 8px; font-weight: 500; }
     .empty-state { padding: 32px 0; text-align: center; color: #94a3b8; font-size: 0.9rem; font-weight: 500; }
 
+    /* Footer & Buttons */
     .sticky-footer { position: absolute; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #e2e8f0; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); z-index: 20; }
     .btn-outline-secondary { color: #475569; border-color: #cbd5e1; }
     .btn-outline-secondary:hover { background-color: #f8fafc; color: #0f172a; }
     .btn-danger-custom { background-color: #dc2626; color: white; border: none; }
     .btn-danger-custom:hover { background-color: #b91c1c; color: white; }
     
+    /* Dynamic Records */
     .record-wrapper { border-bottom: 4px solid #f1f5f9; }
     .btn-delete-record { font-size: 0.75rem; font-weight: bold; color: #dc2626; border: 1px solid #dc2626; padding: 2px 8px; border-radius: 4px; background: transparent; cursor: pointer; transition: all 0.2s; }
     .btn-delete-record:hover { background: #dc2626; color: white; }
 
+    /* Prevent iframe pointer capture during drag */
     .dragging iframes-disabled iframe { pointer-events: none !important; }
   </style>
 
+  <!-- ==========================================
+       ORIGINAL PAYLOAD DATA (Hidden)
+       ========================================== -->
   <script id="raw-extracted-data" type="application/json">
     {{ document.extracted_data | tojson | safe if document.extracted_data else '{}' }}
   </script>
 </head>
 <body>
 
+  <!-- ==========================================
+       JINJA MACROS FOR REUSABLE UI COMPONENTS
+       ========================================== -->
+
+  <!-- Macro: Calculate and render percentage delta between baseline and extracted value -->
   {% macro render_delta(prev, new) %}
     {% if prev is none and new is not none %}
       <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-1 px-2">New</span>
@@ -100,6 +132,7 @@
     {% endif %}
   {% endmacro %}
 
+  <!-- Macro: Render AI Confidence Score Badge -->
   {% macro render_confidence(score, status) %}
     {% set pct = (score * 100)|round|int %}
     {% if status == 'HIGH' or pct >= 80 %}
@@ -111,6 +144,7 @@
     {% endif %}
   {% endmacro %}
 
+  <!-- Macro: Render a standardized table row for an extracted field -->
   {% macro field_row(section_name, field_name, field_data, prev_val) %}
     {% set is_mapping = field_data is mapping %}
     {% set display_val = field_data.value if is_mapping and 'value' in field_data else field_data %}
@@ -119,10 +153,12 @@
       <td class="fw-semibold text-dark ps-4" style="width: 20%;">{{ field_name | replace('_', ' ') | title }}</td>
       <td class="text-muted" style="width: 15%;">{{ prev_val if prev_val is not none else '-' }}</td>
       <td style="width: 35%;">
+        <!-- Editable Cell Hook -->
         <div contenteditable="true" 
              class="editable-cell fw-bold text-dark" 
              data-key="{{ field_name }}">{{ display_val if display_val is not none else '-' }}</div>
         
+        <!-- Validation Flags / Alerts -->
         {% if is_mapping and field_data.flags %}
           <div class="d-flex flex-column align-items-start">
             {% for flag in field_data.flags %}
@@ -142,9 +178,15 @@
     </tr>
   {% endmacro %}
   
+  <!-- ==========================================
+       MAIN SPLIT LAYOUT
+       ========================================== -->
   <div class="split-layout">
+    
+    <!-- 1. LEFT PANE (Source References) -->
     <div class="pane-left" id="pane-left">
-      <!-- (Left Pane logic remains identical, PDF viewer and Baseline tables) -->
+      
+      <!-- Top Viewer: Proposed PDF Document -->
       <div class="doc-viewer" id="viewer-top">
           <div class="doc-header proposed">
             <div class="d-flex align-items-center gap-2">
@@ -157,11 +199,12 @@
           <!-- DYNAMIC DOCX TO PDF DISPLAY LOGIC -->
           {% set display_file = document.file_key|replace('.docx', '.pdf') if document.file_key.endswith('.docx') else document.file_key %}
           <iframe src="{{ url_for('static', filename=display_file) }}" width="100%" height="100%" style="border:none;"></iframe>
-          
       </div>
 
+      <!-- Horizontal Resizer -->
       <div class="resizer" id="resizer"></div>
 
+      <!-- Bottom Viewer: Baseline Production Database -->
       <div class="doc-viewer" id="viewer-bottom" style="background-color: #f8fafc;">
         <div class="doc-header on-file">
           <div class="d-flex align-items-center gap-2">
@@ -171,9 +214,10 @@
           <div class="badge-status badge-onfile">ON FILE</div>
         </div>
         
+        <!-- Baseline Data Render -->
         <div class="flex-grow-1 overflow-auto p-4">
           {% if current_doc %}
-            <!-- Original Baseline tables -->
+            <!-- Baseline: Agreement Header -->
             <div class="card mb-4 shadow-sm border-0">
               <div class="card-header bg-success bg-opacity-10 text-success fw-bold py-2 border-bottom-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">AGREEMENT HEADER</div>
               <div class="card-body p-0">
@@ -189,6 +233,8 @@
                 </table>
               </div>
             </div>
+            
+            <!-- Baseline: Normal Rates -->
             {% if current_doc.rates and current_doc.rates|length > 0 %}
             <div class="card mb-4 shadow-sm border-0">
               <div class="card-header bg-success bg-opacity-10 text-success fw-bold py-2 border-bottom-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">NORMAL RATES</div>
@@ -204,6 +250,8 @@
               </div>
             </div>
             {% endif %}
+            
+            <!-- Baseline: Commitments -->
             {% if current_doc.commitments and current_doc.commitments|length > 0 %}
             <div class="card mb-4 shadow-sm border-0">
               <div class="card-header bg-success bg-opacity-10 text-success fw-bold py-2 border-bottom-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">COMMITMENTS</div>
@@ -220,6 +268,7 @@
             </div>
             {% endif %}
           {% else %}
+            <!-- Baseline: Empty State -->
             <div class="d-flex h-100 flex-column justify-content-center align-items-center text-muted">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
               <span>No baseline database records found for this operator.</span>
@@ -229,10 +278,13 @@
       </div>
     </div>
     
+    <!-- Vertical Resizer -->
     <div class="resizer-vertical" id="resizer-vertical"></div>
     
+    <!-- 2. RIGHT PANE (Extracted Editor) -->
     <div class="pane-right" id="pane-right">
-      <!-- (Right Pane Header) -->
+      
+      <!-- Right Pane Header -->
       <div class="data-header">
         <div class="d-flex align-items-center gap-3">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"></path></svg>
@@ -240,9 +292,10 @@
         </div>
       </div>
 
+      <!-- Right Pane Scrollable Area -->
       <div class="data-body">
 
-        <!-- 1. HEADER (Static single record, no delete/add) -->
+        <!-- A. HEADER SECTION (Static single record) -->
         <div class="data-card" data-section="header">
           <div class="data-card-header">
             <div class="title-wrap">Agreement Header</div>
@@ -264,7 +317,7 @@
           </div>
         </div>
 
-        <!-- 2. MODELS -->
+        <!-- B. RATE MODELS SECTION (Dynamic multi-record) -->
         <div class="data-card" data-section="model">
           <div class="data-card-header">
             <div class="title-wrap">Rate Models</div>
@@ -294,7 +347,7 @@
           </div>
         </div>
 
-        <!-- 3. RATES -->
+        <!-- C. NORMAL RATES SECTION (Dynamic multi-record) -->
         <div class="data-card" data-section="normal_model">
           <div class="data-card-header">
             <div class="title-wrap">Normal Rates</div>
@@ -324,7 +377,7 @@
           </div>
         </div>
 
-        <!-- 4. COMMITMENTS -->
+        <!-- D. COMMITMENTS SECTION (Dynamic multi-record) -->
         <div class="data-card" data-section="commitment">
           <div class="data-card-header">
             <div class="title-wrap">Commitments</div>
@@ -356,6 +409,7 @@
 
       </div>
       
+      <!-- Right Pane Sticky Footer Actions -->
       <div class="sticky-footer">
         <button onclick="history.back()" class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back</button>
         <span class="text-muted small d-none d-md-block">You can now add or delete records before publishing.</span>
@@ -367,28 +421,43 @@
     </div>
   </div>
 
+  <!-- ==========================================
+       EXTERNAL & INLINE SCRIPTS
+       ========================================== -->
   <script>
-    // Templates for new records based on your Pydantic schemas
+    // ---------------------------------------------------------
+    // RECORD MANAGEMENT LOGIC
+    // ---------------------------------------------------------
+    
+    // Templates mapping dynamically added records to backend Pydantic schemas
     const schemaTemplates = {
         model: ['agmt_id', 'model_seq', 'model_type', 'model_name'],
         normal_model: ['agmt_id', 'model_seq', 'rec_type', 'zone_code', 'rate_currency', 'pra_rate_type', 'charge_field'],
         commitment: ['agmt_id', 'commitment_name', 'commitment_type', 'direction', 'amount', 'party_from', 'party_to']
     };
 
+    /**
+     * Adds a new structured record block to the specified section.
+     * Generates editable HTML nodes mapped to schema keys.
+     */
     function addRecord(sectionName) {
         const table = document.querySelector(`.data-card[data-section="${sectionName}"] table`);
+        
+        // Remove empty state placeholder if present
         const emptyState = table.querySelector('.empty-state-body');
-        if (emptyState) emptyState.remove(); // Clear empty state if exists
+        if (emptyState) emptyState.remove(); 
 
         const fields = schemaTemplates[sectionName];
         let tbody = document.createElement('tbody');
         tbody.className = 'record-wrapper';
         
+        // Header with delete hook
         let headerRow = `<tr class="group-header">
             <td colspan="4" class="ps-4">New ${sectionName} Record</td>
             <td class="text-end pe-4"><button class="btn-delete-record" onclick="this.closest('tbody').remove()">Delete</button></td>
         </tr>`;
         
+        // Data input rows
         let rows = fields.map(field => `
             <tr>
                 <td class="fw-semibold text-dark ps-4" style="width: 20%;">${field.replace('_', ' ').toUpperCase()}</td>
@@ -406,7 +475,7 @@
     }
 
     // ---------------------------------------------------------
-    // API SAVE DRAFT LOGIC - DYNAMIC DOM SCRAPING
+    // API INTEGRATION & DYNAMIC DOM SCRAPING
     // ---------------------------------------------------------
     document.getElementById('btn-accept').addEventListener('click', async function(e) {
       e.preventDefault();
@@ -415,15 +484,16 @@
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Saving...';
       btn.disabled = true;
 
+      // Base JSON structure required by backend route
       let flatPayload = { header: {}, model: [], normal_model: [], commitment: [] };
 
-      // 1. Scrape Header (Static single object)
+      // 1. Scrape Header Segment (Static dict)
       document.querySelectorAll('.data-card[data-section="header"] .editable-cell').forEach(cell => {
           let val = cell.innerText.trim();
           flatPayload.header[cell.getAttribute('data-key')] = (val === '-' || val === '') ? null : val;
       });
 
-      // 2. Scrape Array Sections (Model, Rates, Commitments)
+      // 2. Scrape Relational/Array Segments (List of dicts)
       ['model', 'normal_model', 'commitment'].forEach(section => {
           const wrappers = document.querySelectorAll(`.data-card[data-section="${section}"] .record-wrapper`);
           wrappers.forEach(wrapper => {
@@ -432,13 +502,15 @@
                   let val = cell.innerText.trim();
                   recordObj[cell.getAttribute('data-key')] = (val === '-' || val === '') ? null : val;
               });
-              // Only push if the object isn't completely empty
+              
+              // Validate record is not completely null before appending
               if (Object.values(recordObj).some(v => v !== null)) {
                   flatPayload[section].push(recordObj);
               }
           });
       });
 
+      // 3. Dispatch payload to backend endpoint
       try {
           const response = await fetch(`/api/update/{{ document.id }}/save-draft`, {
               method: 'POST',
@@ -462,29 +534,78 @@
     });
 
     // ---------------------------------------------------------
-    // DRAG-TO-RESIZE LOGIC (Unchanged)
+    // UI BEHAVIOR: DRAG-TO-RESIZE
     // ---------------------------------------------------------
     document.addEventListener("DOMContentLoaded", function () {
-      // Logic for horizontal and vertical resizing remains unchanged...
+      
+      // Horizontal Splitting Logic
       const resizer = document.getElementById('resizer');
       const paneLeft = document.getElementById('pane-left');
       const viewerTop = document.getElementById('viewer-top');
       const viewerBottom = document.getElementById('viewer-bottom');
       
       let y = 0; let topViewerHeight = 0;
-      const mouseDownHandler = function(e) { y = e.clientY; topViewerHeight = viewerTop.getBoundingClientRect().height; paneLeft.style.pointerEvents = 'none'; document.body.style.cursor = 'ns-resize'; document.addEventListener('mousemove', mouseMoveHandler); document.addEventListener('mouseup', mouseUpHandler); };
-      const mouseMoveHandler = function(e) { const dy = e.clientY - y; const newTopHeight = ((topViewerHeight + dy) * 100) / paneLeft.getBoundingClientRect().height; if(newTopHeight > 10 && newTopHeight < 90) { viewerTop.style.flex = `0 0 ${newTopHeight}%`; viewerBottom.style.flex = `1 1 0%`; } };
-      const mouseUpHandler = function() { paneLeft.style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; document.removeEventListener('mousemove', mouseMoveHandler); document.removeEventListener('mouseup', mouseUpHandler); };
+      
+      const mouseDownHandler = function(e) { 
+          y = e.clientY; 
+          topViewerHeight = viewerTop.getBoundingClientRect().height; 
+          paneLeft.style.pointerEvents = 'none'; 
+          document.body.style.cursor = 'ns-resize'; 
+          document.addEventListener('mousemove', mouseMoveHandler); 
+          document.addEventListener('mouseup', mouseUpHandler); 
+      };
+      
+      const mouseMoveHandler = function(e) { 
+          const dy = e.clientY - y; 
+          const newTopHeight = ((topViewerHeight + dy) * 100) / paneLeft.getBoundingClientRect().height; 
+          if(newTopHeight > 10 && newTopHeight < 90) { 
+              viewerTop.style.flex = `0 0 ${newTopHeight}%`; 
+              viewerBottom.style.flex = `1 1 0%`; 
+          } 
+      };
+      
+      const mouseUpHandler = function() { 
+          paneLeft.style.pointerEvents = 'auto'; 
+          document.body.style.cursor = 'default'; 
+          document.removeEventListener('mousemove', mouseMoveHandler); 
+          document.removeEventListener('mouseup', mouseUpHandler); 
+      };
+      
       if(resizer) resizer.addEventListener('mousedown', mouseDownHandler);
 
+      // Vertical Splitting Logic
       const resizerVertical = document.getElementById('resizer-vertical');
       const paneRight = document.getElementById('pane-right');
       const splitContainer = document.querySelector('.split-layout');
       
       let x = 0; let leftPaneWidth = 0;
-      const mouseDownHandlerVertical = function(e) { x = e.clientX; leftPaneWidth = paneLeft.getBoundingClientRect().width; paneLeft.style.pointerEvents = 'none'; document.body.style.cursor = 'ew-resize'; document.addEventListener('mousemove', mouseMoveHandlerVertical); document.addEventListener('mouseup', mouseUpHandlerVertical); };
-      const mouseMoveHandlerVertical = function(e) { const dx = e.clientX - x; const containerWidth = splitContainer.getBoundingClientRect().width; const newLeftWidth = ((leftPaneWidth + dx) * 100) / containerWidth; if (newLeftWidth > 20 && newLeftWidth < 80) { paneLeft.style.width = `${newLeftWidth}%`; paneRight.style.width = `${100 - newLeftWidth}%`; } };
-      const mouseUpHandlerVertical = function() { paneLeft.style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; document.removeEventListener('mousemove', mouseMoveHandlerVertical); document.removeEventListener('mouseup', mouseUpHandlerVertical); };
+      
+      const mouseDownHandlerVertical = function(e) { 
+          x = e.clientX; 
+          leftPaneWidth = paneLeft.getBoundingClientRect().width; 
+          paneLeft.style.pointerEvents = 'none'; 
+          document.body.style.cursor = 'ew-resize'; 
+          document.addEventListener('mousemove', mouseMoveHandlerVertical); 
+          document.addEventListener('mouseup', mouseUpHandlerVertical); 
+      };
+      
+      const mouseMoveHandlerVertical = function(e) { 
+          const dx = e.clientX - x; 
+          const containerWidth = splitContainer.getBoundingClientRect().width; 
+          const newLeftWidth = ((leftPaneWidth + dx) * 100) / containerWidth; 
+          if (newLeftWidth > 20 && newLeftWidth < 80) { 
+              paneLeft.style.width = `${newLeftWidth}%`; 
+              paneRight.style.width = `${100 - newLeftWidth}%`; 
+          } 
+      };
+      
+      const mouseUpHandlerVertical = function() { 
+          paneLeft.style.pointerEvents = 'auto'; 
+          document.body.style.cursor = 'default'; 
+          document.removeEventListener('mousemove', mouseMoveHandlerVertical); 
+          document.removeEventListener('mouseup', mouseUpHandlerVertical); 
+      };
+      
       if(resizerVertical) resizerVertical.addEventListener('mousedown', mouseDownHandlerVertical);
     });
   </script>
