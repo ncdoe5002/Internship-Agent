@@ -92,7 +92,7 @@ To run this project locally, create a `.env` file in the root directory and popu
   3. Click on **API** in the configuration menu.
   4. Copy the **Project URL** value for your `SUPABASE_URL`.
   5. Copy the **anon / public** key value for your `SUPABASE_ANON_KEY`.
-### 2. Start the stack
+## 2. Start the stack
 
 ```bash
 docker compose up --build
@@ -102,7 +102,7 @@ Open the app at `http://localhost:8000`.
 
 If you want to use the local model integration, start LM Studio on the host machine and make sure its OpenAI-compatible server is available at `http://localhost:1234`.
 
-### 3. Apply database migrations
+## 3. Apply database migrations
 
 ```bash
 docker compose exec web flask db upgrade
