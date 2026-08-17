@@ -33,6 +33,96 @@ The application is built around a practical operator workflow:
 - PostgreSQL persistence with Flask-Migrate support.
 - Dockerized local development and deployment.
 
+## Quick Start
+
+### Prerequisites
+
+- Docker Desktop installed and running
+- NVIDIA GPU with CUDA support (for Docling GPU acceleration)
+- A Google Gemini API key
+- A populated `.env` file with the runtime settings below
+
+## Environment Variables Setup
+
+To run this project locally, create a `.env` file in the root directory and populate it with the following variables.
+
+### 1. Core Application Settings
+
+* **`SECRET_KEY`**
+  This is used to cryptographically sign Flask session cookies. You can generate a secure random string using Python in your terminal:
+  ```bash
+  python -c "import secrets; print(secrets.token_hex(32))"
+  ```
+  Copy the output and set it as your `SECRET_KEY`.
+
+* **`UPLOAD_FOLDER`**
+  The local directory path where uploaded documents (PDFs, DOCXs) are stored before processing. Use a relative path pointing to your static folder:
+  ```text
+  UPLOAD_FOLDER=app/static/pdfs
+  ```
+
+### 2. Database & Message Broker
+
+* **`DATABASE_URL`**
+  The connection string for your PostgreSQL database. The standard format is:
+  ```text
+  DATABASE_URL=postgresql://[user]:[password]@[host]:[port]/[database_name]
+  ```
+  *(Note: If you are running the application via Docker Compose, this will typically default to `postgresql://postgres:postgres@db:5432/postgres`)*
+
+* **`REDIS_URL`**
+  The connection string for your Redis instance, which acts as the message broker for background Celery tasks. The standard local format is:
+  ```text
+  REDIS_URL=redis://localhost:6379/0
+  ```
+  *(Note: If using Docker Compose, point to the container name: `redis://redis:6379/0`)*
+
+### 3. Third-Party APIs
+
+* **`GEMINI_API_KEY`**
+  Required for the LLM document extraction pipeline.
+  1. Navigate to [Google AI Studio](https://aistudio.google.com/).
+  2. Click on **Get API key** in the left sidebar.
+  3. Click **Create API key** and copy the generated string.
+
+* **`SUPABASE_URL`** & **`SUPABASE_ANON_KEY`**
+  Required for handling user authentication and session management.
+  1. Log into the [Supabase Dashboard](https://supabase.com/dashboard) and select your project.
+  2. Click on **Project Settings** (the gear icon ⚙️ in the bottom left sidebar).
+  3. Click on **API** in the configuration menu.
+  4. Copy the **Project URL** value for your `SUPABASE_URL`.
+  5. Copy the **anon / public** key value for your `SUPABASE_ANON_KEY`.
+### 2. Start the stack
+
+```bash
+docker compose up --build
+```
+
+Open the app at `http://localhost:8000`.
+
+If you want to use the local model integration, start LM Studio on the host machine and make sure its OpenAI-compatible server is available at `http://localhost:1234`.
+
+### 3. Apply database migrations
+
+```bash
+docker compose exec web flask db upgrade
+```
+
+## Local Development
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+flask --app wsgi run --port 8000
+```
+
+Run the worker in a second terminal:
+
+```bash
+celery -A celery_worker.celery worker --loglevel=info
+```
+
 ## How It Works
 
 ```mermaid
@@ -245,58 +335,6 @@ graph LR
 | Data validation | Pydantic |
 | File handling | PyMuPDF, python-docx, openpyxl, pandas |
 | Deployment | Docker, Docker Compose, Gunicorn, CUDA support |
-
-## Quick Start
-
-### Prerequisites
-
-- Docker Desktop installed and running
-- NVIDIA GPU with CUDA support (for Docling GPU acceleration)
-- A Google Gemini API key
-- A populated `.env` file with the runtime settings below
-
-### 1. Configure the environment
-
-Create a `.env` file in the project root and add at least these values:
-
-- `SECRET_KEY` - Flask session secret
-- `DATABASE_URL` - PostgreSQL connection string
-- `REDIS_URL` - Redis broker and result backend
-- `GEMINI_API_KEY` - Google Gemini API key for extraction
-- `SUPABASE_URL` - Supabase project URL (dashboard integration)
-- `SUPABASE_ANON_KEY` - Supabase anonymous key (dashboard integration)
-- `UPLOAD_FOLDER` - Local upload destination
-
-### 2. Start the stack
-
-```bash
-docker compose up --build
-```
-
-Open the app at `http://localhost:8000`.
-
-If you want to use the local model integration, start LM Studio on the host machine and make sure its OpenAI-compatible server is available at `http://localhost:1234`.
-
-### 3. Apply database migrations
-
-```bash
-docker compose exec web flask db upgrade
-```
-
-## Local Development
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-flask --app wsgi run --port 8000
-```
-
-Run the worker in a second terminal:
-
-```bash
-celery -A celery_worker.celery worker --loglevel=info
-```
 
 ## Project Structure
 
