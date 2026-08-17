@@ -1,10 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- ==========================================
+       DOCUMENT METADATA & TITLE
+       ========================================== -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Extracted Data Review</title>
+
+  <!-- ==========================================
+       EXTERNAL STYLESHEETS
+       ========================================== -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- ==========================================
+       CUSTOM INTERNAL STYLES
+       ========================================== -->
   <style>
     /* Base Layout */
     body {
@@ -32,7 +43,7 @@
     }
 
     .doc-viewer {
-      flex: 1; /* Default to equal sharing, overwritten by inline style during resize */
+      flex: 1; 
       display: flex;
       flex-direction: column;
       background-color: #d1d5db;
@@ -40,11 +51,11 @@
       position: relative;
     }
 
-    /* Resizer Divider */
+    /* Resizers */
     .resizer {
       height: 8px;
       background-color: #111;
-      cursor: ns-resize; /* Up-Down resize cursor */
+      cursor: ns-resize;
       width: 100%;
       z-index: 50;
       display: flex;
@@ -52,12 +63,9 @@
       align-items: center;
       transition: background-color 0.2s ease;
     }
-    
     .resizer:hover, .resizer:active {
-      background-color: #ef4444; /* Highlight red on hover/drag */
+      background-color: #ef4444; 
     }
-
-    /* Add a subtle grip icon to the resizer */
     .resizer::after {
       content: "";
       width: 40px;
@@ -67,6 +75,27 @@
     }
     .resizer:hover::after, .resizer:active::after {
       background-color: #fff;
+    }
+
+    .resizer-vertical {
+      width: 8px;
+      background-color: #111;
+      cursor: ew-resize;
+      z-index: 50;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background-color 0.2s ease;
+    }
+    .resizer-vertical:hover, .resizer-vertical:active {
+      background-color: #ef4444;
+    }
+    .resizer-vertical::after {
+      content: "";
+      height: 40px;
+      width: 2px;
+      background-color: #6b7280;
+      border-radius: 2px;
     }
 
     .doc-header {
@@ -79,17 +108,9 @@
       color: #fff;
       z-index: 10;
     }
-
     .doc-header.proposed { background-color: #211818; }
     .doc-header.on-file { background-color: #1a2421; }
-
-    .badge-status {
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-    }
+    .badge-status { padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px; }
     .badge-proposed { background-color: #4a1f1f; color: #fca5a5; }
     .badge-onfile { background-color: #1f3a2e; color: #6ee7b7; }
 
@@ -97,7 +118,7 @@
     .pane-right {
       width: 50%;
       height: 100%;
-      background-color: #f9fafb;
+      background-color: #f3f4f6; /* Softer background to make cards pop */
       display: flex;
       flex-direction: column;
       position: relative;
@@ -111,6 +132,7 @@
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid #333;
+      z-index: 10;
     }
 
     .confidence-widget {
@@ -143,64 +165,102 @@
       padding-bottom: 100px;
     }
     
-    .data-body::-webkit-scrollbar { width: 12px; }
-    .data-body::-webkit-scrollbar-track { background: #f1f1f1; border-left: 1px solid #e5e7eb; }
-    .data-body::-webkit-scrollbar-thumb { background: #888; border-radius: 6px; border: 3px solid #f1f1f1; }
+    .data-body::-webkit-scrollbar { width: 8px; }
+    .data-body::-webkit-scrollbar-track { background: #f3f4f6; }
+    .data-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .data-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-    /* Summary Bar */
-    .summary-bar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 28px;
-      font-size: 0.9rem;
-      color: #4b5563;
-    }
-    .stat-badge {
-      padding: 4px 12px;
-      border-radius: 4px;
-      font-weight: 600;
-      font-size: 0.8rem;
-      border: 1px solid transparent;
-    }
-    .stat-badge.inc { background-color: #fee2e2; color: #dc2626; border-color: #fecaca; }
-    .stat-badge.dec { background-color: #ccfbf1; color: #0d9488; border-color: #99f6e4; }
-
-    /* Section Title */
-    .section-title {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: #6b7280;
-      letter-spacing: 1px;
+    /* --- NEW DATA CARD UI --- */
+    .data-card {
+      background-color: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .data-card-header {
+      background-color: #f8fafc;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 12px 20px;
       display: flex;
       align-items: center;
       gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #475569;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
-    .section-title::before { content: ''; display: inline-block; width: 4px; height: 16px; background-color: #dc2626; border-radius: 2px; }
+    
+    .data-card-header::before { 
+      content: ''; 
+      display: inline-block; 
+      width: 4px; 
+      height: 16px; 
+      background-color: #dc2626; 
+      border-radius: 2px; 
+    }
 
-    /* Table Styles */
-    .rate-table { width: 100%; border-collapse: collapse; }
-    .rate-table th { text-transform: uppercase; font-size: 0.75rem; color: #6b7280; letter-spacing: 1px; padding-bottom: 12px; border-bottom: 1px solid #d1d5db; font-weight: 600; text-align: left; }
-    .rate-table td { padding: 18px 0; border-bottom: 1px solid #e5e7eb; vertical-align: top; font-size: 0.9rem; }
-    
-    .field-name { font-weight: 600; color: #111827; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
-    .ul-blue { text-decoration-color: #3b82f6; }
-    .ul-green { text-decoration-color: #10b981; }
-    .ul-cyan { text-decoration-color: #06b6d4; }
-    .ul-red { text-decoration-color: #ef4444; }
-    .ul-purple { text-decoration-color: #8b5cf6; }
+    .data-card-body {
+      padding: 20px;
+    }
 
-    .rate-old { color: #9ca3af; text-decoration: line-through; display: block; margin-bottom: 2px; }
-    .rate-new { font-weight: 700; color: #111827; display: block; margin-bottom: 2px; }
-    .unit { font-size: 0.75rem; color: #9ca3af; font-family: monospace; }
+    .property-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      height: 100%;
+    }
+
+    /* Bootstrap Table Overrides for a cleaner look */
+    .table-custom th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #64748b;
+      border-bottom-width: 1px;
+      font-weight: 600;
+    }
     
-    .delta.up { color: #dc2626; font-weight: 600; }
-    .delta.down { color: #0d9488; font-weight: 600; }
-    .delta.neutral { color: #9ca3af; }
-    
-    .ai-note { color: #6b7280; font-size: 0.85rem; }
-    .ai-note.flagged { color: #dc2626; font-weight: 600; }
+    .table-custom td {
+      font-size: 0.9rem;
+      color: #1e293b;
+      vertical-align: middle;
+    }
+
+    /* --- REFINED EDITABLE CELL --- */
+    .editable-cell {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      min-height: 28px;
+      display: inline-block;
+      width: 100%;
+    }
+    .editable-cell:hover {
+      background-color: #f1f5f9; /* Subtle light gray on hover */
+      border-color: #cbd5e1;
+      cursor: text;
+    }
+    .editable-cell:focus {
+      background-color: #ffffff;
+      border-color: #3b82f6;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); /* Sleek blue focus ring */
+    }
+
+    /* Empty States */
+    .empty-state {
+      padding: 32px 0;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
 
     /* Sticky Footer */
     .sticky-footer {
@@ -215,379 +275,576 @@
       justify-content: space-between;
       align-items: center;
       box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+      z-index: 20;
     }
     
-    .btn-outline-secondary { color: #374151; border-color: #d1d5db; }
-    .btn-outline-secondary:hover { background-color: #f3f4f6; color: #111827; }
+    .btn-outline-secondary { color: #475569; border-color: #cbd5e1; }
+    .btn-outline-secondary:hover { background-color: #f8fafc; color: #0f172a; }
     .btn-danger-custom { background-color: #dc2626; color: white; border: none; }
     .btn-danger-custom:hover { background-color: #b91c1c; color: white; }
 
-    /* Helper class to prevent iframes from stealing mouse events during drag */
     .dragging iframes-disabled iframe {
       pointer-events: none !important;
     }
-    /* Basic styling to make the tables look clean */
-    .db-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 2rem;
-        font-size: 0.9rem;
-    }
-    .db-table th {
-        text-align: left;
-        border-bottom: 2px solid #ddd;
-        padding: 8px;
-        color: #555;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-    }
-    .db-table td {
-        border-bottom: 1px solid #eee;
-        padding: 10px 8px;
-        color: #333;
-    }
-    .section-title {
-        font-weight: bold;
-        color: #d32f2f;
-        margin-top: 1.5rem;
-        margin-bottom: 0.5rem;
-        text-transform: uppercase;
-        font-size: 0.85rem;
-        letter-spacing: 1px;
-    }
-
-    /* VERTICAL RESIZER */
-    .resizer-vertical {
-      width: 8px;
-      background-color: #111;
-      cursor: ew-resize; /* Left-Right resize cursor */
-      z-index: 50;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      transition: background-color 0.2s ease;
-    }
-    .resizer-vertical:hover, .resizer-vertical:active {
-      background-color: #ef4444;
-    }
-    .resizer-vertical::after {
-      content: "";
-      height: 40px;
-      width: 2px;
-      background-color: #6b7280;
-      border-radius: 2px;
-    }
-
-    /* SCROLLING FOR TABLES */
-    .data-body {
-      flex: 1;
-      overflow-y: auto; /* This creates the scroll wheel! */
-      padding: 24px;
-      padding-bottom: 100px; /* Keeps tables from hiding behind the footer */
-    }
-
-    /* EDITABLE CELL STYLING */
-    .editable-cell {
-      transition: background-color 0.2s, outline 0.2s;
-      border-radius: 4px;
-    }
-    .editable-cell:hover, .editable-cell:focus {
-      background-color: #fef08a; /* Light yellow to indicate editable */
-      outline: 2px dashed #ca8a04;
-      cursor: text;
-    }
   </style>
+
+  <!-- ==========================================
+       ORIGINAL PAYLOAD DATA (Hidden)
+       ========================================== -->
+  <script id="raw-extracted-data" type="application/json">
+    {{ document.extracted_data | tojson | safe if document.extracted_data else '{}' }}
+  </script>
 </head>
 <body>
 
+  <!-- ==========================================
+       JINJA MACROS FOR REUSABLE UI COMPONENTS
+       ========================================== -->
+
+  <!-- Macro: Calculate and render percentage delta between baseline and extracted value -->
+  {% macro render_delta(prev, new) %}
+    {% if prev is none and new is not none %}
+      <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-1 px-2">New</span>
+    {% elif prev|string|trim|lower == new|string|trim|lower %}
+      <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Unchanged</span>
+    {% else %}
+      {% set prev_num = prev|float(-999999) %}
+      {% set new_num = new|float(-999999) %}
+      {% if prev_num != -999999 and new_num != -999999 and prev_num != 0 and '-' not in prev|string|trim and '-' not in new|string|trim %}
+        {% set delta = ((new_num - prev_num) / prev_num * 100) %}
+        {% if delta > 0 %}
+          <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2 d-inline-flex align-items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+            {{ delta|round(1) }}%
+          </span>
+        {% elif delta < 0 %}
+          {% set abs_delta = delta * -1 %}
+          <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2 d-inline-flex align-items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
+            {{ abs_delta|round(1) }}%
+          </span>
+        {% endif %}
+      {% else %}
+        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 py-1 px-2">Changed</span>
+      {% endif %}
+    {% endif %}
+  {% endmacro %}
+
+  <!-- Macro: Render AI Confidence Score Badge -->
+  {% macro render_confidence(score, status) %}
+    {% set pct = (score * 100)|round|int %}
+    {% if status == 'HIGH' or pct >= 80 %}
+      <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2"><i class="bi bi-check-circle me-1"></i> {{ pct }}% {{ status }}</span>
+    {% elif status == 'MISSING' or pct == 0 %}
+      <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">{{ status }}</span>
+    {% else %}
+      <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 py-1 px-2">{{ pct }}% {{ status }}</span>
+    {% endif %}
+  {% endmacro %}
+
+  <!-- Macro: Render a standardized table row for an extracted field -->
+  {% macro field_row(section_name, field_name, field_data, prev_val) %}
+    {% set is_mapping = field_data is mapping %}
+    {% set display_val = field_data.value if is_mapping and 'value' in field_data else field_data %}
+    
+    <tr>
+      <td class="fw-semibold text-dark ps-4" style="width: 20%;">{{ field_name | replace('_', ' ') | title }}</td>
+      <td class="text-muted" style="width: 15%;">{{ prev_val if prev_val is not none else '-' }}</td>
+      <td style="width: 35%;">
+        <!-- Editable Cell Hook -->
+        <div contenteditable="true" 
+             class="editable-cell fw-bold text-dark" 
+             data-key="{{ field_name }}">{{ display_val if display_val is not none else '-' }}</div>
+        
+        <!-- Validation Flags / Alerts -->
+        {% if is_mapping and field_data.flags %}
+          <div class="d-flex flex-column align-items-start">
+            {% for flag in field_data.flags %}
+              <div class="flag-alert shadow-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                {{ flag }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </td>
+      <td style="width: 15%;">{{ render_delta(prev_val, display_val) }}</td>
+      <td class="pe-4" style="width: 15%;">
+        {% if is_mapping %}{{ render_confidence(field_data.confidence_score, field_data.status) }}
+        {% else %}<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">N/A</span>{% endif %}
+      </td>
+    </tr>
+  {% endmacro %}
+  
+  <!-- ==========================================
+       MAIN SPLIT LAYOUT
+       ========================================== -->
   <div class="split-layout">
     
-    <!-- LEFT PANE: Document Viewers -->
+    <!-- 1. LEFT PANE (Source References) -->
     <div class="pane-left" id="pane-left">
       
-      <!-- Proposed Document (Top) -->
+      <!-- Top Viewer: Proposed PDF Document -->
       <div class="doc-viewer" id="viewer-top">
-        <div class="doc-header proposed">
-          <div class="d-flex align-items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            <span>{{ document.filename }}</span>
+          <div class="doc-header proposed">
+            <div class="d-flex align-items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <span>{{ document.filename }}</span>
+            </div>
+            <div class="badge-status badge-proposed">PROPOSED</div>
           </div>
-          <div class="badge-status badge-proposed">PROPOSED</div>
-        </div>
-        <!-- Injected uploaded document rendering -->
-        <iframe src="{{ url_for('static', filename=document.file_key) }}" width="100%" height="100%" style="border:none;"></iframe>
+          
+          <!-- DYNAMIC DOCX TO PDF DISPLAY LOGIC -->
+          {% set display_file = document.file_key|replace('.docx', '.pdf') if document.file_key.endswith('.docx') else document.file_key %}
+          <iframe src="{{ url_for('static', filename=display_file) }}" width="100%" height="100%" style="border:none;"></iframe>
       </div>
 
-      <!-- Resizer / Splitter Handle -->
+      <!-- Horizontal Resizer -->
       <div class="resizer" id="resizer"></div>
 
-      <!-- Current Document (Bottom) -->
-      <div class="doc-viewer" id="viewer-bottom">
+      <!-- Bottom Viewer: Baseline Production Database -->
+      <div class="doc-viewer" id="viewer-bottom" style="background-color: #f8fafc;">
         <div class="doc-header on-file">
           <div class="d-flex align-items-center gap-2">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-             <span>Current on file <span class="text-muted ms-2 fw-normal">IOT-2024-00112</span></span>
+             <span>Production Database <span class="text-muted ms-2 fw-normal">Baseline Data</span></span>
           </div>
           <div class="badge-status badge-onfile">ON FILE</div>
         </div>
-        <!-- Real implementation iframe pointing to your DB -->
-        {% if current_doc %}
-          <iframe src="{{ url_for('static', filename=current_doc.file_key) }}" width="100%" height="100%" style="border:none;"></iframe>
-        {% else %}
-          <div class="d-flex h-100 justify-content-center align-items-center text-muted">
-            No existing document on file.
-          </div>
-        {% endif %}
+        
+        <!-- Baseline Data Render -->
+        <div class="flex-grow-1 overflow-auto p-4">
+          {% if current_doc %}
+            <!-- Baseline: Agreement Header -->
+            <div class="card mb-4 shadow-sm border-0">
+              <div class="card-header bg-success bg-opacity-10 text-success fw-bold py-2 border-bottom-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">AGREEMENT HEADER</div>
+              <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
+                  <tbody>
+                    <tr><td class="text-muted ps-3 w-25">Agreement ID</td><td class="fw-semibold">{{ current_doc.header.AGMT_ID if current_doc.header else '-' }}</td></tr>
+                    <tr><td class="text-muted ps-3 w-25">Sender</td><td class="fw-semibold">{{ current_doc.header.SENDER if current_doc.header else '-' }}</td></tr>
+                    <tr><td class="text-muted ps-3 w-25">Receiving Party</td><td class="fw-semibold">{{ current_doc.header.RP if current_doc.header else '-' }}</td></tr>
+                    <tr><td class="text-muted ps-3 w-25">Start Date</td><td class="fw-semibold">{{ current_doc.header.START_DATE if current_doc.header else '-' }}</td></tr>
+                    <tr><td class="text-muted ps-3 w-25">End Date</td><td class="fw-semibold">{{ current_doc.header.END_DATE if current_doc.header else '-' }}</td></tr>
+                    <tr><td class="text-muted ps-3 w-25">Currency</td><td class="fw-semibold">{{ current_doc.header.CURRENCY_CODE if current_doc.header else '-' }}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Baseline: Normal Rates -->
+            {% if current_doc.rates and current_doc.rates|length > 0 %}
+            <div class="card mb-4 shadow-sm border-0">
+              <div class="card-header bg-success bg-opacity-10 text-success fw-bold py-2 border-bottom-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">NORMAL RATES</div>
+              <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
+                  <thead class="table-light text-muted"><tr><th class="ps-3 fw-semibold border-bottom-0">Type</th><th class="fw-semibold border-bottom-0">Rate / Charge</th><th class="fw-semibold border-bottom-0">Currency</th></tr></thead>
+                  <tbody>
+                    {% for rate in current_doc.rates %}
+                    <tr><td class="ps-3 text-muted">{{ rate.REC_TYPE }}</td><td class="fw-bold text-dark">{{ rate.CHARGE_FIELD }}</td><td class="text-muted">{{ rate.RATE_CURRENCY }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {% endif %}
+            
+            <!-- Baseline: Commitments -->
+            {% if current_doc.commitments and current_doc.commitments|length > 0 %}
+            <div class="card mb-4 shadow-sm border-0">
+              <div class="card-header bg-success bg-opacity-10 text-success fw-bold py-2 border-bottom-0" style="font-size: 0.75rem; letter-spacing: 0.5px;">COMMITMENTS</div>
+              <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
+                  <thead class="table-light text-muted"><tr><th class="ps-3 fw-semibold border-bottom-0">Name</th><th class="fw-semibold border-bottom-0">Amount</th></tr></thead>
+                  <tbody>
+                    {% for comm in current_doc.commitments %}
+                    <tr><td class="ps-3 text-muted">{{ comm.COMMITMENT_NAME }}<br><small class="opacity-75">{{ comm.COMMITMENT_TYPE }}</small></td><td class="fw-bold text-dark align-middle">{{ comm.AMOUNT }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {% endif %}
+          {% else %}
+            <!-- Baseline: Empty State -->
+            <div class="d-flex h-100 flex-column justify-content-center align-items-center text-muted">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+              <span>No baseline database records found for this operator.</span>
+            </div>
+          {% endif %}
+        </div>
       </div>
     </div>
+    
     <div class="resizer-vertical" id="resizer-vertical"></div>
+    
     <!-- RIGHT PANE: Extracted Data -->
     <div class="pane-right" id="pane-right">
+      
       <!-- Header -->
       <div class="data-header">
         <div class="d-flex align-items-center gap-3">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"></path></svg>
           <h5 class="mb-0 fw-bold text-white">Extracted Data</h5>
-          <!-- DYNAMIC FIELD COUNT -->
           <span class="text-secondary small fw-semibold">{{ total_fields }} fields</span>
         </div>
         
         <div class="confidence-widget">
-          <!-- DYNAMIC COLOR LOGIC -->
-          {% set conf_color = '#10b981' %} <!-- Default Green -->
+          {% set conf_color = '#10b981' %} 
           {% set conf_label = 'High accuracy' %}
           
           {% if confidence_score < 75 %}
-            {% set conf_color = '#ef4444' %} <!-- Red for low -->
+            {% set conf_color = '#ef4444' %} 
             {% set conf_label = 'Review carefully' %}
           {% elif confidence_score < 90 %}
-            {% set conf_color = '#f59e0b' %} <!-- Yellow for medium -->
+            {% set conf_color = '#f59e0b' %} 
             {% set conf_label = 'Good accuracy' %}
           {% endif %}
           
-          <!-- DYNAMIC SCORE RING -->
-          <div class="circle-score" style="border-color: {{ conf_color }}; color: {{ conf_color }};" data-color="{{ conf_color }}">
+          <div class="circle-score" style="border-color: {{ conf_color }}; color: {{ conf_color }};">
             {{ confidence_score }}
           </div>
           
           <div class="d-flex flex-column" style="line-height: 1.2;">
             <span class="fw-bold text-dark" style="font-size: 0.8rem;">AI Confidence</span>
-            <!-- DYNAMIC LABEL -->
             <span style="font-size: 0.75rem; color: {{ conf_color }};">{{ conf_label }}</span>
           </div>
         </div>
       </div>
 
+      <!-- Scrolling Body -->
       <div class="data-body">
 
-        <!-- 1. HEADER DATA TABLE -->
-        <div class="section-title">Agreement Header</div>
-        <table class="db-table">
-            <thead>
-                <tr>
-                    <th>Agreement ID</th>
-                    <th>Sender</th>
-                    <th>Receiving Partner</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
+        <!-- 1. HEADER DATA CARD -->
+        <div class="data-card">
+          <div class="data-card-header">Agreement Header</div>
+          <div class="data-card-body">
+            <div class="row g-3">
                 {% if header %}
-                <tr>
-                    <td contenteditable="true" class="editable-cell"><strong>{{ header.AGMT_ID }}</strong></td>
-                    <td contenteditable="true" class="editable-cell">{{ header.SENDER }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ header.RP }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ header.START_DATE }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ header.END_DATE }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ header.AGMT_STATUS }}</td>
-                </tr>
+                    {% for key, value in header.items() %}
+                    <div class="col-md-4 col-sm-6">
+                        <div class="property-box">
+                            <div class="text-muted small fw-bold text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">{{ key }}</div>
+                            <div contenteditable="true" class="editable-cell fw-medium text-dark">
+                                {{ value or '' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 {% else %}
-                <tr><td colspan="6">No header data found.</td></tr>
+                    <div class="col-12 empty-state">
+                      <svg class="mb-2 opacity-50" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg><br>
+                      No header data found.
+                    </div>
                 {% endif %}
-            </tbody>
-        </table>
+            </div>
+          </div>
+        </div>
 
-        <!-- 2. MODELS DATA TABLE -->
-        <div class="section-title">Rate Models</div>
-        <table class="db-table">
-            <thead>
-                <tr>
-                    <th>Model Seq</th>
-                    <th>Model Type</th>
-                    <th>Model Name</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for model in models %}
-                <tr>
-                    <td contenteditable="true" class="editable-cell">{{ model.MODEL_SEQ }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ model.MODEL_TYPE }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ model.MODEL_NAME }}</td>
-                </tr>
-                {% else %}
-                <tr><td colspan="3">No model data found.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- 2. MODELS DATA CARD -->
+        <div class="data-card">
+          <div class="data-card-header">Rate Models</div>
+          <div class="table-responsive mb-0">
+            <table class="table table-hover table-custom mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Model Seq</th>
+                        <th>Model Type</th>
+                        <th class="pe-4">Model Name</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for model in models %}
+                    <tr>
+                        <td class="ps-4"><div contenteditable="true" class="editable-cell">{{ model.MODEL_SEQ }}</div></td>
+                        <td><div contenteditable="true" class="editable-cell">{{ model.MODEL_TYPE }}</div></td>
+                        <td class="pe-4"><div contenteditable="true" class="editable-cell">{{ model.MODEL_NAME }}</div></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                      <td colspan="3" class="empty-state">
+                        <svg class="mb-2 opacity-50" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg><br>
+                        No model data found.
+                      </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+          </div>
+        </div>
 
-        <!-- 3. RATES DATA TABLE -->
-        <div class="section-title">Normal Rates</div>
-        <table class="db-table">
-            <thead>
-                <tr>
-                    <th>Model Seq</th>
-                    <th>Record Type</th>
-                    <th>Charge Field</th>
-                    <th>Currency</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for rate in rates %}
-                <tr>
-                    <td contenteditable="true" class="editable-cell">{{ rate.MODEL_SEQ }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ rate.REC_TYPE }}</td>
-                    <td contenteditable="true" class="editable-cell"><strong>{{ rate.CHARGE_FIELD }}</strong></td>
-                    <td contenteditable="true" class="editable-cell">{{ rate.RATE_CURRENCY }}</td>
-                </tr>
-                {% else %}
-                <tr><td colspan="4">No rate data found.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- 3. RATES DATA CARD -->
+        <div class="data-card">
+          <div class="data-card-header">Normal Rates</div>
+          <div class="table-responsive mb-0">
+            <table class="table table-hover table-custom mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Model Seq</th>
+                        <th>Record Type</th>
+                        <th>Charge Field</th>
+                        <th class="pe-4">Currency</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rate in rates %}
+                    <tr>
+                        <td class="ps-4"><div contenteditable="true" class="editable-cell">{{ rate.MODEL_SEQ }}</div></td>
+                        <td><div contenteditable="true" class="editable-cell">{{ rate.REC_TYPE }}</div></td>
+                        <td><div contenteditable="true" class="editable-cell fw-bold">{{ rate.CHARGE_FIELD }}</div></td>
+                        <td class="pe-4"><div contenteditable="true" class="editable-cell">{{ rate.RATE_CURRENCY }}</div></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                      <td colspan="4" class="empty-state">
+                        <svg class="mb-2 opacity-50" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><br>
+                        No rate data found.
+                      </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+          </div>
+        </div>
 
-        <!-- 4. COMMITMENTS DATA TABLE -->
-        <div class="section-title">Commitments</div>
-        <table class="db-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Direction</th>
-                    <th>Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for commitment in commitments %}
-                <tr>
-                    <td contenteditable="true" class="editable-cell">{{ commitment.COMMITMENT_NAME }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ commitment.COMMITMENT_TYPE }}</td>
-                    <td contenteditable="true" class="editable-cell">{{ commitment.DIRECTION }}</td>
-                    <td contenteditable="true" class="editable-cell"><strong>{{ commitment.AMOUNT }}</strong></td>
-                </tr>
-                {% else %}
-                <tr><td colspan="4">No commitment data found.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- 4. COMMITMENTS DATA CARD -->
+        <div class="data-card">
+          <div class="data-card-header">Commitments</div>
+          <div class="table-responsive mb-0">
+            <table class="table table-hover table-custom mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Name</th>
+                        <th>Type</th>
+                        <th>Direction</th>
+                        <th class="pe-4">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for commitment in commitments %}
+                    <tr>
+                        <td class="ps-4"><div contenteditable="true" class="editable-cell">{{ commitment.COMMITMENT_NAME }}</div></td>
+                        <td><div contenteditable="true" class="editable-cell">{{ commitment.COMMITMENT_TYPE }}</div></td>
+                        <td><div contenteditable="true" class="editable-cell">{{ commitment.DIRECTION }}</div></td>
+                        <td class="pe-4"><div contenteditable="true" class="editable-cell fw-bold">{{ commitment.AMOUNT }}</div></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                      <td colspan="4" class="empty-state">
+                        <svg class="mb-2 opacity-50" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg><br>
+                        No commitment data found.
+                      </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
+      
       <!-- Sticky Footer -->
       <div class="sticky-footer">
         <!-- Navigates to the previous screen in the browser history -->
         <button onclick="history.back()" class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back</button>
-        
-        <span class="text-muted small">Click any value to edit before accepting.</span>
-        
+        <span class="text-muted small d-none d-md-block">Click any value to edit before accepting.</span>
         <div class="d-flex gap-3">
           <!-- Routes back to the main upload dashboard (using operator_id=1 as a default) -->
           <a href="{{ url_for('update.update_operator', operator_id=1) }}" class="btn btn-outline-secondary fw-semibold px-4 py-2">✕ Reject</a>
-          
-          <!-- Routes to the Manager Preview page, passing the current document's ID -->
           <a href="{{ url_for('update.preview_submission', doc_id=document.id) }}" class="btn btn-danger-custom fw-semibold px-4 py-2 text-decoration-none">✓ Accept & Send Report</a>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- Script for Drag-to-Resize Logic -->
+  <!-- ==========================================
+       EXTERNAL & INLINE SCRIPTS
+       ========================================== -->
   <script>
+    // ---------------------------------------------------------
+    // RECORD MANAGEMENT LOGIC
+    // ---------------------------------------------------------
+    
+    // Templates mapping dynamically added records to backend Pydantic schemas
+    const schemaTemplates = {
+        model: ['agmt_id', 'model_seq', 'model_type', 'model_name'],
+        normal_model: ['agmt_id', 'model_seq', 'rec_type', 'zone_code', 'rate_currency', 'pra_rate_type', 'charge_field'],
+        commitment: ['agmt_id', 'commitment_name', 'commitment_type', 'direction', 'amount', 'party_from', 'party_to']
+    };
+
+    /**
+     * Adds a new structured record block to the specified section.
+     * Generates editable HTML nodes mapped to schema keys.
+     */
+    function addRecord(sectionName) {
+        const table = document.querySelector(`.data-card[data-section="${sectionName}"] table`);
+        
+        // Remove empty state placeholder if present
+        const emptyState = table.querySelector('.empty-state-body');
+        if (emptyState) emptyState.remove(); 
+
+        const fields = schemaTemplates[sectionName];
+        let tbody = document.createElement('tbody');
+        tbody.className = 'record-wrapper';
+        
+        // Header with delete hook
+        let headerRow = `<tr class="group-header">
+            <td colspan="4" class="ps-4">New ${sectionName} Record</td>
+            <td class="text-end pe-4"><button class="btn-delete-record" onclick="this.closest('tbody').remove()">Delete</button></td>
+        </tr>`;
+        
+        // Data input rows
+        let rows = fields.map(field => `
+            <tr>
+                <td class="fw-semibold text-dark ps-4" style="width: 20%;">${field.replace('_', ' ').toUpperCase()}</td>
+                <td class="text-muted" style="width: 15%;">-</td>
+                <td style="width: 35%;">
+                    <div contenteditable="true" class="editable-cell fw-bold text-dark" data-key="${field}">-</div>
+                </td>
+                <td style="width: 15%;"><span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-1 px-2">New</span></td>
+                <td class="pe-4" style="width: 15%;"><span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Manual</span></td>
+            </tr>
+        `).join('');
+
+        tbody.innerHTML = headerRow + rows;
+        table.appendChild(tbody);
+    }
+
+    // ---------------------------------------------------------
+    // API INTEGRATION & DYNAMIC DOM SCRAPING
+    // ---------------------------------------------------------
+    document.getElementById('btn-accept').addEventListener('click', async function(e) {
+      e.preventDefault();
+      
+      const btn = this;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Saving...';
+      btn.disabled = true;
+
+      // Base JSON structure required by backend route
+      let flatPayload = { header: {}, model: [], normal_model: [], commitment: [] };
+
+      // 1. Scrape Header Segment (Static dict)
+      document.querySelectorAll('.data-card[data-section="header"] .editable-cell').forEach(cell => {
+          let val = cell.innerText.trim();
+          flatPayload.header[cell.getAttribute('data-key')] = (val === '-' || val === '') ? null : val;
+      });
+
+      // 2. Scrape Relational/Array Segments (List of dicts)
+      ['model', 'normal_model', 'commitment'].forEach(section => {
+          const wrappers = document.querySelectorAll(`.data-card[data-section="${section}"] .record-wrapper`);
+          wrappers.forEach(wrapper => {
+              let recordObj = {};
+              wrapper.querySelectorAll('.editable-cell').forEach(cell => {
+                  let val = cell.innerText.trim();
+                  recordObj[cell.getAttribute('data-key')] = (val === '-' || val === '') ? null : val;
+              });
+              
+              // Validate record is not completely null before appending
+              if (Object.values(recordObj).some(v => v !== null)) {
+                  flatPayload[section].push(recordObj);
+              }
+          });
+      });
+
+      // 3. Dispatch payload to backend endpoint
+      try {
+          const response = await fetch(`/api/update/{{ document.id }}/save-draft`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(flatPayload)
+          });
+
+          if(response.ok) {
+              window.location.href = "{{ url_for('update.preview_submission', doc_id=document.id) }}";
+          } else {
+              alert('Failed to save data. Please check your connection and try again.');
+              btn.innerHTML = '✓ Accept & Send Report';
+              btn.disabled = false;
+          }
+      } catch (error) {
+          console.error("Error saving draft:", error);
+          alert('An error occurred while saving the draft.');
+          btn.innerHTML = '✓ Accept & Send Report';
+          btn.disabled = false;
+      }
+    });
+
+    // ---------------------------------------------------------
+    // UI BEHAVIOR: DRAG-TO-RESIZE
+    // ---------------------------------------------------------
     document.addEventListener("DOMContentLoaded", function () {
       
-      // --- UP/DOWN RESIZER (TOP/BOTTOM) LOGIC ---
+      // UP/DOWN RESIZER (TOP/BOTTOM) LOGIC
       const resizer = document.getElementById('resizer');
       const paneLeft = document.getElementById('pane-left');
       const viewerTop = document.getElementById('viewer-top');
       const viewerBottom = document.getElementById('viewer-bottom');
       
-      let y = 0;
-      let topViewerHeight = 0;
-
-      const mouseDownHandler = function (e) {
-        y = e.clientY;
-        topViewerHeight = viewerTop.getBoundingClientRect().height;
-
-        paneLeft.style.pointerEvents = 'none';
-        document.body.style.cursor = 'ns-resize';
-
-        document.addEventListener('mousemove', mouseMoveHandler);
-        document.addEventListener('mouseup', mouseUpHandler);
+      let y = 0; let topViewerHeight = 0;
+      
+      const mouseDownHandler = function(e) { 
+          y = e.clientY; 
+          topViewerHeight = viewerTop.getBoundingClientRect().height; 
+          paneLeft.style.pointerEvents = 'none'; 
+          document.body.style.cursor = 'ns-resize'; 
+          document.addEventListener('mousemove', mouseMoveHandler); 
+          document.addEventListener('mouseup', mouseUpHandler); 
       };
-
-      const mouseMoveHandler = function (e) {
-        const dy = e.clientY - y;
-        const newTopHeight = ((topViewerHeight + dy) * 100) / paneLeft.getBoundingClientRect().height;
-        
-        if(newTopHeight > 10 && newTopHeight < 90) {
-          viewerTop.style.flex = `0 0 ${newTopHeight}%`;
-          viewerBottom.style.flex = `1 1 0%`; 
-        }
+      
+      const mouseMoveHandler = function(e) { 
+          const dy = e.clientY - y; 
+          const newTopHeight = ((topViewerHeight + dy) * 100) / paneLeft.getBoundingClientRect().height; 
+          if(newTopHeight > 10 && newTopHeight < 90) { 
+              viewerTop.style.flex = `0 0 ${newTopHeight}%`; 
+              viewerBottom.style.flex = `1 1 0%`; 
+          } 
       };
-
-      const mouseUpHandler = function () {
-        paneLeft.style.pointerEvents = 'auto';
-        document.body.style.cursor = 'default';
-
-        document.removeEventListener('mousemove', mouseMoveHandler);
-        document.removeEventListener('mouseup', mouseUpHandler);
+      
+      const mouseUpHandler = function() { 
+          paneLeft.style.pointerEvents = 'auto'; 
+          document.body.style.cursor = 'default'; 
+          document.removeEventListener('mousemove', mouseMoveHandler); 
+          document.removeEventListener('mouseup', mouseUpHandler); 
       };
+      
+      if(resizer) resizer.addEventListener('mousedown', mouseDownHandler);
 
-      resizer.addEventListener('mousedown', mouseDownHandler);
-
-      // --- VERTICAL RESIZER (LEFT/RIGHT) LOGIC ---
+      // VERTICAL RESIZER (LEFT/RIGHT) LOGIC
       const resizerVertical = document.getElementById('resizer-vertical');
       const paneRight = document.getElementById('pane-right');
       const splitContainer = document.querySelector('.split-layout');
       
-      let x = 0;
-      let leftPaneWidth = 0;
-
-      const mouseDownHandlerVertical = function (e) {
-        x = e.clientX;
-        leftPaneWidth = paneLeft.getBoundingClientRect().width;
-
-        paneLeft.style.pointerEvents = 'none';
-        document.body.style.cursor = 'ew-resize';
-
-        document.addEventListener('mousemove', mouseMoveHandlerVertical);
-        document.addEventListener('mouseup', mouseUpHandlerVertical);
+      let x = 0; let leftPaneWidth = 0;
+      
+      const mouseDownHandlerVertical = function(e) { 
+          x = e.clientX; 
+          leftPaneWidth = paneLeft.getBoundingClientRect().width; 
+          paneLeft.style.pointerEvents = 'none'; 
+          document.body.style.cursor = 'ew-resize'; 
+          document.addEventListener('mousemove', mouseMoveHandlerVertical); 
+          document.addEventListener('mouseup', mouseUpHandlerVertical); 
       };
-
-      const mouseMoveHandlerVertical = function (e) {
-        const dx = e.clientX - x;
-        const containerWidth = splitContainer.getBoundingClientRect().width;
-        
-        const newLeftWidth = ((leftPaneWidth + dx) * 100) / containerWidth;
-        
-        if (newLeftWidth > 20 && newLeftWidth < 80) {
-          paneLeft.style.width = `${newLeftWidth}%`;
-          paneRight.style.width = `${100 - newLeftWidth}%`;
-        }
+      
+      const mouseMoveHandlerVertical = function(e) { 
+          const dx = e.clientX - x; 
+          const containerWidth = splitContainer.getBoundingClientRect().width; 
+          const newLeftWidth = ((leftPaneWidth + dx) * 100) / containerWidth; 
+          if (newLeftWidth > 20 && newLeftWidth < 80) { 
+              paneLeft.style.width = `${newLeftWidth}%`; 
+              paneRight.style.width = `${100 - newLeftWidth}%`; 
+          } 
       };
-
-      const mouseUpHandlerVertical = function () {
-        paneLeft.style.pointerEvents = 'auto';
-        document.body.style.cursor = 'default';
-
-        document.removeEventListener('mousemove', mouseMoveHandlerVertical);
-        document.removeEventListener('mouseup', mouseUpHandlerVertical);
+      
+      const mouseUpHandlerVertical = function() { 
+          paneLeft.style.pointerEvents = 'auto'; 
+          document.body.style.cursor = 'default'; 
+          document.removeEventListener('mousemove', mouseMoveHandlerVertical); 
+          document.removeEventListener('mouseup', mouseUpHandlerVertical); 
       };
 
       resizerVertical.addEventListener('mousedown', mouseDownHandlerVertical);
       
-    }); // <-- Notice how both resizers are now safely inside this closing tag!
+    });
   </script>
 </body>
 </html>

@@ -1,29 +1,134 @@
-from flask import Blueprint, render_template_string
-from flask_login import login_required
+import os
+import logging
+from typing import Any, cast
+from flask import current_app
+from celery import shared_task
+from app.extensions import db
 
-from ..extensions import db
-from ..models.document import Document
+from app.models.document import Document
+from app.agents.extractor.docling_extractor import get_contents
+from app.services.db_mapper import get_baseline_data
+from app.agents.orchestrator import Orchestrator, OrchestratorInput
 
-jobs_bp = Blueprint("jobs", __name__, url_prefix="/jobs")
-
-STATUS_SNIPPET = """
-{% if status == 'PENDING' or status == 'PROCESSING' %}
-  <span class="badge badge-processing">⏳ Processing…</span>
-{% elif status == 'READY' %}
-  <span class="badge badge-ready">✅ Ready for review</span>
-{% elif status == 'APPROVED' %}
-  <span class="badge badge-approved">✔ Approved</span>
-{% elif status == 'FAILED' %}
-  <span class="badge badge-failed">❌ Failed — contact admin</span>
-{% endif %}
-"""
+logger = logging.getLogger(__name__)
 
 
-@jobs_bp.route("/<int:doc_id>/status")
-@login_required
-def status(doc_id):
-    # FIX: Document.query.get_or_404() is deprecated in SQLAlchemy 2.x.
-    # The modern replacement is db.get_or_404(Model, id).
-    # Both do the same: fetch by primary key, return 404 if not found.
-    doc = db.get_or_404(Document, doc_id)
-    return render_template_string(STATUS_SNIPPET, status=doc.status)
+@shared_task(bind=True)
+def process_contract_task(self, document_id: int, contract_text: str):
+    doc = Document.query.get(document_id)
+    if not doc:
+        logger.error(
+            f"Document with ID {document_id} not found in database. Aborting task."
+        )
+        return
+
+    try:
+        doc.current_step = 2
+        db.session.commit()
+
+        file_path = os.path.join(current_app.root_path, "static", doc.file_key)
+
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        extracted = cast(
+            Any, get_contents(filePath=file_path, use_ocr=False, api_key=api_key)
+        )
+        header, model, normal_model, commitment = extracted
+
+        def to_dict(obj):
+            if obj is None:
+                return {}
+            if isinstance(obj, list):
+                return [
+                    (
+                        to_dict(item)
+                        if hasattr(item, "model_dump") or hasattr(item, "dict")
+                        else item
+                    )
+                    for item in obj
+                ]
+            if hasattr(obj, "model_dump"):  # Pydantic v2
+                return obj.model_dump()
+            elif hasattr(obj, "dict"):  # Pydantic v1
+                return obj.dict()
+            return obj if isinstance(obj, dict) else {}
+
+        # -------------------------------------------------------------
+        # SAVE DIRECTLY TO DOCUMENT.EXTRACTED_DATA (BYPASS TEMP DB)
+        # -------------------------------------------------------------
+        payload = {
+            "header": to_dict(header),
+            "model": to_dict(model),
+            "normal_model": to_dict(normal_model),
+            "commitment": to_dict(commitment),
+        }
+
+        doc.extracted_data = payload
+        header_data = payload.get("header", {})
+        doc.agmt_id = (
+            header_data.get("agmt_id") if isinstance(header_data, dict) else None
+        )
+
+        # Save baseline data for comparison
+        baseline_tables = get_baseline_data(doc.partner_name)
+        doc.baseline_data = baseline_tables
+
+        # 4. Run Verification & Risk Pipeline
+        orchestrator = Orchestrator()
+        pipeline_input = OrchestratorInput(
+            file_path=file_path,
+            filename=doc.filename,
+            partner_name=doc.partner_name,
+            raw_doc_text=contract_text,
+            baseline_data=baseline_tables,
+            use_telecom_prompt=True,
+            pre_extracted_data=payload,
+        )
+
+        pipeline_result = orchestrator.run(pipeline_input)
+        doc.current_step = 4
+        if (
+            pipeline_result.verification.status == "FAILED"
+            or pipeline_result.risk.highest_risk == "HIGH"
+        ):
+            doc.status = "REVIEW"
+        else:
+            doc.status = "READY"
+
+        # ==========================================
+        # NEW: SAVE RICH DATA & CONFIDENCE SCORES
+        # ==========================================
+
+        # 1. Convert the nested Pydantic OrchestratorOutput into a pure Python dictionary
+        result_dict = pipeline_result.model_dump()
+        rich_fields = result_dict.get("field_details", {})
+
+        # 2. Map the Orchestrator's plural keys back to the singular keys the UI expects
+        rich_payload = {
+            "header": rich_fields.get("header", {}),
+            "model": rich_fields.get("models", []),
+            "normal_model": rich_fields.get("rates", []),
+            "commitment": rich_fields.get("commitments", []),
+        }
+
+        # 3. Overwrite the flat JSON with the rich JSON so the UI receives 'value', 'confidence_score', and 'flags'
+        doc.extracted_data = rich_payload
+
+        # 4. Save the global confidence score directly to the database column
+        doc.confidence_score = pipeline_result.verification.confidence
+
+        # ==========================================
+
+        doc.current_step = 5
+        if pipeline_result.errors:
+            doc.error_message = " | ".join(pipeline_result.errors)
+        db.session.commit()
+
+    except Exception as e:
+        logger.error(f"AI Processing failed for document {document_id}: {str(e)}")
+        db.session.rollback()  # Clear broken session state
+        doc = Document.query.get(document_id)
+        if doc:
+            doc.status = "FAILED"
+            doc.error_message = str(e)
+            db.session.commit()
+        raise e

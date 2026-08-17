@@ -45,6 +45,8 @@ services:
     restart: unless-stopped
     command: celery -A celery_worker.celery worker --loglevel=info --concurrency=2
     volumes:
+      - .:/app                    # ADD THIS
+      - ./uploads:/app/uploads 
       - ./app/static/pdfs:/app/app/static/pdfs
     env_file:
       - .env
@@ -54,6 +56,14 @@ services:
     depends_on:
       - postgres
       - redis
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
 volumes:
   postgres_data:

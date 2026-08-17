@@ -1,136 +1,155 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- ==========================================
+       DOCUMENT METADATA & TITLE
+       ========================================== -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Submit to Database Preview</title>
+
+  <!-- ==========================================
+       EXTERNAL STYLESHEETS
+       ========================================== -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- ==========================================
+       CUSTOM INTERNAL STYLES
+       ========================================== -->
   <style>
-    body {
-      background-color: #f3f4f6;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding-bottom: 80px; /* Space for sticky footer */
+    /* -------------------------------------------
+       1. Base & Global Layout
+       ------------------------------------------- */
+    body { 
+      background-color: #f8fafc; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      margin: 0; 
+      padding-bottom: 90px; /* Offset for sticky footer */
+    }
+    .preview-container { 
+      max-width: 1200px; 
+      margin: 40px auto; 
+      padding: 0 24px; 
     }
 
-    /* TOP HEADER (Matches the image) */
-    .top-bar {
-      background-color: #1e1e1e;
-      color: white;
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid #333;
+    /* -------------------------------------------
+       2. Top Navigation Bar
+       ------------------------------------------- */
+    .top-bar { 
+      background-color: #1e1e1e; 
+      color: white; 
+      padding: 16px 24px; 
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+      border-bottom: 1px solid #333; 
+      position: sticky; 
+      top: 0; 
+      z-index: 50; 
     }
-    .top-bar h5 {
-      margin: 0;
-      font-weight: 600;
-      font-size: 1.1rem;
-    }
-    .top-bar .text-muted {
-      color: #9ca3af !important;
-      font-weight: 400;
-    }
+    .top-bar h5 { margin: 0; font-weight: 600; font-size: 1.1rem; }
 
-    /* PREVIEW CONTAINER */
-    .preview-container {
-      max-width: 1200px;
-      margin: 40px auto;
-      padding: 0 20px;
+    /* -------------------------------------------
+       3. Card Containers & Structure
+       ------------------------------------------- */
+    .data-card { 
+      background-color: #ffffff; 
+      border: 1px solid #e2e8f0; 
+      border-radius: 8px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+      overflow: hidden; 
+      margin-bottom: 24px; 
     }
+    .data-card-header { 
+      background-color: #f8fafc; 
+      border-bottom: 1px solid #e2e8f0; 
+      padding: 20px 24px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+    }
+    .data-card-body { padding: 24px; }
     
-    .note-section {
-      background-color: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-
-    .data-card {
-      background-color: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 30px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-
-    .data-card-header {
-      border-bottom: 1px solid #f3f4f6;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    /* TABLE STYLES (Carried over from extraction view) */
-    .db-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 2.5rem;
-      font-size: 0.9rem;
-    }
-    .db-table th {
-      text-align: left;
-      border-bottom: 2px solid #e5e7eb;
-      padding: 10px 8px;
-      color: #6b7280;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .db-table td {
-      border-bottom: 1px solid #f3f4f6;
-      padding: 14px 8px;
-      color: #111827;
-    }
-    .section-title {
-      font-weight: 700;
-      color: #dc2626; /* Red matching the theme */
-      margin-bottom: 1rem;
-      text-transform: uppercase;
-      font-size: 0.8rem;
-      letter-spacing: 1px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .section-title { 
+      font-size: 0.85rem; 
+      font-weight: 700; 
+      color: #475569; 
+      letter-spacing: 0.5px; 
+      text-transform: uppercase; 
+      margin: 24px 0 16px 0; 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
     }
     .section-title::before { 
       content: ''; 
       display: inline-block; 
       width: 4px; 
-      height: 14px; 
+      height: 16px; 
       background-color: #dc2626; 
       border-radius: 2px; 
     }
-
-    /* STICKY FOOTER */
-    .sticky-footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: white;
-      border-top: 1px solid #e5e7eb;
-      padding: 16px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
-      z-index: 100;
+    .section-title:first-child { margin-top: 0; }
+    
+    .property-box { 
+      background-color: #f8fafc; 
+      border: 1px solid #e2e8f0; 
+      border-radius: 6px; 
+      padding: 12px 16px; 
+      height: 100%; 
     }
-    .btn-outline-secondary { color: #374151; border-color: #d1d5db; }
-    .btn-outline-secondary:hover { background-color: #f3f4f6; color: #111827; }
-    .btn-danger-custom { background-color: #dc2626; color: white; border: none; transition: background-color 0.2s; }
+
+    /* -------------------------------------------
+       4. Data Tables & Empty States
+       ------------------------------------------- */
+    .table-custom th { 
+      font-size: 0.75rem; 
+      text-transform: uppercase; 
+      letter-spacing: 0.5px; 
+      color: #64748b; 
+      font-weight: 600; 
+      background-color: #f8fafc; 
+      white-space: nowrap; 
+    }
+    .table-custom td { 
+      font-size: 0.85rem; 
+      color: #1e293b; 
+      vertical-align: middle; 
+      white-space: nowrap; 
+    }
+    .empty-state { 
+      padding: 32px 0; 
+      text-align: center; 
+      color: #94a3b8; 
+      font-size: 0.9rem; 
+    }
+
+    /* -------------------------------------------
+       5. Sticky Footer & Buttons
+       ------------------------------------------- */
+    .sticky-footer { 
+      position: fixed; 
+      bottom: 0; 
+      left: 0; 
+      width: 100%; 
+      background: white; 
+      border-top: 1px solid #e2e8f0; 
+      padding: 16px 40px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); 
+      z-index: 100; 
+    }
+    .btn-danger-custom { background-color: #dc2626; color: white; border: none; }
     .btn-danger-custom:hover { background-color: #b91c1c; color: white; }
   </style>
 </head>
 <body>
 
-  <!-- Top Dark Header -->
+  <!-- ==========================================
+       GLOBAL TOP NAVIGATION BAR
+       ========================================== -->
   <div class="top-bar">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -142,17 +161,13 @@
     <h5>Submit Database Records <span class="text-muted ms-2">— Manager Review Queue</span></h5>
   </div>
 
-  <!-- Main Content -->
+  <!-- ==========================================
+       MAIN PREVIEW CONTAINER
+       ========================================== -->
   <div class="preview-container">
-    
-    <!-- Optional Note for Manager -->
-    <div class="note-section">
-      <label for="managerNote" class="form-label fw-bold text-dark" style="font-size: 0.9rem;">Internal Note for Manager (Optional)</label>
-      <textarea class="form-control bg-light" id="managerNote" rows="2" placeholder="Add any specific context about these extracted rates..."></textarea>
-    </div>
-
-    <!-- Data Preview Card -->
     <div class="data-card">
+      
+      <!-- Card Header: Summary Metadata -->
       <div class="data-card-header">
         <div>
           <h4 class="mb-1 fw-bold text-dark">Extraction Summary</h4>
@@ -163,119 +178,150 @@
         </div>
       </div>
 
-      <!-- 1. HEADER DATA TABLE -->
-      <div class="section-title">Agreement Header (AGMT_HEADER_STG)</div>
-      <table class="db-table">
-          <thead>
-              <tr>
-                  <th>Agreement ID</th>
-                  <th>Sender</th>
-                  <th>Receiving Partner</th>
-                  <th>Start Date</th>
-                  <th>End Date</th>
-                  <th>Status</th>
-              </tr>
-          </thead>
-          <tbody>
-              {% if header %}
-              <tr>
-                  <td><strong>{{ header.AGMT_ID }}</strong></td>
-                  <td>{{ header.SENDER }}</td>
-                  <td>{{ header.RP }}</td>
-                  <td>{{ header.START_DATE }}</td>
-                  <td>{{ header.END_DATE }}</td>
-                  <td><span class="badge bg-warning text-dark">PENDING_REVIEW</span></td>
-              </tr>
-              {% else %}
-              <tr><td colspan="6">No header data found.</td></tr>
-              {% endif %}
-          </tbody>
-      </table>
+      <!-- Card Body: Formatted Extracted Data -->
+      <div class="data-card-body">
+        
+        <!-- -------------------------------------------
+             SECTION 1: AGREEMENT HEADER
+             ------------------------------------------- -->
+        <div class="section-title">Agreement Header (AGMT_HEADER_STG)</div>
+        <div class="row g-3 mb-5">
+            {% if header %}
+                {% for key, raw_val in header.items() %}
+                <!-- Handle object mapping (value field) vs string primitives -->
+                {% set value = raw_val.value if raw_val is mapping else raw_val %}
+                <div class="col-md-3 col-sm-6">
+                    <div class="property-box">
+                        <div class="text-muted small fw-bold text-uppercase mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">{{ key | replace('_', ' ') }}</div>
+                        <div class="text-dark fw-medium text-truncate" title="{{ value or '-' }}">
+                            {% if key|upper == 'AGMT_ID' %}
+                                <strong>{{ value if value is not none and value|string|trim != '' else '-' }}</strong>
+                            {% else %}
+                                {{ value if value is not none and value|string|trim != '' else '-' }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12 empty-state border rounded bg-light">No header data found.</div>
+            {% endif %}
+        </div>
 
-      <!-- 2. MODELS DATA TABLE -->
-      <div class="section-title">Rate Models (AGMT_MODELS_STG)</div>
-      <table class="db-table">
-          <thead>
-              <tr>
-                  <th>Model Seq</th>
-                  <th>Model Type</th>
-                  <th>Model Name</th>
-              </tr>
-          </thead>
-          <tbody>
-              {% for model in models %}
-              <tr>
-                  <td>{{ model.MODEL_SEQ }}</td>
-                  <td>{{ model.MODEL_TYPE }}</td>
-                  <td>{{ model.MODEL_NAME }}</td>
-              </tr>
-              {% else %}
-              <tr><td colspan="3">No model data found.</td></tr>
-              {% endfor %}
-          </tbody>
-      </table>
+        <!-- -------------------------------------------
+             SECTION 2: RATE MODELS
+             ------------------------------------------- -->
+        <div class="section-title">Rate Models (AGMT_MODELS_STG)</div>
+        <div class="table-responsive border rounded mb-5">
+          <table class="table table-hover table-custom mb-0">
+              <thead>
+                  <tr>
+                      <th class="ps-4">Model Seq</th>
+                      <th>Model Type</th>
+                      <th>Model Name</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for model in models %}
+                  <!-- Ensure backward/forward compatibility with JSON schemas -->
+                  {% set m_seq = model.model_seq.value if model.model_seq is mapping else model.model_seq %}
+                  {% set m_type = model.model_type.value if model.model_type is mapping else model.model_type %}
+                  {% set m_name = model.model_name.value if model.model_name is mapping else model.model_name %}
+                  <tr>
+                      <td class="ps-4 text-muted">{{ m_seq if m_seq is not none and m_seq|string|trim != '' else '-' }}</td>
+                      <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ m_type if m_type is not none and m_type|string|trim != '' else '-' }}</span></td>
+                      <td class="fw-medium text-dark">{{ m_name if m_name is not none and m_name|string|trim != '' else '-' }}</td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="3" class="empty-state">No model data found.</td></tr>
+                  {% endfor %}
+              </tbody>
+          </table>
+        </div>
 
-      <!-- 3. RATES DATA TABLE -->
-      <div class="section-title">Normal Rates (AGMT_MDL_NORMAL_STG)</div>
-      <table class="db-table">
-          <thead>
-              <tr>
-                  <th>Model Seq</th>
-                  <th>Record Type</th>
-                  <th>Charge Field</th>
-                  <th>Currency</th>
-              </tr>
-          </thead>
-          <tbody>
-              {% for rate in rates %}
-              <tr>
-                  <td>{{ rate.MODEL_SEQ }}</td>
-                  <td>{{ rate.REC_TYPE }}</td>
-                  <td><strong>{{ rate.CHARGE_FIELD }}</strong></td>
-                  <td>{{ rate.RATE_CURRENCY }}</td>
-              </tr>
-              {% else %}
-              <tr><td colspan="4">No rate data found.</td></tr>
-              {% endfor %}
-          </tbody>
-      </table>
+        <!-- -------------------------------------------
+             SECTION 3: NORMAL RATES
+             ------------------------------------------- -->
+        <div class="section-title">Normal Rates (AGMT_MDL_NORMAL_STG)</div>
+        <div class="table-responsive border rounded mb-5">
+          <table class="table table-hover table-custom mb-0">
+              <thead>
+                  <tr>
+                      <th class="ps-4">Record Type</th>
+                      <th>Charge Field</th>
+                      <th>Currency</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for rate in rates %}
+                  {% set r_rec = rate.rec_type.value if rate.rec_type is mapping else rate.rec_type %}
+                  
+                  <!-- Safe extraction of charge_field OR legacy rate_val -->
+                  {% set r_charge = rate.charge_field.value if rate.charge_field is mapping else rate.charge_field %}
+                  {% if r_charge is none %}
+                      {% set r_charge = rate.rate_val.value if rate.rate_val is mapping else rate.rate_val %}
+                  {% endif %}
 
-      <!-- 4. COMMITMENTS DATA TABLE -->
-      <div class="section-title">Commitments (AGMT_COMMITMENT)</div>
-      <table class="db-table">
-          <thead>
-              <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Direction</th>
-                  <th>Amount</th>
-              </tr>
-          </thead>
-          <tbody>
-              {% for commitment in commitments %}
-              <tr>
-                  <td>{{ commitment.COMMITMENT_NAME }}</td>
-                  <td>{{ commitment.COMMITMENT_TYPE }}</td>
-                  <td>{{ commitment.DIRECTION }}</td>
-                  <td><strong>{{ commitment.AMOUNT }}</strong></td>
-              </tr>
-              {% else %}
-              <tr><td colspan="4">No commitment data found.</td></tr>
-              {% endfor %}
-          </tbody>
-      </table>
+                  {% set r_curr = rate.rate_currency.value if rate.rate_currency is mapping else rate.rate_currency %}
+                  <tr>
+                      <td class="ps-4 text-muted">{{ r_rec if r_rec is not none and r_rec|string|trim != '' else '-' }}</td>
+                      <td class="fw-bold text-dark">{{ r_charge if r_charge is not none and r_charge|string|trim != '' else '-' }}</td>
+                      <td><span class="badge border text-dark">{{ r_curr if r_curr is not none and r_curr|string|trim != '' else '-' }}</span></td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="3" class="empty-state">No rate data found.</td></tr>
+                  {% endfor %}
+              </tbody>
+          </table>
+        </div>
+
+        <!-- -------------------------------------------
+             SECTION 4: COMMITMENTS
+             ------------------------------------------- -->
+        <div class="section-title">Commitments (AGMT_COMMITMENT)</div>
+        <div class="table-responsive border rounded">
+          <table class="table table-hover table-custom mb-0">
+              <thead>
+                  <tr>
+                      <th class="ps-4">Name</th>
+                      <th>Type</th>
+                      <th>Direction</th>
+                      <th>Amount</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for comm in commitments %}
+                  {% set c_name = comm.commitment_name.value if comm.commitment_name is mapping else comm.commitment_name %}
+                  {% set c_type = comm.commitment_type.value if comm.commitment_type is mapping else comm.commitment_type %}
+                  {% set c_dir = comm.direction.value if comm.direction is mapping else comm.direction %}
+                  {% set c_amt = comm.amount.value if comm.amount is mapping else comm.amount %}
+                  <tr>
+                      <td class="ps-4 fw-medium text-dark">{{ c_name if c_name is not none and c_name|string|trim != '' else '-' }}</td>
+                      <td class="text-muted">{{ c_type if c_type is not none and c_type|string|trim != '' else '-' }}</td>
+                      <td class="text-muted">{{ c_dir if c_dir is not none and c_dir|string|trim != '' else '-' }}</td>
+                      <td class="fw-bold text-danger">{{ c_amt if c_amt is not none and c_amt|string|trim != '' else '-' }}</td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="4" class="empty-state">No commitment data found.</td></tr>
+                  {% endfor %}
+              </tbody>
+          </table>
+        </div>
 
     </div>
   </div>
 
-  <!-- Sticky Footer -->
+  <!-- ==========================================
+       STICKY FOOTER ACTIONS (Submission)
+       ========================================== -->
   <div class="sticky-footer">
-    <!-- Links back to the previous extraction edit page -->
-    <a href="#" class="btn btn-outline-secondary fw-semibold px-4 py-2">&lt; Back to Edits</a>
-    <div class="text-muted small">This data will be inserted into the PostgreSQL staging tables.</div>
+    <!-- Back to Edit View -->
+    <a href="#" onclick="history.back()" class="btn btn-light border fw-semibold px-4 py-2 text-dark">&lt; Back to Edits</a>
     
-    <form action="{{ url_for('update.submit_to_db_route_name') }}" method="POST" style="margin: 0;">
-      <!-- If you need to pass an ID to the backend, do it via hidden input -->
+    <div class="text-muted small d-none d-md-block">This data will be inserted into the PostgreSQL staging tables.</div>
+    
+    <!-- Submit Form Payload -->
+    <form action="{{ url_for('update.submit_to_db_route_name') }}" method="POST" class="m-0">
       <input type="hidden" name="document_id" value="{{ document.id }}">
       <button type="submit" class="btn btn-danger-custom fw-semibold px-4 py-2">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2">
@@ -286,6 +332,9 @@
     </form>
   </div>
 
+  <!-- ==========================================
+       EXTERNAL SCRIPTS
+       ========================================== -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

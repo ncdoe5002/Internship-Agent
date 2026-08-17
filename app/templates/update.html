@@ -1,11 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- ==========================================
+       DOCUMENT METADATA & TITLE
+       ========================================== -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Upload Contract</title>
+
+  <!-- ==========================================
+       EXTERNAL STYLESHEETS
+       ========================================== -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- ==========================================
+       CUSTOM INTERNAL STYLES
+       ========================================== -->
   <style>
+    /* -------------------------------------------
+       1. Base & Global Layout
+       ------------------------------------------- */
     body {
       background-color: #f2f3f5;
       min-height: 100vh;
@@ -15,6 +29,10 @@
       padding-top: 10vh;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
+
+    /* -------------------------------------------
+       2. Typography
+       ------------------------------------------- */
     .header-text {
       text-transform: uppercase;
       font-size: 0.8rem;
@@ -29,6 +47,10 @@
       font-size: 2rem;
       margin-bottom: 2.5rem;
     }
+
+    /* -------------------------------------------
+       3. Upload Component Styles
+       ------------------------------------------- */
     .upload-box {
       background-color: #f2f3f5;
       border: 2px dashed #d1d5db;
@@ -46,10 +68,12 @@
       justify-content: center;
       align-items: center;
     }
-    .upload-box:hover, .upload-box.dragover {
+    .upload-box:hover, 
+    .upload-box.dragover {
       background-color: #b7b7b7c4;
       border-color: #9ca3af;
     }
+    
     .upload-icon {
       background-color: #e5e7eb;
       width: 60px;
@@ -60,6 +84,7 @@
       align-items: center;
       margin: 0 auto 1.5rem auto;
     }
+    
     .file-types {
       font-size: 0.8rem;
       color: #6b7280;
@@ -70,57 +95,87 @@
 </head>
 <body>
 
-  
+  <!-- ==========================================
+       PAGE HEADER
+       ========================================== -->
   <div class="header-text text-center">
-  <span class="text-danger"></span> {{ operator_name }}
+    <span class="text-danger"></span> {{ operator_name }}
   </div>
   
   <h1>Upload a contract to extract</h1>
 
+  <!-- ==========================================
+       FILE UPLOAD FORM
+       ========================================== -->
   <!-- THE FORM: The action="" posts to the current URL (/update/<operator_id>) -->
-<form id="uploadForm" method="POST" action="" enctype="multipart/form-data">
-  <!-- Added min-height, width, max-width, and padding to the style attribute below -->
-  <div class="upload-box" id="dropZone" onclick="document.getElementById('fileInput').click()">
-    <div class="upload-icon">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="17 8 12 3 7 8"></polyline>
-        <line x1="12" y1="3" x2="12" y2="15"></line>
-      </svg>
-    </div>
-    <h5 class="fw-semibold mt-3">Drag & drop your contract here</h5>
-    <p class="text-muted small mb-0">or click to browse — PDF, DOCX, PNG, JPG</p>
+  <form id="uploadForm" method="POST" action="" enctype="multipart/form-data">
     
-    <!-- Hidden File Input -->
-    <input type="file" id="fileInput" name="pdf_file" style="display: none;" accept=".pdf,.docx,.png,.jpg" onchange="document.getElementById('uploadForm').submit();">
-  </div>
-</form>
+    <!-- Interactive Drag & Drop Zone -->
+    <div class="upload-box" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      
+      <!-- Upload Icon -->
+      <div class="upload-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+      </div>
+      
+      <!-- Upload Instructions -->
+      <h5 class="fw-semibold mt-3">Drag & drop your contract here</h5>
+      <p class="text-muted small mb-0">or click to browse — PDF, DOCX, PNG, JPG</p>
+      
+      <!-- Hidden File Input (Triggered programmatically via JS or click event) -->
+      <input type="file" id="fileInput" name="pdf_file" style="display: none;" accept=".pdf,.docx,.png,.jpg" onchange="document.getElementById('uploadForm').submit();">
+    </div>
+  </form>
 
+  <!-- ==========================================
+       SUPPORTED FILE TYPES FOOTER
+       ========================================== -->
   <div class="file-types">
     PDF &nbsp; DOCX &nbsp; PNG &nbsp; JPG &nbsp; TIFF
   </div>
 
+  <!-- ==========================================
+       APPLICATION SCRIPTS (Drag & Drop Logic)
+       ========================================== -->
   <script>
-    // Simple drag and drop auto-submit logic
+    // DOM Element Cache
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const form = document.getElementById('uploadForm');
 
+    // ---------------------------------------------------------
+    // EVENT LISTENER: Drag Over
+    // Adds visual feedback when a file is hovered over the target
+    // ---------------------------------------------------------
     dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
+      e.preventDefault(); // Prevent default browser behavior (opening the file)
       dropZone.classList.add('dragover');
     });
 
+    // ---------------------------------------------------------
+    // EVENT LISTENER: Drag Leave
+    // Removes visual feedback when a file leaves the target
+    // ---------------------------------------------------------
     dropZone.addEventListener('dragleave', () => {
       dropZone.classList.remove('dragover');
     });
 
+    // ---------------------------------------------------------
+    // EVENT LISTENER: Drop
+    // Handles the file drop, assigns it to the input, and submits
+    // ---------------------------------------------------------
     dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
+      e.preventDefault(); // Prevent default browser behavior
       dropZone.classList.remove('dragover');
+      
+      // Check if files were dropped
       if (e.dataTransfer.files.length) {
-        fileInput.files = e.dataTransfer.files;
-        form.submit(); // Auto submit when a file is dropped
+        fileInput.files = e.dataTransfer.files; // Assign dropped files to hidden input
+        form.submit(); // Auto submit the form to the backend
       }
     });
   </script>

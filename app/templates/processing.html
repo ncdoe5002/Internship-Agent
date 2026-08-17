@@ -1,239 +1,482 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- ==========================================
+       DOCUMENT METADATA & TITLE
+       ========================================== -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Processing UI - Production Ready</title>
+  <title>AI Processing Terminal - EDCH</title>
+  
+  <!-- ==========================================
+       CUSTOM INTERNAL STYLES
+       ========================================== -->
   <style>
-    /* Reset and Base Styles */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* -------------------------------------------
+       1. Base & Reset
+       ------------------------------------------- */
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f2f3f5;
-      display: flex; justify-content: center; align-items: center;
-      min-height: 100vh; color: #111827;
-      flex-direction: column; /* Allows stacking elements vertically */
+      background-color: #6c6e6f; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center;
+      min-height: 100vh; 
+      color: #f8fafc;
+      flex-direction: column;
     }
-    .container { width: 100%; max-width: 600px; padding: 20px; display: flex; flex-direction: column; align-items: center; }
 
-    /* Spinner Styles */
-    .spinner-wrapper { position: relative; width: 64px; height: 64px; margin-bottom: 24px; transition: opacity 0.3s; }
-    .spinner-wrapper.hidden { opacity: 0; pointer-events: none; }
-    .spinner-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid #fee2e2; }
-    .spinner-progress { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: #dc2626; animation: spin 1s linear infinite; }
-    
-    /* Static Logo replacing the "C" */
+    /* Main Content Wrapper */
+    .container { 
+      width: 100%; 
+      max-width: 750px; 
+      padding: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+    }
+
+    /* -------------------------------------------
+       2. Loading Spinner Animations
+       ------------------------------------------- */
+    .spinner-wrapper { 
+      position: relative; 
+      width: 56px; 
+      height: 56px; 
+      margin-bottom: 20px; 
+      transition: opacity 0.3s; 
+    }
+    .spinner-wrapper.hidden { 
+      opacity: 0; 
+      pointer-events: none; 
+    }
+    .spinner-bg { 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      border-radius: 50%; 
+      border: 2px solid #334155; 
+    }
+    .spinner-progress { 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      border-radius: 50%; 
+      border: 2px solid transparent; 
+      border-top-color: #ef4444; 
+      animation: spin 1s linear infinite; 
+    }
     .logo-center { 
       position: absolute; 
       top: 50%; 
       left: 50%; 
       transform: translate(-50%, -50%); 
-      width: 28px; /* Adjust size based on your logo */
-      height: 28px; 
+      width: 24px; 
+      height: 24px; 
       object-fit: contain;
     }
 
-    @keyframes spin { 100% { transform: rotate(360deg); } }
-
-    /* Typography */
-    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; color: #0f172a; text-align: center; }
-    .filename { font-family: ui-monospace, monospace; font-size: 0.9rem; color: #9ca3af; margin-bottom: 32px; }
-
-    /* Card Styles */
-    .status-card { width: 100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); overflow: hidden; border-top: 4px solid #991b1b; }
-    .status-list { list-style: none; width: 100%; }
-    
-    /* List Items */
-    .status-item { display: flex; align-items: center; padding: 20px 24px; border-bottom: 1px solid #f3f4f6; gap: 16px; transition: all 0.3s ease; }
-    .status-item:last-child { border-bottom: none; }
-    .item-text { font-size: 1rem; font-weight: 400; }
-
-    /* States */
-    .status-item[data-state="pending"] .item-text { color: #9ca3af; }
-    .status-item[data-state="processing"] .item-text { color: #4b5563; }
-    .status-item[data-state="completed"] .item-text { color: #111827; }
-    .status-item[data-state="error"] .item-text { color: #dc2626; }
-
-    /* Icons */
-    .icon-wrapper { width: 24px; height: 24px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
-    
-    .status-item[data-state="completed"] .icon-wrapper { background-color: #dcfce7; color: #16a34a; }
-    .status-item[data-state="error"] .icon-wrapper { background-color: #fee2e2; color: #dc2626; }
-    .status-item[data-state="processing"] .icon-wrapper,
-    .status-item[data-state="pending"] .icon-wrapper { background-color: #f3f4f6; }
-    
-    /* Processing dots */
-    .status-item[data-state="pending"] .dot { width: 6px; height: 6px; border-radius: 50%; background-color: #d1d5db; }
-    .status-item[data-state="processing"] .dot { width: 6px; height: 6px; border-radius: 50%; background-color: #dc2626; animation: pulse 1.5s infinite; }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.8); }
+    @keyframes spin { 
+      100% { transform: rotate(360deg); } 
     }
 
-    /* Skip Button Styles */
+    /* -------------------------------------------
+       3. Typography
+       ------------------------------------------- */
+    h1 { 
+      font-size: 1.4rem; 
+      font-weight: 600; 
+      margin-bottom: 6px; 
+      color: #f1f5f9; 
+      text-align: center; 
+    }
+    .filename { 
+      font-family: ui-monospace, monospace; 
+      font-size: 0.85rem; 
+      color: #94a3b8; 
+      margin-bottom: 24px; 
+    }
+
+    /* -------------------------------------------
+       4. Terminal UI Mockup
+       ------------------------------------------- */
+    /* Main Terminal Card (Catppuccin / VSCode Dark theme) */
+    .terminal-card {
+      width: 100%;
+      background-color: #1e1e2e; 
+      border-radius: 10px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      border: 1px solid #313244;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* macOS-style Header Bar */
+    .terminal-header {
+      background-color: #181825;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #313244;
+      user-select: none;
+    }
+    .window-button { 
+      width: 12px; 
+      height: 12px; 
+      border-radius: 50%; 
+      display: inline-block; 
+    }
+    .btn-close { background-color: #f38ba8; }
+    .btn-minimize { background-color: #f9e2af; }
+    .btn-maximize { background-color: #a6e3a1; }
+    .terminal-title {
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+      font-size: 0.75rem;
+      color: #a6adc8;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Terminal Output Area */
+    .terminal-body {
+      padding: 16px;
+      height: 320px;
+      overflow-y: auto;
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #cdd6f4;
+      background-color: #11111b;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* Log Entry Elements */
+    .log-line { 
+      display: flex; 
+      align-items: flex-start; 
+      gap: 8px; 
+      word-break: break-word; 
+    }
+    .log-time { 
+      color: #585b70; 
+      flex-shrink: 0; 
+      font-size: 0.75rem; 
+    }
+    .log-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    
+    /* Log Severity Modifiers */
+    .badge-info { background-color: #313244; color: #89b4fa; }
+    .badge-success { background-color: #274d35; color: #a6e3a1; }
+    .badge-error { background-color: #5c232c; color: #f38ba8; }
+    .badge-warn { background-color: #5c4d23; color: #f9e2af; }
+    
+    .text-info { color: #cdd6f4; }
+    .text-success { color: #a6e3a1; }
+    .text-error { color: #f38ba8; }
+    .text-warn { color: #f9e2af; }
+
+    /* Blinking Cursor Indicator */
+    .terminal-prompt { 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+      margin-top: 4px; 
+      color: #89b4fa; 
+    }
+    .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 15px;
+      background-color: #89b4fa;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 
+      0%, 100% { opacity: 1; } 
+      50% { opacity: 0; } 
+    }
+
+    /* -------------------------------------------
+       5. Custom Scrollbar (Webkit)
+       ------------------------------------------- */
+    .terminal-body::-webkit-scrollbar { width: 8px; }
+    .terminal-body::-webkit-scrollbar-track { background: #11111b; }
+    .terminal-body::-webkit-scrollbar-thumb { background: #313244; border-radius: 4px; }
+    .terminal-body::-webkit-scrollbar-thumb:hover { background: #45475a; }
+
+    /* -------------------------------------------
+       6. Action Buttons
+       ------------------------------------------- */
     .skip-button {
-      margin-top: 32px;
-      padding: 10px 24px;
-      background-color: #ffffff;
-      color: #4b5563;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 0.95rem;
+      margin-top: 24px;
+      padding: 10px 20px;
+      background-color: #1e1e2e;
+      color: #a6adc8;
+      border: 1px solid #313244;
+      border-radius: 6px;
+      font-size: 0.85rem;
       font-weight: 500;
       text-decoration: none;
       transition: all 0.2s ease;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       display: inline-flex;
       align-items: center;
       gap: 8px;
     }
     .skip-button:hover {
-      background-color: #f9fafb;
-      color: #111827;
-      border-color: #9ca3af;
+      background-color: #313244;
+      color: #f5e0dc;
+      border-color: #45475a;
     }
   </style>
 </head>
 <body>
 
-  <!-- Hidden data element to pass the doc ID cleanly to JavaScript -->
+  <!-- ==========================================
+       APPLICATION CONTEXT
+       Hidden data element to pass the doc ID cleanly to JS 
+       ========================================== -->
   <meta id="doc-data" data-doc-id="{{ document.id }}">
 
+  <!-- ==========================================
+       MAIN LAYOUT CONTAINER
+       ========================================== -->
   <div class="container">
+    
+    <!-- Loading Status Indicator -->
     <div class="spinner-wrapper" id="main-spinner">
       <div class="spinner-bg"></div>
       <div class="spinner-progress"></div>
-      <!-- UPDATE THIS SRC: Point it to your actual static EDCH logo -->
       <img src="{{ url_for('static', filename='images/Logo-EDCH.png') }}" alt="EDCH Logo" class="logo-center">
     </div>
     
-    <h1 id="main-title">AI is processing the document</h1>
+    <!-- Title & Metadata -->
+    <h1 id="main-title">Worker Execution Pipeline</h1>
     <p class="filename" id="file-name-display"></p>
 
-    <div class="status-card">
-      <ul class="status-list" id="status-list"></ul>
+    <!-- Terminal Console View -->
+    <div class="terminal-card">
+      <div class="terminal-header">
+        <span class="window-button btn-close"></span>
+        <span class="window-button btn-minimize"></span>
+        <span class="window-button btn-maximize"></span>
+        <span class="terminal-title">celery-worker@edch-engine:~ (GPU: RTX 4050)</span>
+      </div>
+      <div class="terminal-body" id="terminal-body">
+        <!-- Live logs will be dynamically injected here by JS -->
+      </div>
     </div>
 
-    <!-- Skip Button linking to the new extracted page -->
-    <!-- Make sure you have a route set up in Flask for /extracted/<doc_id> -->
+    <!-- User Action: Skip Rendering -->
     <a href="/update/extracted/{{ document.id }}" class="skip-button">
       Skip to Extracted Data
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="5" y1="12" x2="19" y2="12"></line>
         <polyline points="12 5 19 12 12 19"></polyline>
       </svg>
     </a>
   </div>
 
+  <!-- ==========================================
+       APPLICATION LOGIC
+       ========================================== -->
   <script>
-    class DocumentProcessorUI {
+    /**
+     * Manages the visual state and DOM updates for the simulated Terminal UI.
+     */
+    class TerminalLoggerUI {
+      /**
+       * Initialize the UI manager with required DOM element IDs.
+       * @param {Object} config - Configuration object mapping to DOM IDs and static data.
+       */
       constructor(config) {
-        this.listElement = document.getElementById(config.listElementId);
+        // Cache DOM nodes for performance
+        this.terminalBody = document.getElementById(config.terminalBodyId);
         this.titleElement = document.getElementById(config.titleElementId);
         this.spinnerElement = document.getElementById(config.spinnerElementId);
         this.fileNameElement = document.getElementById(config.fileNameElementId);
         
+        // State variables
         this.fileNameElement.textContent = config.fileName || 'document.pdf';
-        
-        this.icons = {
-          check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
-          error: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
-          dot: `<div class="dot"></div>`
+        this.seenStepIndex = -1;
+
+        // Map backend step numbers to realistic terminal log messages
+        this.stepLogMap = {
+          0: "Initializing CUDA context & loading Docling PDF analyzer...",
+          1: "Extracting tariff tables & structural markup from document...",
+          2: "Matching extracted items against EDCH service catalogue...",
+          3: "Sending schema payload to Gemini API for validation...",
+          4: "Persisting validated agreement data to PostgreSQL database..."
         };
 
-        this.steps = new Map();
-        config.initialSteps.forEach((step, index) => {
-          this.steps.set(index, { id: step.id, label: step.label, state: 'pending' }); 
-        });
-
-        this.renderAll();
+        // Boot up initial terminal state
+        this.initTerminal();
       }
 
-      updateStepByIndex(index, newState) {
-        if (!this.steps.has(index)) return;
-        const step = this.steps.get(index);
-        step.state = newState;
+      /**
+       * Bootstrap the terminal with initial connection strings and prompt cursor.
+       */
+      initTerminal() {
+        this.appendLog("Celery worker process initialized. Listening for tasks...", "info");
+        this.appendLog(`Target file acquired: ${this.fileNameElement.textContent}`, "info");
+        this.addPromptLine();
+      }
+
+      /**
+       * Returns current local time formatted as HH:MM:SS.
+       * @returns {string} Formatted timestamp.
+       */
+      getFormattedTime() {
+        const now = new Date();
+        return now.toTimeString().split(' ')[0];
+      }
+
+      /**
+       * Injects a new formatted log line into the terminal window.
+       * @param {string} message - The output message text.
+       * @param {string} level - Severity level (info, warn, error, success). Dictates styling.
+       */
+      appendLog(message, level = "info") {
+        // Temporarily remove the blinking prompt to append new logs above it
+        const existingPrompt = this.terminalBody.querySelector('.terminal-prompt');
+        if (existingPrompt) existingPrompt.remove();
+
+        // Construct log row container
+        const line = document.createElement('div');
+        line.className = 'log-line';
         
-        const listItem = document.getElementById(`step-${step.id}`);
-        if (listItem) {
-          listItem.setAttribute('data-state', newState);
-          const iconWrapper = listItem.querySelector('.icon-wrapper');
-          if (newState === 'completed') iconWrapper.innerHTML = this.icons.check;
-          else if (newState === 'error') iconWrapper.innerHTML = this.icons.error;
-          else iconWrapper.innerHTML = this.icons.dot;
+        // Build sub-components using template literals
+        const timeSpan = `<span class="log-time">[${this.getFormattedTime()}]</span>`;
+        const badgeSpan = `<span class="log-badge badge-${level}">${level}</span>`;
+        const messageSpan = `<span class="text-${level}">${message}</span>`;
+        
+        // Assemble and append to DOM
+        line.innerHTML = `${timeSpan} ${badgeSpan} ${messageSpan}`;
+        this.terminalBody.appendChild(line);
+
+        // Re-append the active cursor prompt to the bottom
+        this.addPromptLine();
+
+        // Ensure the terminal automatically scrolls to the newest entry
+        this.terminalBody.scrollTop = this.terminalBody.scrollHeight;
+      }
+
+      /**
+       * Appends the interactive shell prompt with blinking cursor animation.
+       */
+      addPromptLine() {
+        const prompt = document.createElement('div');
+        prompt.className = 'terminal-prompt';
+        prompt.innerHTML = `<span>></span><span class="cursor"></span>`;
+        this.terminalBody.appendChild(prompt);
+      }
+
+      /**
+       * Safely logs a step transition, ensuring the same step is not logged twice.
+       * @param {number} stepIndex - The current execution step provided by the backend.
+       * @param {string|null} customMessage - Optional message string to override the default map.
+       */
+      processStepUpdate(stepIndex, customMessage = null) {
+        if (stepIndex > this.seenStepIndex) {
+          this.seenStepIndex = stepIndex;
+          const logMsg = customMessage || this.stepLogMap[stepIndex] || `Executing pipeline step ${stepIndex}...`;
+          this.appendLog(logMsg, "info");
         }
       }
 
-      completeProcess(finalMessage = "Analysis complete") {
-        this.titleElement.textContent = finalMessage;
+      /**
+       * Transitions the UI from 'Processing' state to 'Completed' state.
+       * @param {string} finalTitle - Text to display in the main H1.
+       * @param {boolean} isSuccess - Determines whether to show a success or error configuration.
+       */
+      completeProcess(finalTitle = "Processing Complete", isSuccess = true) {
+        this.titleElement.textContent = finalTitle;
         this.spinnerElement.classList.add('hidden');
-      }
-
-      renderAll() {
-        this.listElement.innerHTML = '';
-        this.steps.forEach((stepData, index) => {
-          const li = document.createElement('li');
-          li.id = `step-${stepData.id}`;
-          li.className = 'status-item';
-          li.setAttribute('data-state', stepData.state);
-          li.innerHTML = `
-            <div class="icon-wrapper">${this.icons.dot}</div>
-            <span class="item-text">${stepData.label}</span>
-          `;
-          this.listElement.appendChild(li);
-        });
+        
+        if (isSuccess) {
+          this.appendLog("Pipeline executed successfully [0 errors]. Redirecting...", "success");
+        } else {
+          this.appendLog("Critical exception encountered in Celery worker thread.", "error");
+        }
       }
     }
 
-    // Grab the doc_id from the hidden meta tag to avoid IDE linter errors
+    // ==========================================
+    // INITIALIZATION & DATA BINDING
+    // ==========================================
+
+    // Extract Context Data
     const docDataElement = document.getElementById('doc-data');
     const docId = parseInt(docDataElement.dataset.docId, 10);
 
-    // Initialize UI
-    const processorUI = new DocumentProcessorUI({
-      listElementId: 'status-list',
+    // Instantiate Logger UI
+    const terminalUI = new TerminalLoggerUI({
+      terminalBodyId: 'terminal-body',
       titleElementId: 'main-title',
       spinnerElementId: 'main-spinner',
       fileNameElementId: 'file-name-display',
-      fileName: '{{ document.filename }}', 
-      initialSteps: [
-        { id: 'extract', label: 'Extracting tariff tables from source document' },
-        { id: 'match', label: 'Matching line items to EDCH service catalogue' },
-        { id: 'verify', label: 'Cross-checking currency, effective date & counterparties' },
-        { id: 'compare', label: 'Comparing figures against stored baseline agreement' },
-        { id: 'flag', label: 'Flagging rate changes outside historical variance' }
-      ]
+      fileName: '{{ document.filename }}'
     });
 
-    let currentStepIndex = 0;
-    processorUI.updateStepByIndex(0, 'processing');
-
+    // ==========================================
+    // POLLING ENGINE (Background Task Monitor)
+    // ==========================================
+    
+    /**
+     * Periodically queries the backend status endpoint to monitor Celery task progress.
+     */
     const pollInterval = setInterval(async () => {
       try {
         const response = await fetch(`/api/update/${docId}/status`);
         const data = await response.json();
         
-        if (data.current_step > currentStepIndex) {
-            processorUI.updateStepByIndex(currentStepIndex, 'completed');
-            currentStepIndex = data.current_step;
-            processorUI.updateStepByIndex(currentStepIndex, 'processing');
+        // Route payload data to the UI terminal
+        if (data.current_step !== undefined) {
+          terminalUI.processStepUpdate(data.current_step, data.message || null);
+        } else if (data.message) {
+          terminalUI.appendLog(data.message, "info");
         }
 
-        if (data.status === 'READY') {
+        // Handle Pipeline Completion States
+        if (data.status === 'READY' || data.status === 'REVIEW') {
+          // Success State
           clearInterval(pollInterval);
-          processorUI.updateStepByIndex(4, 'completed'); 
-          processorUI.completeProcess();
-          setTimeout(() => { window.location.href = `/update/extracted/${docId}`; }, 1000);
+          terminalUI.completeProcess("Analysis Finished", true);
+          // Allow user brief moment to read success message before redirect
+          setTimeout(() => { window.location.href = `/update/extracted/${docId}`; }, 1200);
+          
         } else if (data.status === 'FAILED' || data.status === 'ERROR') {
+          // Error State
           clearInterval(pollInterval);
-          processorUI.updateStepByIndex(currentStepIndex, 'error');
-          processorUI.completeProcess("Processing Failed");
+          if (data.error) {
+            terminalUI.appendLog(`Error details: ${data.error}`, "error");
+          }
+          terminalUI.completeProcess("Worker Failed", false);
         }
       } catch (error) {
-        console.error("Failed to fetch status:", error);
+        // Network/Fetch errors
+        terminalUI.appendLog(`Network warning: ${error.message}`, "warn");
       }
-    }, 2000);
+    }, 2000); // Poll every 2 seconds
   </script>
 </body>
 </html>
